@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		020E7EC92F7D125B00B742F9 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 020E7EC82F7D125500B742F9 /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		020E7EBA2F7D124700B742F9 /* SheepDays.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SheepDays.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		020E7EC82F7D125500B742F9 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +37,7 @@
 		020E7EB12F7D124700B742F9 = {
 			isa = PBXGroup;
 			children = (
+				020E7EC82F7D125500B742F9 /* .gitignore */,
 				020E7EBC2F7D124700B742F9 /* SheepDays */,
 				020E7EBB2F7D124700B742F9 /* Products */,
 			);
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				020E7EC92F7D125B00B742F9 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
