@@ -169,7 +169,6 @@ private extension HomeView {
                     targetDate: targetDate,
                     allDay: true,
                     iconSystemName: icons[index % icons.count],
-                    tintHex: notebook.colorHex,
                     importanceLevel: index % 3,
                     showOnHome: true,
                     pinToTop: false,

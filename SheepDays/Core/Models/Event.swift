@@ -29,7 +29,6 @@ final class Event {
     var isMemorial: Bool
 
     var iconSystemName: String?
-    var tintHex: String?
     var importanceLevel: Int
     var showOnHome: Bool
     var pinToTop: Bool
@@ -71,7 +70,6 @@ final class Event {
         self.allDay = allDay
         self.isMemorial = false
         self.iconSystemName = nil
-        self.tintHex = nil
         self.importanceLevel = 0
         self.showOnHome = true
         self.pinToTop = false
@@ -94,7 +92,6 @@ final class Event {
         allDay: Bool,
         isMemorial: Bool = false,
         iconSystemName: String? = nil,
-        tintHex: String? = nil,
         importanceLevel: Int = 0,
         showOnHome: Bool = true,
         pinToTop: Bool = false,
@@ -115,7 +112,6 @@ final class Event {
         self.allDay = allDay
         self.isMemorial = isMemorial
         self.iconSystemName = iconSystemName
-        self.tintHex = tintHex
         self.importanceLevel = importanceLevel
         self.showOnHome = showOnHome
         self.pinToTop = pinToTop

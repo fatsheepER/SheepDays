@@ -13,6 +13,7 @@ struct HomeDisplayItem: Identifiable {
 
     let title: String
     let iconSystemName: String?
+    let tintHex: String?
     let badgeText: String?
     let isToday: Bool
 

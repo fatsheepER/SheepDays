@@ -10,13 +10,22 @@ import SwiftUI
 struct HomeDisplayItemView: View {
     let item: HomeDisplayItem
 
+    private var iconColor: Color {
+        if let tintHex = item.tintHex,
+           let color = Color(hex: tintHex) {
+            return color
+        }
+
+        return .accentColor
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 15) {
             
             Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
                 .font(.system(size: 26, weight: .semibold, design: .rounded))
                 .frame(width: 20)
-                .foregroundStyle(.accent)
+                .foregroundStyle(iconColor)
 
             Text(item.title)
                 .font(.system(size: 18, weight: .medium, design: .rounded))
@@ -51,6 +60,7 @@ struct HomeDisplayItemView: View {
                 sourceEventId: UUID(),
                 title: "Project Launch",
                 iconSystemName: "flag.fill",
+                tintHex: "#FF7A7A",
                 badgeText: "+3",
                 isToday: false,
                 sortKey: 0,
@@ -64,6 +74,7 @@ struct HomeDisplayItemView: View {
                 sourceEventId: UUID(),
                 title: "Project Launch",
                 iconSystemName: "flag.fill",
+                tintHex: "#7EC8E3",
                 badgeText: "Today",
                 isToday: true,
                 sortKey: 0,

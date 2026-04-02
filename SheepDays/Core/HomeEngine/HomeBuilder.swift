@@ -52,6 +52,7 @@ private extension HomeBuilder {
             sourceEventId: event.id,
             title: event.title,
             iconSystemName: event.iconSystemName,
+            tintHex: event.notebook?.colorHex,
             badgeText: dateDisplay.badgeText,
             isToday: dateDisplay.dayOffsetFromToday == 0,
             sortKey: Double(dateDisplay.dayOffsetFromToday),
