@@ -6,19 +6,15 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct RootView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        HomeView()
     }
 }
 
 #Preview {
     RootView()
+        .modelContainer(ModelContainerProvider.makePreviewContainer())
 }

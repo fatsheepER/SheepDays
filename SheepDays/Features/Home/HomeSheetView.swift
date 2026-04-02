@@ -31,7 +31,7 @@ struct HomeSheetView: View {
 private extension HomeSheetView {
     var topBar: some View {
         HStack(spacing: 15) {
-            CapsuleRollerView(adjustedDate: $referenceDate)
+            CapsuleRollerView(adjustedDate: $referenceDate, lineSpacing: 8, lineHeight: 30)
                 .frame(maxWidth: .infinity)
 
             Button(action: onTapToday) {

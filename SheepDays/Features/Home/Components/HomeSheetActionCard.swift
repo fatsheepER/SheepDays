@@ -27,7 +27,7 @@ struct HomeSheetActionCard: View {
                 
                 Spacer()
             }
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 35, style: .continuous)

@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
+    @Environment(\.modelContext) private var modelContext
+
     @State private var referenceDate = Calendar.current.startOfDay(for: .now)
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
+    @State private var contentRefreshToken = 0
 
     var body: some View {
         NavigationStack {
@@ -24,21 +28,23 @@ struct HomeView: View {
                 .navigationTitle("Sheep Days")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            showSettings()
-                        } label: {
-                            Image(systemName: "gear")
-                        }
-                    }
-
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showQuickAdd()
-                        } label: {
-                            Image(systemName: "plus")
+                        HStack {
+                            Menu {
+                                Section("Testing") {
+                                    Button("Add Preview Events", action: insertPreviewEvents)
+                                    Button("Clear Preview Events", role: .destructive, action: removePreviewEvents)
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                            }
+
+                            Button {
+                                showSettings()
+                            } label: {
+                                Image(systemName: "gear")
+                            }
                         }
-                        .buttonStyle(.glassProminent)
                     }
                 }
                 .onAppear {
@@ -54,25 +60,153 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
+    static let previewNotebookDefinitions: [(name: String, colorHex: String, iconSystemName: String)] = [
+        ("Preview Inbox", "#FFB347", "tray.full.fill"),
+        ("Preview Life", "#7EC8E3", "leaf.fill"),
+        ("Preview Work", "#FF7A7A", "briefcase.fill")
+    ]
+
+    static let previewEventDayOffsets: [Int] = [
+        0, 1, 2, 3, 5, 7, 10, 14, 21, 30,
+        45, 60, 75, 90, 105, 120, 135, 150, 165, 180
+    ]
+
     var homeContent: some View {
         ZStack {
-            Color(.systemGroupedBackground)
-                .ignoresSafeArea()
-
-            // 这里先换成你的主页内容。
-            // 之后你可以直接把 ListEventsView() 放回来。
-            VStack(spacing: 16) {
-                Spacer()
-
-                Text("Home content placeholder")
-                    .font(.headline)
-
-                Text(referenceDate.formatted(date: .abbreviated, time: .omitted))
-                    .foregroundStyle(.secondary)
-
-                Spacer()
+//            Color(.systemGroupedBackground)
+//                .ignoresSafeArea()
+            VStack {
+                HomeDateView(referenceDate: referenceDate)
+//                    .padding()
+//                    .background(
+//                        RoundedRectangle(cornerRadius: 25)
+//                            .fill(Color(.secondarySystemFill))
+//                    )
+                
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        sectionList
+                    }
+                    .padding(.bottom)
+                }
             }
-            .padding()
+            .padding(.horizontal)
+        }
+    }
+
+    var sectionList: some View {
+        let _ = contentRefreshToken
+        let sections = loadSections()
+
+        return VStack(alignment: .leading, spacing: 20) {
+            ForEach(sections) { section in
+                VStack(alignment: .leading, spacing: 12) {
+                    if sections.count > 1 {
+                        SectionHeaderView(title: section.title)
+                    }
+
+                    VStack(spacing: 10) {
+                        ForEach(section.items) { item in
+                            HomeDisplayItemView(item: item)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    func loadSections() -> [HomeSection] {
+        do {
+            let events = try modelContext.fetch(FetchDescriptor<Event>())
+            let query = HomeQuery(
+                referenceDate: referenceDate,
+                includedNotebookIDs: [],
+                includeAllEvents: false
+            )
+
+            return HomeBuilder.build(events: events, query: query)
+                .filter { !$0.items.isEmpty }
+        } catch {
+            return []
+        }
+    }
+
+    func insertPreviewEvents() {
+        do {
+            try removePreviewData()
+
+            let notebooks = Self.previewNotebookDefinitions.map { definition in
+                Notebook(
+                    name: definition.name,
+                    colorHex: definition.colorHex,
+                    iconSystemName: definition.iconSystemName
+                )
+            }
+
+            notebooks.forEach(modelContext.insert)
+
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: .now)
+            let icons = [
+                "calendar",
+                "party.popper.fill",
+                "airplane",
+                "gift.fill",
+                "star.fill"
+            ]
+
+            for (index, dayOffset) in Self.previewEventDayOffsets.enumerated() {
+                guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: today) else {
+                    continue
+                }
+
+                let notebook = notebooks[index % notebooks.count]
+                let event = Event(
+                    title: "Preview Event \(index + 1)",
+                    note: "Temporary sample data for home layout testing.",
+                    targetDate: targetDate,
+                    allDay: true,
+                    iconSystemName: icons[index % icons.count],
+                    tintHex: notebook.colorHex,
+                    importanceLevel: index % 3,
+                    showOnHome: true,
+                    pinToTop: false,
+                    notebook: notebook
+                )
+
+                modelContext.insert(event)
+            }
+
+            try modelContext.save()
+            contentRefreshToken += 1
+        } catch {
+            assertionFailure("Failed to insert preview events: \(error.localizedDescription)")
+        }
+    }
+
+    func removePreviewEvents() {
+        do {
+            try removePreviewData()
+            try modelContext.save()
+            contentRefreshToken += 1
+        } catch {
+            assertionFailure("Failed to remove preview events: \(error.localizedDescription)")
+        }
+    }
+
+    func removePreviewData() throws {
+        let events = try modelContext.fetch(FetchDescriptor<Event>())
+        let notebooks = try modelContext.fetch(FetchDescriptor<Notebook>())
+        let previewNotebookNames = Set(Self.previewNotebookDefinitions.map(\.name))
+
+        for event in events where event.title.hasPrefix("Preview Event ") {
+            modelContext.delete(event)
+        }
+
+        for notebook in notebooks where previewNotebookNames.contains(notebook.name) {
+            modelContext.delete(notebook)
         }
     }
 }
@@ -102,7 +236,9 @@ private extension HomeView {
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
                 onTapSettings: { showSettings() }) {
-                    referenceDate = Calendar.current.startOfDay(for: .now)
+                    withAnimation {
+                        referenceDate = Calendar.current.startOfDay(for: .now)
+                    }
                 }
 
         case .focus:
@@ -165,4 +301,5 @@ private enum HomeSheetRoute {
 }
 #Preview {
     HomeView()
+        .modelContainer(for: [Event.self, Notebook.self, Tag.self], inMemory: true)
 }

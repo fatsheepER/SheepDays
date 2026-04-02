@@ -9,6 +9,13 @@ import Foundation
 
 struct HomeDisplayItem: Identifiable {
     let id: UUID
+    let sourceEventId: UUID
+
     let title: String
+    let iconSystemName: String?
     let badgeText: String?
+    let isToday: Bool
+
+    let sortKey: Double
+    let groupKey: String?
 }

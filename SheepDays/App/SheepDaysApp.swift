@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct SheepDaysApp: App {
@@ -13,5 +14,6 @@ struct SheepDaysApp: App {
         WindowGroup {
             RootView()
         }
+        .modelContainer(ModelContainerProvider.shared)
     }
 }
