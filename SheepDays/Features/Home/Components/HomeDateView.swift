@@ -30,7 +30,7 @@ struct HomeDateView: View {
                 Text(content.dayText)
                     .padding(.leading, 5)
                 if content.dayOffsetFromToday != 0 {
-                    SDBadge(text: content.badgeText)
+                    SDIncreBadge(text: content.badgeText)
                         .padding(.leading, 5)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct SDBadge: View {
+struct SDIncreBadge: View {
     let text: String
 
     var body: some View {
@@ -25,6 +25,6 @@ struct SDBadge: View {
 }
 
 #Preview {
-    SDBadge(text: "+3")
+    SDIncreBadge(text: "+3")
         .padding()
 }

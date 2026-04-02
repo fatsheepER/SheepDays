@@ -12,6 +12,7 @@ struct HomeDisplayItemView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 15) {
+            
             Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
                 .font(.system(size: 26, weight: .semibold, design: .rounded))
                 .frame(width: 20)
