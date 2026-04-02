@@ -38,7 +38,7 @@ struct HomeDisplayItemView: View {
                 Text(badgeText)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(
-                        item.isToday ? Color(.accent) : Color(.secondaryLabel)
+                        item.isToday ? iconColor : Color(.secondaryLabel)
                     )
                     .contentTransition(.numericText())
             }
