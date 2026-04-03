@@ -38,7 +38,10 @@ struct QuickAddSheetView: View {
     @State private var newNotebookName = ""
     @State private var newNotebookIconSystemName = ""
     @State private var newNotebookColorHex = ""
+    @State private var isCancelling = false
+    @FocusState private var isTitleFieldFocused: Bool
 
+    var shouldAutoFocusTitle = false
     var onCreate: (Event) -> Void = { _ in }
     var onCancel: () -> Void = {}
 
@@ -73,6 +76,7 @@ struct QuickAddSheetView: View {
                     TextField("请输入事件名称", text: $title)
                         .font(.system(size: 18, weight: .medium))
                         .frame(maxWidth: .infinity)
+                        .focused($isTitleFieldFocused)
 
                     Text(offsetText)
                         .font(.system(size: 18, weight: .medium))
@@ -151,6 +155,7 @@ struct QuickAddSheetView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(isCancelling)
 
                 Button(action: submit) {
                     SDSheetActionButton(
@@ -168,6 +173,9 @@ struct QuickAddSheetView: View {
         .frame(maxWidth: .infinity)
         .task {
             prepareFormIfNeeded()
+        }
+        .task(id: shouldAutoFocusTitle) {
+            await focusTitleFieldIfNeeded()
         }
         .onChange(of: notebooks.count) {
             syncSelectedNotebookIfNeeded()
@@ -295,7 +303,25 @@ extension QuickAddSheetView {
     }
 
     func cancel() {
-        onCancel()
+        guard !isCancelling else {
+            return
+        }
+
+        isCancelling = true
+        isTitleFieldFocused = false
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(220))
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await MainActor.run {
+                isCancelling = false
+                onCancel()
+            }
+        }
     }
 
     func submit() {
@@ -305,17 +331,28 @@ extension QuickAddSheetView {
 
         isSaving = true
         errorMessage = nil
+        isTitleFieldFocused = false
 
-        let event = buildEvent()
-        modelContext.insert(event)
+        Task {
+            try? await Task.sleep(for: .milliseconds(220))
 
-        do {
-            try modelContext.save()
-            onCreate(event)
-        } catch {
-            modelContext.delete(event)
-            errorMessage = error.localizedDescription
-            isSaving = false
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await MainActor.run {
+                let event = buildEvent()
+                modelContext.insert(event)
+
+                do {
+                    try modelContext.save()
+                    onCreate(event)
+                } catch {
+                    modelContext.delete(event)
+                    errorMessage = error.localizedDescription
+                    isSaving = false
+                }
+            }
         }
     }
 
@@ -429,6 +466,22 @@ private extension QuickAddSheetView {
         }
 
         self.selectedNotebook = notebooks.first
+    }
+
+    func focusTitleFieldIfNeeded() async {
+        guard shouldAutoFocusTitle else {
+            return
+        }
+
+        try? await Task.sleep(for: .milliseconds(150))
+
+        guard !Task.isCancelled else {
+            return
+        }
+
+        await MainActor.run {
+            isTitleFieldFocused = true
+        }
     }
 
     @ViewBuilder

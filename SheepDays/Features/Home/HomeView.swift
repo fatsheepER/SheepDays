@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
     @State private var contentRefreshToken = 0
+    @State private var shouldFocusQuickAddTitle = false
 
     var body: some View {
         NavigationStack {
@@ -105,7 +106,7 @@ private extension HomeView {
                         SectionHeaderView(title: section.title)
                     }
 
-                    VStack(spacing: 10) {
+                    VStack(spacing: 5) {
                         ForEach(section.items) { item in
                             HomeDisplayItemView(item: item)
                                 .transition(.scale.combined(with: .opacity))
@@ -240,7 +241,6 @@ private extension HomeView {
                     }
                 }
                 .transition(.opacity)
-                .animation(.spring(duration: 0.2))
 
         case .focus:
             SheetPlaceholderPage(
@@ -250,6 +250,7 @@ private extension HomeView {
 
         case .quickAdd:
             QuickAddSheetView(
+                shouldAutoFocusTitle: shouldFocusQuickAddTitle,
                 onCreate: { _ in
                     contentRefreshToken += 1
                     showHomeSheet()
@@ -258,8 +259,7 @@ private extension HomeView {
                     showHomeSheet()
                 }
             )
-            .transition(.move(edge: .bottom))
-            .animation(.spring(duration: 0.2))
+            .transition(.move(edge: .bottom).combined(with: .opacity))
 
         case .notebooks:
             SheetPlaceholderPage(
@@ -290,7 +290,8 @@ private extension HomeView {
 // MARK: - Routing
 private extension HomeView {
     func showHomeSheet() {
-        withAnimation {
+        withAnimation(.spring(duration: 0.2)) {
+            shouldFocusQuickAddTitle = false
             sheetRoute = .home
         }
     }
@@ -300,7 +301,8 @@ private extension HomeView {
     }
 
     func showQuickAdd() {
-        withAnimation {
+        withAnimation(.spring(duration: 0.2)) {
+            shouldFocusQuickAddTitle = true
             sheetRoute = .quickAdd
         }
     }
