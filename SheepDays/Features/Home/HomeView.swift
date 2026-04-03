@@ -216,7 +216,7 @@ private extension HomeView {
         VStack(spacing: 0) {
             sheetContent
         }
-        .presentationDetents([.height(190)])
+        .presentationDetents([.height(sheetHeight)])
         .presentationDragIndicator(.hidden)
         .presentationBackground(.clear)
         .presentationBackgroundInteraction(.enabled)
@@ -239,6 +239,8 @@ private extension HomeView {
                         referenceDate = Calendar.current.startOfDay(for: .now)
                     }
                 }
+                .transition(.opacity)
+                .animation(.spring(duration: 0.2))
 
         case .focus:
             SheetPlaceholderPage(
@@ -247,10 +249,17 @@ private extension HomeView {
             )
 
         case .quickAdd:
-            SheetPlaceholderPage(
-                title: "Quick Add",
-                onBack: { showHomeSheet() }
+            QuickAddSheetView(
+                onCreate: { _ in
+                    contentRefreshToken += 1
+                    showHomeSheet()
+                },
+                onCancel: {
+                    showHomeSheet()
+                }
             )
+            .transition(.move(edge: .bottom))
+            .animation(.spring(duration: 0.2))
 
         case .notebooks:
             SheetPlaceholderPage(
@@ -265,12 +274,25 @@ private extension HomeView {
             )
         }
     }
+
+    var sheetHeight: CGFloat {
+        switch sheetRoute {
+        case .home:
+            return 190
+        case .focus, .notebooks, .settings:
+            return 190
+        case .quickAdd:
+            return 235
+        }
+    }
 }
 
 // MARK: - Routing
 private extension HomeView {
     func showHomeSheet() {
-        sheetRoute = .home
+        withAnimation {
+            sheetRoute = .home
+        }
     }
 
     func showFocus() {
@@ -278,7 +300,9 @@ private extension HomeView {
     }
 
     func showQuickAdd() {
-        sheetRoute = .quickAdd
+        withAnimation {
+            sheetRoute = .quickAdd
+        }
     }
 
     func showNotebooks() {
