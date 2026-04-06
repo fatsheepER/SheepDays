@@ -7,8 +7,15 @@
 
 import SwiftUI
 
+enum HomeItemBadgeDisplayMode {
+    case relativeText
+    case date
+}
+
 struct HomeDisplayItemView: View {
     let item: HomeDisplayItem
+    var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
+    var badgeDate: Date?
 
     private var iconColor: Color {
         if let tintHex = item.tintHex,
@@ -21,7 +28,6 @@ struct HomeDisplayItemView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 15) {
-            
             Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
                 .font(.system(size: 26, weight: .semibold, design: .rounded))
                 .frame(width: 20)
@@ -32,9 +38,34 @@ struct HomeDisplayItemView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            badgeView
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+//        .background(
+//            RoundedRectangle(cornerRadius: 20, style: .continuous)
+//                .fill(Color(.secondarySystemBackground))
+//        )
+    }
+}
+
+private extension HomeDisplayItemView {
+    @ViewBuilder
+    var badgeView: some View {
+        switch badgeDisplayMode {
+        case .relativeText:
             if let badgeText = item.badgeText {
-//                SDBadge(text: badgeText)
-                
+                Text(badgeText)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(
+                        item.isToday ? iconColor : Color(.secondaryLabel)
+                    )
+                    .contentTransition(.numericText())
+            }
+        case .date:
+            if let badgeDate {
+                SDDateBadge(date: badgeDate)
+            } else if let badgeText = item.badgeText {
                 Text(badgeText)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(
@@ -43,12 +74,6 @@ struct HomeDisplayItemView: View {
                     .contentTransition(.numericText())
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-//        .background(
-//            RoundedRectangle(cornerRadius: 20, style: .continuous)
-//                .fill(Color(.secondarySystemBackground))
-//        )
     }
 }
 
@@ -67,7 +92,7 @@ struct HomeDisplayItemView: View {
                 groupKey: nil
             )
         )
-        
+
         HomeDisplayItemView(
             item: HomeDisplayItem(
                 id: UUID(),
@@ -80,6 +105,38 @@ struct HomeDisplayItemView: View {
                 sortKey: 0,
                 groupKey: nil
             )
+        )
+
+        HomeDisplayItemView(
+            item: HomeDisplayItem(
+                id: UUID(),
+                sourceEventId: UUID(),
+                title: "Trip",
+                iconSystemName: "airplane",
+                tintHex: "#7EC8E3",
+                badgeText: "+14",
+                isToday: false,
+                sortKey: 0,
+                groupKey: nil
+            ),
+            badgeDisplayMode: .date,
+            badgeDate: Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
+        )
+
+        HomeDisplayItemView(
+            item: HomeDisplayItem(
+                id: UUID(),
+                sourceEventId: UUID(),
+                title: "Trip",
+                iconSystemName: "airplane",
+                tintHex: "#7EC8E3",
+                badgeText: "+14",
+                isToday: false,
+                sortKey: 0,
+                groupKey: nil
+            ),
+            badgeDisplayMode: .date,
+            badgeDate: Calendar.current.date(byAdding: .year, value: 1, to: .now) ?? .now
         )
     }
     .padding()

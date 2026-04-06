@@ -9,12 +9,14 @@ import SwiftUI
 
 struct HomeSheetView: View {
     @Binding var referenceDate: Date
+    let badgeDisplayMode: HomeItemBadgeDisplayMode
 
     var onTapFocus: () -> Void = {}
     var onTapQuickAdd: () -> Void = {}
     var onTapNotebooks: () -> Void = {}
     var onTapSettings: () -> Void = {}
     var onTapToday: () -> Void = {}
+    var onToggleBadgeDisplayMode: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 10) {
@@ -31,6 +33,18 @@ struct HomeSheetView: View {
 private extension HomeSheetView {
     var topBar: some View {
         HStack(spacing: 15) {
+            Button(action: onToggleBadgeDisplayMode) {
+                Image(systemName: badgeDisplayModeToggleIcon)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .background(
+                        Circle()
+                            .fill(Color.accentColorSecondary)
+                            .frame(width: 30, height: 30)
+                    )
+                    .foregroundStyle(.accent)
+            }
+            .buttonStyle(.plain)
+            
             CapsuleRollerView(adjustedDate: $referenceDate, lineSpacing: 8, lineHeight: 30)
                 .frame(maxWidth: .infinity)
 
@@ -65,12 +79,21 @@ private extension HomeSheetView {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    var badgeDisplayModeToggleIcon: String {
+        switch badgeDisplayMode {
+        case .relativeText:
+            return "calendar"
+        case .date:
+            return "number"
+        }
+    }
 }
 
 #Preview {
     @Previewable @State var referenceDate = Calendar.current.startOfDay(for: .now)
 
-    HomeSheetView(referenceDate: $referenceDate)
+    HomeSheetView(referenceDate: $referenceDate, badgeDisplayMode: .relativeText)
         .padding()
         .background(Color(.systemGroupedBackground))
 }

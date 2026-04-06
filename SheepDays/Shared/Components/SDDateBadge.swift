@@ -28,8 +28,21 @@ struct SDDateBadge: View {
 
 private extension SDDateBadge {
     var dateLabel: String {
-        date.formatted(
+        let calendar = Calendar.autoupdatingCurrent
+        let isCurrentYear = calendar.isDate(date, equalTo: .now, toGranularity: .year)
+
+        if isCurrentYear {
+            return date.formatted(
+                .dateTime
+                    .month(.defaultDigits)
+                    .day()
+                    .locale(.autoupdatingCurrent)
+            )
+        }
+
+        return date.formatted(
             .dateTime
+                .year()
                 .month(.defaultDigits)
                 .day()
                 .locale(.autoupdatingCurrent)

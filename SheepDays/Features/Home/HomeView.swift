@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var referenceDate = Calendar.current.startOfDay(for: .now)
+    @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
@@ -78,11 +79,6 @@ private extension HomeView {
 //                .ignoresSafeArea()
             VStack {
                 HomeDateView(referenceDate: referenceDate)
-//                    .padding()
-//                    .background(
-//                        RoundedRectangle(cornerRadius: 25)
-//                            .fill(Color(.secondarySystemFill))
-//                    )
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -97,7 +93,9 @@ private extension HomeView {
 
     var sectionList: some View {
         let _ = contentRefreshToken
-        let sections = loadSections()
+        let snapshot = loadHomeSnapshot()
+        let sections = snapshot.sections
+        let targetDatesByEventID = snapshot.targetDatesByEventID
 
         return VStack(alignment: .leading, spacing: 20) {
             ForEach(sections) { section in
@@ -108,7 +106,11 @@ private extension HomeView {
 
                     VStack(spacing: 5) {
                         ForEach(section.items) { item in
-                            HomeDisplayItemView(item: item)
+                            HomeDisplayItemView(
+                                item: item,
+                                badgeDisplayMode: itemBadgeDisplayMode,
+                                badgeDate: targetDatesByEventID[item.sourceEventId]
+                            )
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
@@ -118,7 +120,8 @@ private extension HomeView {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    func loadSections() -> [HomeSection] {
+    // MARK: - Debug Functions
+    func loadHomeSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
         do {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
             let query = HomeQuery(
@@ -127,10 +130,15 @@ private extension HomeView {
                 includeAllEvents: false
             )
 
-            return HomeBuilder.build(events: events, query: query)
+            let sections = HomeBuilder.build(events: events, query: query)
                 .filter { !$0.items.isEmpty }
+            let targetDatesByEventID = Dictionary(
+                uniqueKeysWithValues: events.map { ($0.id, $0.targetDate) }
+            )
+
+            return (sections, targetDatesByEventID)
         } catch {
-            return []
+            return ([], [:])
         }
     }
 
@@ -232,14 +240,22 @@ private extension HomeView {
         case .home:
             HomeSheetView(
                 referenceDate: $referenceDate,
+                badgeDisplayMode: itemBadgeDisplayMode,
                 onTapFocus: { showFocus() },
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
-                onTapSettings: { showSettings() }) {
+                onTapSettings: { showSettings() },
+                onTapToday: {
                     withAnimation {
                         referenceDate = Calendar.current.startOfDay(for: .now)
                     }
+                },
+                onToggleBadgeDisplayMode: {
+                    withAnimation(.snappy(duration: 0.2)) {
+                        itemBadgeDisplayMode.toggle()
+                    }
                 }
+            )
                 .transition(.opacity)
 
         case .focus:
@@ -283,6 +299,17 @@ private extension HomeView {
             return 190
         case .quickAdd:
             return 235
+        }
+    }
+}
+
+private extension HomeItemBadgeDisplayMode {
+    mutating func toggle() {
+        switch self {
+        case .relativeText:
+            self = .date
+        case .date:
+            self = .relativeText
         }
     }
 }
