@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -18,14 +19,17 @@ struct HomeView: View {
     @State private var sheetRoute: HomeSheetRoute = .home
     @State private var contentRefreshToken = 0
     @State private var shouldFocusQuickAddTitle = false
+    @State private var selectedEvent: Event?
 
     var body: some View {
         NavigationStack {
             homeContent
                 .safeAreaInset(edge: .bottom) {
-                    // 给主页主内容预留底部空间，避免被常驻 sheet 挡住
-                    Color.clear
-                        .frame(height: 170)
+                    if isBottomSheetPresented {
+                        // 给主页主内容预留底部空间，避免被常驻 sheet 挡住
+                        Color.clear
+                            .frame(height: 170)
+                    }
                 }
                 .navigationTitle("Sheep Days")
                 .navigationBarTitleDisplayMode(.inline)
@@ -88,7 +92,17 @@ private extension HomeView {
                 }
             }
             .padding(.horizontal)
+
+            if let selectedEvent {
+                EventDetailOverlayView(
+                    event: selectedEvent,
+                    onClose: dismissEventDetail,
+                    onEventUpdated: refreshHomeContent
+                )
+                .zIndex(1)
+            }
         }
+        .animation(.snappy(duration: 0.2), value: selectedEvent?.id)
     }
 
     var sectionList: some View {
@@ -109,7 +123,12 @@ private extension HomeView {
                             HomeDisplayItemView(
                                 item: item,
                                 badgeDisplayMode: itemBadgeDisplayMode,
-                                badgeDate: targetDatesByEventID[item.sourceEventId]
+                                badgeDate: targetDatesByEventID[item.sourceEventId],
+                                onTap: {
+                                    withAnimation {
+                                        presentEventDetail(for: item.sourceEventId)
+                                    }
+                                }
                             )
                                 .transition(.scale.combined(with: .opacity))
                         }
@@ -216,6 +235,35 @@ private extension HomeView {
         for notebook in notebooks where previewNotebookNames.contains(notebook.name) {
             modelContext.delete(notebook)
         }
+    }
+
+    // MARK: - Event Detail Functions
+    func presentEventDetail(for eventID: UUID) {
+        do {
+            let predicate = #Predicate<Event> { event in
+                event.id == eventID
+            }
+            var descriptor = FetchDescriptor<Event>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            if let event = try modelContext.fetch(descriptor).first {
+                isBottomSheetPresented = false
+                selectedEvent = event
+            }
+        } catch {
+            assertionFailure("Failed to load event detail: \(error.localizedDescription)")
+        }
+    }
+
+    func dismissEventDetail() {
+        withAnimation(.spring(duration: 0.2)) {
+            selectedEvent = nil
+            isBottomSheetPresented = true
+        }
+        refreshHomeContent()
+    }
+
+    func refreshHomeContent() {
+        contentRefreshToken += 1
     }
 }
 

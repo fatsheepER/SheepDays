@@ -2,25 +2,28 @@
 //  EventDetailOverlayView.swift
 //  SheepDays
 //
-//  Created by Codex on 2026/4/2.
+//  Created by 王飞扬 on 2026/4/6.
 //
 
 import SwiftUI
+import SwiftData
 
 struct EventDetailOverlayView: View {
     let event: Event
     var onClose: () -> Void = {}
+    var onEventUpdated: () -> Void = {}
 
     var body: some View {
         ZStack {
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
                 .onTapGesture(perform: onClose)
+                .transition(.opacity)
 
-            EventDetailView(event: event, onClose: onClose)
-                .frame(maxWidth: 700, maxHeight: 700)
+            EventDetailView(event: event, onClose: onClose, onEventUpdated: onEventUpdated)
+                .frame(maxHeight: 700)
                 .padding(.horizontal, 25)
-                .transition(.scale(scale: 0.96).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 }
