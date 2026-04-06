@@ -35,10 +35,11 @@ struct HomeDisplayItemView: View {
 
             Text(item.title)
                 .font(.system(size: 18, weight: .medium, design: .rounded))
-                .foregroundStyle(.primary)
+                .foregroundStyle(item.isToday ? iconColor : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             badgeView
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)

@@ -251,7 +251,7 @@ private extension HomeView {
                     }
                 },
                 onToggleBadgeDisplayMode: {
-                    withAnimation(.snappy(duration: 0.2)) {
+                    withAnimation(.bouncy(duration: 0.2)) {
                         itemBadgeDisplayMode.toggle()
                     }
                 }

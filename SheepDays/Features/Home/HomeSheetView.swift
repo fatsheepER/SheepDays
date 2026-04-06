@@ -83,9 +83,9 @@ private extension HomeSheetView {
     var badgeDisplayModeToggleIcon: String {
         switch badgeDisplayMode {
         case .relativeText:
-            return "calendar"
-        case .date:
             return "number"
+        case .date:
+            return "calendar"
         }
     }
 }
