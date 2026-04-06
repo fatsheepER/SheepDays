@@ -26,6 +26,7 @@ struct SDTagBadge: View {
             Capsule()
                 .foregroundStyle(Color(.quaternarySystemFill))
         )
+        .frame(height: 35)
     }
 }
 

@@ -45,6 +45,7 @@ struct SDNotebookBadge: View {
                 color: tintColor
             )
         )
+        .frame(height: 35)
     }
 }
 
