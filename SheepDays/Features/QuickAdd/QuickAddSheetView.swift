@@ -142,7 +142,7 @@ struct QuickAddSheetView: View {
                     bottomLeading: 10,
                     bottomTrailing: 10,
                     cornerStyle: .continuous,
-                    color: Color(.secondarySystemBackground)
+                    color: Color(.systemBackground)
                 )
             )
 
@@ -152,7 +152,7 @@ struct QuickAddSheetView: View {
                         iconSystemName: "arrow.left",
                         title: "返回",
                         placement: .left,
-                        style: .plain
+                        style: .bright
                     )
                 }
                 .buttonStyle(.plain)
