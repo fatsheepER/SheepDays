@@ -93,16 +93,14 @@ private extension HomeView {
             }
             .padding(.horizontal)
 
-            if let selectedEvent {
-                EventDetailOverlayView(
-                    event: selectedEvent,
-                    onClose: dismissEventDetail,
-                    onEventUpdated: refreshHomeContent
-                )
-                .zIndex(1)
-            }
+            EventDetailOverlayView(
+                event: selectedEvent,
+                onClose: dismissEventDetail,
+                onEventUpdated: refreshHomeContent
+            )
+            .zIndex(1)
         }
-        .animation(.snappy(duration: 0.2), value: selectedEvent?.id)
+        .animation(.snappy(duration: 0.3), value: selectedEvent != nil)
     }
 
     var sectionList: some View {

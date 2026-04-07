@@ -51,7 +51,8 @@ struct EventDetailView: View {
                     showOnHomeSection
                     pinToTopSection
                 }
-                .padding(24)
+                .padding(.top, 24)
+                .padding(.horizontal, 10)
             }
             
             controls
@@ -61,7 +62,7 @@ struct EventDetailView: View {
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
                 .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.18), radius: 30, y: 12)
+                .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
         )
         .alert(
             "操作失败",

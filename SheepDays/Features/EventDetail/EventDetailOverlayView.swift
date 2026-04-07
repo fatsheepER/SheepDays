@@ -9,22 +9,29 @@ import SwiftUI
 import SwiftData
 
 struct EventDetailOverlayView: View {
-    let event: Event
+    let event: Event?
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onClose)
-                .transition(.opacity)
+        ZStack(alignment: .bottom) {
+            if event != nil {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
+                    .transition(.opacity)
+            }
 
-            EventDetailView(event: event, onClose: onClose, onEventUpdated: onEventUpdated)
-                .frame(maxHeight: 700)
-                .padding(.horizontal, 25)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            if let event {
+                EventDetailView(event: event, onClose: onClose, onEventUpdated: onEventUpdated)
+                    .frame(maxHeight: 700)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 15)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .allowsHitTesting(event != nil)
     }
 }
 
