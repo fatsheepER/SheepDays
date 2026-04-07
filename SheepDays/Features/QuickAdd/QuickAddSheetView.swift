@@ -110,6 +110,7 @@ struct QuickAddSheetView: View {
                         }
                     } label: {
                         SDNotebookBadge(notebook: selectedNotebook)
+                            .frame(height: 40)
                     }
                     .buttonStyle(.plain)
 
