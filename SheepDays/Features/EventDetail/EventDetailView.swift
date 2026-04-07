@@ -50,6 +50,7 @@ struct EventDetailView: View {
                     dateSection
                     showOnHomeSection
                     pinToTopSection
+                    importanceLevelSection
                 }
                 .padding(.top, 24)
                 .padding(.horizontal, 10)
@@ -238,6 +239,39 @@ private extension EventDetailView {
                 .tint(.accent)
         }
     }
+    
+    var importanceLevelSection: some View {
+        VStack {
+            // title
+            HStack {
+                sectionTitle("重要性", "flag")
+                
+                Spacer()
+                
+                Text(importanceLevelText)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(.tertiaryLabel))
+            }
+            
+            // indicator
+            HStack {
+                ForEach(1...5, id: \.self) { level in
+                    Button {
+                        setImportanceLevel(level)
+                    } label: {
+                        Capsule()
+                            .frame(height: 10)
+                            .foregroundStyle(
+                                event.importanceLevel >= level
+                                ? eventAccentColor
+                                : Color(.tertiaryLabel)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
 
     var controls: some View {
         HStack(spacing: 10) {
@@ -266,7 +300,8 @@ private extension EventDetailView {
             }
         }
     }
-
+    
+    // MARK: - Computed variables
     var eventAccentColor: Color {
         if let colorHex = event.notebook?.colorHex,
            let color = Color(hex: colorHex) {
@@ -300,6 +335,10 @@ private extension EventDetailView {
 
     var trimmedTagNameDraft: String {
         tagNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var importanceLevelText: String {
+        "\(event.importanceLevel)/5"
     }
 
     // MARK: - Bindings
@@ -440,6 +479,16 @@ private extension EventDetailView {
 
     func moveToNotebook(_ notebook: Notebook?) {
         event.notebook = notebook
+        persistChanges()
+    }
+
+    func setImportanceLevel(_ level: Int) {
+        if level == 1, event.importanceLevel == 1 {
+            event.importanceLevel = 0
+        } else {
+            event.importanceLevel = level
+        }
+
         persistChanges()
     }
 
