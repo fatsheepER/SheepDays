@@ -324,10 +324,17 @@ private extension HomeView {
             .transition(.move(edge: .bottom).combined(with: .opacity))
 
         case .notebooks:
-            SheetPlaceholderPage(
-                title: "Notebooks",
-                onBack: { showHomeSheet() }
+            NotebookListView(
+                onBack: { showHomeSheet() },
+                onCreateNotebook: { showNotebookCreator() },
+                onEditNotebook: { notebook in
+                    showNotebookEditor(for: notebook)
+                },
+                onOpenNotebook: { notebook in
+                    showNotebookDetail(for: notebook)
+                }
             )
+            .transition(.opacity)
 
         case .settings:
             SheetPlaceholderPage(
@@ -341,8 +348,10 @@ private extension HomeView {
         switch sheetRoute {
         case .home:
             return 190
-        case .focus, .notebooks, .settings:
+        case .focus, .settings:
             return 190
+        case .notebooks:
+            return 560
         case .quickAdd:
             return 235
         }
@@ -381,11 +390,27 @@ private extension HomeView {
     }
 
     func showNotebooks() {
-        sheetRoute = .notebooks
+        withAnimation {
+            sheetRoute = .notebooks
+        }
     }
 
     func showSettings() {
         sheetRoute = .settings
+    }
+
+    func showNotebookCreator() {
+        // Notebook editor feature will be wired here later.
+    }
+
+    func showNotebookEditor(for notebook: Notebook) {
+        _ = notebook
+        // Notebook editor feature will be wired here later.
+    }
+
+    func showNotebookDetail(for notebook: Notebook) {
+        _ = notebook
+        // Notebook detail feature will be wired here later.
     }
 }
 
