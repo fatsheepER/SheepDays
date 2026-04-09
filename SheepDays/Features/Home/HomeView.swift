@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var contentRefreshToken = 0
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
+    @State private var selectedNotebook: Notebook?
 
     var body: some View {
         NavigationStack {
@@ -102,8 +103,16 @@ private extension HomeView {
                 onEventUpdated: refreshHomeContent
             )
             .zIndex(1)
+
+            NotebookEditorOverlayView(
+                notebook: selectedNotebook,
+                onClose: dismissNotebookEditor,
+                onNotebookUpdated: refreshHomeContent
+            )
+            .zIndex(2)
         }
         .animation(.snappy(duration: 0.3), value: selectedEvent != nil)
+        .animation(.snappy(duration: 0.3), value: selectedNotebook != nil)
     }
 
     var sectionList: some View {
@@ -265,6 +274,14 @@ private extension HomeView {
 
     func refreshHomeContent() {
         contentRefreshToken += 1
+    }
+
+    func dismissNotebookEditor() {
+        withAnimation(.spring(duration: 0.2)) {
+            selectedNotebook = nil
+            isBottomSheetPresented = true
+        }
+        refreshHomeContent()
     }
 }
 
@@ -445,8 +462,10 @@ private extension HomeView {
     }
 
     func showNotebookEditor(for notebook: Notebook) {
-        _ = notebook
-        // Notebook editor feature will be wired here later.
+        withAnimation(.spring(duration: 0.2)) {
+            isBottomSheetPresented = false
+            selectedNotebook = notebook
+        }
     }
 
     func showNotebookDetail(for notebook: Notebook) {

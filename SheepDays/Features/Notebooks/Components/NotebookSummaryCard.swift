@@ -9,7 +9,8 @@ import SwiftUI
 
 struct NotebookSummaryCard: View {
     let summary: NotebookSummary
-    let onEdit: () -> Void
+    let isEditing: Bool
+    let onAccessoryTap: () -> Void
     let onTap: () -> Void
 
     private var tintColor: Color {
@@ -21,8 +22,8 @@ struct NotebookSummaryCard: View {
         return color
     }
 
-    private var iconSystemName: String {
-        summary.notebook.iconSystemName ?? "book.closed"
+    private var accessorySystemName: String {
+        isEditing ? "gearshape" : "chevron.right"
     }
 
     var body: some View {
@@ -44,8 +45,8 @@ struct NotebookSummaryCard: View {
                 Spacer()
 
                 // Change to "pencil" when in edit mode
-                Button(action: onEdit) {
-                    Image(systemName: "chevron.right")
+                Button(action: onAccessoryTap) {
+                    Image(systemName: accessorySystemName)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
                         .padding(10)
@@ -195,7 +196,8 @@ private extension NotebookPreviewEventRow {
                 previewEvents: previewEvents,
                 remainingEventCount: 2
             ),
-            onEdit: {},
+            isEditing: false,
+            onAccessoryTap: {},
             onTap: {}
         )
 
@@ -210,7 +212,8 @@ private extension NotebookPreviewEventRow {
                 previewEvents: [],
                 remainingEventCount: 0
             ),
-            onEdit: {},
+            isEditing: true,
+            onAccessoryTap: {},
             onTap: {}
         )
     }

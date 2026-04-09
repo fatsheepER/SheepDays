@@ -154,8 +154,28 @@ private extension EventDetailView {
         VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    SDNotebookBadge(notebook: event.notebook)
-                        .frame(height: 40)
+                    Menu {
+                        if notebooks.isEmpty {
+                            Text("暂无事件本")
+                        } else {
+                            Section("选择事件本") {
+                                ForEach(notebooks) { notebook in
+                                    Button {
+                                        moveToNotebook(notebook)
+                                    } label: {
+                                        notebookMenuLabel(
+                                            for: notebook,
+                                            isSelected: notebook.id == event.notebook?.id
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        SDNotebookBadge(notebook: event.notebook)
+                            .frame(height: 40)
+                    }
+                    .buttonStyle(.plain)
 
                     ForEach(event.tags.sorted(by: { $0.name.localizedCompare($1.name) == .orderedAscending })) { tag in
                         Button {
@@ -282,22 +302,13 @@ private extension EventDetailView {
                 SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .plain)
             }
             
-            // move to notebook
-            Menu {
-                ForEach(notebooks) { notebook in
-                    Button {
-                        moveToNotebook(notebook)
-                    } label: {
-                        if notebook.id == event.notebook?.id {
-                            Label(notebook.name, systemImage: "checkmark")
-                        } else {
-                            Text(notebook.name)
-                        }
-                    }
-                }
+            // archive
+            Button {
+                archiveEvent()
             } label: {
-                SDSheetActionButton(iconSystemName: "arrow.up.folder", title: "移动到", placement: .right, style: .prominent)
+                SDSheetActionButton(iconSystemName: "archivebox", title: "归档", placement: .right, style: .prominent)
             }
+            .buttonStyle(.plain)
         }
     }
     
@@ -417,6 +428,20 @@ private extension EventDetailView {
         .foregroundStyle(Color(.secondaryLabel))
     }
 
+    func notebookMenuLabel(for notebook: Notebook, isSelected: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: notebook.iconSystemName ?? "book.closed")
+                .foregroundStyle(notebook.tintColor)
+            Text(notebook.name)
+
+            if isSelected {
+                Spacer()
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color(.secondaryLabel))
+            }
+        }
+    }
+
     // MARK: - Functions
     func saveIconSystemName() {
         let trimmedIcon = iconDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -480,6 +505,13 @@ private extension EventDetailView {
     func moveToNotebook(_ notebook: Notebook?) {
         event.notebook = notebook
         persistChanges()
+    }
+
+    func archiveEvent() {
+        event.isArchived = true
+        event.archivedAt = .now
+        persistChanges()
+        onClose()
     }
 
     func setImportanceLevel(_ level: Int) {

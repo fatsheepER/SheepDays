@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct NotebookListView: View {
+    @State private var isEditing = false
+
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
         sort: [
@@ -37,8 +39,17 @@ struct NotebookListView: View {
                         ForEach(notebookSummaries) { summary in
                             NotebookSummaryCard(
                                 summary: summary,
-                                onEdit: { onEditNotebook(summary.notebook) },
-                                onTap: { onOpenNotebook(summary.notebook) }
+                                isEditing: isEditing,
+                                onAccessoryTap: {
+                                    handleAccessoryTap(for: summary.notebook)
+                                },
+                                onTap: {
+                                    guard !isEditing else {
+                                        return
+                                    }
+
+                                    onOpenNotebook(summary.notebook)
+                                }
                             )
                         }
                     }
@@ -47,7 +58,6 @@ struct NotebookListView: View {
 
             footer
         }
-//        .padding(10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -118,11 +128,13 @@ private extension NotebookListView {
             Spacer()
             
             Button {
-                
+                withAnimation(.spring(duration: 0.2)) {
+                    isEditing.toggle()
+                }
             } label: {
                 HStack(spacing: 5) {
-                    Image(systemName: "pencil")
-                    Text("编辑")
+                    Image(systemName: isEditing ? "checkmark" : "pencil")
+                    Text(isEditing ? "完成" : "编辑")
                 }
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
@@ -177,6 +189,15 @@ private extension NotebookListView {
             .buttonStyle(.plain)
         }
         .padding(.top, 5)
+    }
+
+    func handleAccessoryTap(for notebook: Notebook) {
+        if isEditing {
+            onEditNotebook(notebook)
+            return
+        }
+
+        onOpenNotebook(notebook)
     }
 }
 
