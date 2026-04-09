@@ -17,6 +17,9 @@ struct HomeView: View {
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
+    @State private var availableSheetDetents: Set<PresentationDetent> = [.height(190)]
+    @State private var selectedSheetDetent: PresentationDetent = .height(190)
+    @State private var detentTransitionToken = 0
     @State private var contentRefreshToken = 0
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
@@ -271,13 +274,16 @@ private extension HomeView {
         VStack(spacing: 0) {
             sheetContent
         }
-        .presentationDetents([.height(sheetHeight)])
+        .presentationDetents(availableSheetDetents, selection: $selectedSheetDetent)
         .presentationDragIndicator(.hidden)
         .presentationBackground(.clear)
         .presentationBackgroundInteraction(.enabled)
         .interactiveDismissDisabled()
         .padding(15)
         .animation(.snappy(duration: 0.25), value: sheetRoute)
+        .onChange(of: sheetRoute) { _, newValue in
+            transitionDetent(to: newValue)
+        }
     }
 
     @ViewBuilder
@@ -321,7 +327,8 @@ private extension HomeView {
                     showHomeSheet()
                 }
             )
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(.opacity)
+//            .transition(.move(edge: .bottom).combined(with: .opacity))
 
         case .notebooks:
             NotebookListView(
@@ -344,16 +351,50 @@ private extension HomeView {
         }
     }
 
-    var sheetHeight: CGFloat {
-        switch sheetRoute {
+    func changeDetent(for route: HomeSheetRoute) -> PresentationDetent {
+        switch route {
         case .home:
-            return 190
+            return .height(190)
         case .focus, .settings:
-            return 190
+            return .height(190)
         case .notebooks:
-            return 560
+            return .fraction(0.75)
         case .quickAdd:
-            return 235
+            return .height(235)
+        }
+    }
+
+    func detents(for route: HomeSheetRoute) -> Set<PresentationDetent> {
+        [changeDetent(for: route)]
+    }
+
+    func transitionDetent(to route: HomeSheetRoute) {
+        let nextDetent = changeDetent(for: route)
+        let currentDetent = selectedSheetDetent
+
+        detentTransitionToken += 1
+        let transitionToken = detentTransitionToken
+
+        availableSheetDetents = [currentDetent, nextDetent]
+
+        withAnimation(.spring(duration: 0.25)) {
+            selectedSheetDetent = nextDetent
+        }
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(320))
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await MainActor.run {
+                guard transitionToken == detentTransitionToken else {
+                    return
+                }
+
+                availableSheetDetents = [nextDetent]
+            }
         }
     }
 }

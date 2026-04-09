@@ -170,6 +170,8 @@ struct QuickAddSheetView: View {
                 .disabled(!canSubmit)
                 .opacity(canSubmit ? 1 : 0.6)
             }
+            
+            Spacer()
         }
         .frame(maxWidth: .infinity)
         .task {
