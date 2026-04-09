@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 
 @Model
 final class Notebook {
@@ -38,5 +39,14 @@ final class Notebook {
         self.createdAt = now
         self.updatedAt = now
         self.events = []
+    }
+
+    var tintColor: Color {
+        guard let colorHex,
+              let color = Color(hex: colorHex) else {
+            return .accentColor
+        }
+
+        return color
     }
 }

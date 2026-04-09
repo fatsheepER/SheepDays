@@ -125,4 +125,8 @@ final class Event {
         self.notebook = notebook
         self.tags = tags
     }
+
+    var tintColor: Color {
+        notebook?.tintColor ?? .accentColor
+    }
 }
