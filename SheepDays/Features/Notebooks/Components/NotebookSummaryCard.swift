@@ -43,11 +43,17 @@ struct NotebookSummaryCard: View {
 
                 Spacer()
 
+                // Change to "pencil" when in edit mode
                 Button(action: onEdit) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color(.tertiaryLabel))
+                        .padding(10)
                         .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .foregroundStyle(Color(.secondarySystemFill))
+                        )
                 }
                 .buttonStyle(.plain)
             }

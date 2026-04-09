@@ -95,7 +95,10 @@ struct QuickAddSheetView: View {
                                     Button {
                                         selectedNotebook = notebook
                                     } label: {
-                                        notebookMenuLabel(for: notebook)
+                                        notebookMenuLabel(
+                                            for: notebook,
+                                            isSelected: notebook.id == selectedNotebook?.id
+                                        )
                                     }
                                 }
                             }
@@ -488,10 +491,17 @@ private extension QuickAddSheetView {
     }
 
     @ViewBuilder
-    func notebookMenuLabel(for notebook: Notebook) -> some View {
-        HStack {
+    func notebookMenuLabel(for notebook: Notebook, isSelected: Bool) -> some View {
+        HStack(spacing: 8) {
             Image(systemName: notebook.iconSystemName ?? "book.closed")
+                .foregroundStyle(notebook.tintColor)
             Text(notebook.name)
+
+            if isSelected {
+                Spacer()
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color(.secondaryLabel))
+            }
         }
     }
 }
