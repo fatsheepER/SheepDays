@@ -107,7 +107,7 @@ private extension NotebookListView {
             // badge
             Text("\(notebooks.count)")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(.tertiaryLabel))
+                .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
@@ -116,6 +116,23 @@ private extension NotebookListView {
                 )
             
             Spacer()
+            
+            Button {
+                
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "pencil")
+                    Text("编辑")
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color(.secondaryLabel))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(Color(.secondarySystemBackground))
+                )
+            }
         }
     }
 
