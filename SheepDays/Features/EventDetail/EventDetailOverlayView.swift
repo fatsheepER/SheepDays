@@ -27,7 +27,12 @@ struct EventDetailOverlayView: View {
                     .frame(maxHeight: 700)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 15)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .bottom),
+                            removal: .move(edge: .top)
+                        ).combined(with: .opacity)
+                    )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
