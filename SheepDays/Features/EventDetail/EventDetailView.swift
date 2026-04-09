@@ -62,7 +62,7 @@ struct EventDetailView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(.systemBackground))
+                .fill(Color(.systemGroupedBackground))
                 .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
         )
         .alert(
@@ -217,7 +217,7 @@ private extension EventDetailView {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
+                        .fill(Color(.systemBackground))
                 )
         }
     }
@@ -299,7 +299,7 @@ private extension EventDetailView {
             Button {
                 onClose()
             } label: {
-                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .plain)
+                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .bright)
             }
             
             // archive

@@ -9,22 +9,22 @@ import SwiftUI
 import SwiftData
 
 struct NotebookEditorOverlayView: View {
-    let notebook: Notebook?
+    let option: NotebookEditorOption?
     var onClose: () -> Void = {}
     var onNotebookUpdated: () -> Void = {}
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if notebook != nil {
+            if option != nil {
                 Color.black.opacity(0.2)
                     .ignoresSafeArea()
                     .onTapGesture(perform: onClose)
                     .transition(.opacity)
             }
 
-            if let notebook {
+            if let option {
                 NotebookEditorView(
-                    notebook: notebook,
+                    option: option,
                     onClose: onClose,
                     onNotebookUpdated: onNotebookUpdated
                 )
@@ -34,17 +34,13 @@ struct NotebookEditorOverlayView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .allowsHitTesting(notebook != nil)
+        .allowsHitTesting(option != nil)
     }
 }
 
 #Preview {
     NotebookEditorOverlayView(
-        notebook: Notebook(
-            name: "生活",
-            colorHex: "FF8A65",
-            iconSystemName: "leaf.fill"
-        )
+        option: .create
     )
     .modelContainer(ModelContainerProvider.makePreviewContainer())
 }

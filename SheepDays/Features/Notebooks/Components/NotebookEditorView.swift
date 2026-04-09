@@ -8,9 +8,15 @@
 import SwiftUI
 import SwiftData
 
+enum NotebookEditorOption {
+    case create
+    case edit(Notebook)
+}
+
 struct NotebookEditorView: View {
     @Environment(\.modelContext) private var modelContext
-    @Bindable var notebook: Notebook
+
+    let option: NotebookEditorOption
 
     @State private var nameDraft: String
     @State private var iconDraft: String
@@ -23,29 +29,37 @@ struct NotebookEditorView: View {
     var onNotebookUpdated: () -> Void = {}
 
     init(
-        notebook: Notebook,
+        option: NotebookEditorOption,
         onClose: @escaping () -> Void = {},
         onNotebookUpdated: @escaping () -> Void = {}
     ) {
-        self.notebook = notebook
+        self.option = option
         self.onClose = onClose
         self.onNotebookUpdated = onNotebookUpdated
-        _nameDraft = State(initialValue: notebook.name)
-        _iconDraft = State(initialValue: notebook.iconSystemName ?? "")
-        _colorHexDraft = State(initialValue: notebook.colorHex ?? "")
+
+        switch option {
+        case .create:
+            _nameDraft = State(initialValue: "")
+            _iconDraft = State(initialValue: "")
+            _colorHexDraft = State(initialValue: "")
+        case let .edit(notebook):
+            _nameDraft = State(initialValue: notebook.name)
+            _iconDraft = State(initialValue: notebook.iconSystemName ?? "")
+            _colorHexDraft = State(initialValue: notebook.colorHex ?? "")
+        }
     }
 
     var body: some View {
         VStack(spacing: 10) {
             contentSection
-                .padding(.vertical, 10)
+                .padding(.bottom, 10)
 
             controls
         }
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(.systemBackground))
+                .fill(Color(.systemGroupedBackground))
                 .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
         )
         .alert(
@@ -69,7 +83,7 @@ struct NotebookEditorView: View {
             TextField("SF Symbol 名称", text: $iconDraft)
             Button("保存", action: saveIconSystemName)
             Button("取消", role: .cancel) {
-                iconDraft = notebook.iconSystemName ?? ""
+                iconDraft = currentPersistedIconSystemName
             }
         } message: {
             Text("直接输入 `iconSystemName` 作为临时方案。")
@@ -78,7 +92,7 @@ struct NotebookEditorView: View {
             TextField("颜色 Hex", text: $colorHexDraft)
             Button("保存", action: saveColorHex)
             Button("取消", role: .cancel) {
-                colorHexDraft = notebook.colorHex ?? ""
+                colorHexDraft = currentPersistedColorHex
             }
         } message: {
             Text("支持输入 `#FF8A65` 或 `FF8A65`。")
@@ -107,8 +121,12 @@ private extension NotebookEditorView {
             // name
             TextField("请输入事件本名称", text: $nameDraft)
                 .onChange(of: nameDraft) { _, newValue in
+                    guard case let .edit(notebook) = option else {
+                        return
+                    }
+
                     notebook.name = newValue
-                    persistChanges()
+                    persistChanges(for: notebook)
                 }
                 .textFieldStyle(.plain)
                 .font(.system(size: 20, weight: .semibold))
@@ -143,15 +161,15 @@ private extension NotebookEditorView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .plain
+                    style: .bright
                 )
             }
             .buttonStyle(.plain)
 
-            Button(action: archiveNotebook) {
+            Button(action: primaryAction) {
                 SDSheetActionButton(
-                    iconSystemName: "archivebox",
-                    title: "归档",
+                    iconSystemName: primaryActionIconSystemName,
+                    title: primaryActionTitle,
                     placement: .right,
                     style: .prominent
                 )
@@ -196,7 +214,7 @@ private extension NotebookEditorView {
             let sanitizedColorHex,
             let color = Color(hex: sanitizedColorHex)
         else {
-            return notebook.tintColor
+            return existingNotebook?.tintColor ?? .accentColor
         }
 
         return color
@@ -216,6 +234,40 @@ private extension NotebookEditorView {
         return normalizedHex.isEmpty ? nil : normalizedHex
     }
 
+    var existingNotebook: Notebook? {
+        if case let .edit(notebook) = option {
+            return notebook
+        }
+
+        return nil
+    }
+
+    var currentPersistedIconSystemName: String {
+        existingNotebook?.iconSystemName ?? ""
+    }
+
+    var currentPersistedColorHex: String {
+        existingNotebook?.colorHex ?? ""
+    }
+
+    var primaryActionTitle: String {
+        switch option {
+        case .create:
+            return "创建"
+        case .edit:
+            return "归档"
+        }
+    }
+
+    var primaryActionIconSystemName: String {
+        switch option {
+        case .create:
+            return "plus"
+        case .edit:
+            return "archivebox"
+        }
+    }
+
     @ViewBuilder
     func sectionTitle(_ title: String, _ imageName: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -232,8 +284,15 @@ private extension NotebookEditorView {
 
     func saveIconSystemName() {
         let trimmedIcon = iconDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        iconDraft = trimmedIcon
+
+        guard case let .edit(notebook) = option else {
+            return
+        }
+
         notebook.iconSystemName = trimmedIcon.isEmpty ? nil : trimmedIcon
-        persistChanges()
+        persistChanges(for: notebook)
     }
 
     func saveColorHex() {
@@ -246,22 +305,75 @@ private extension NotebookEditorView {
         }
 
         colorHexDraft = normalizedHex
+
+        guard case let .edit(notebook) = option else {
+            return
+        }
+
         notebook.colorHex = normalizedHex.isEmpty ? nil : normalizedHex
-        persistChanges()
+        persistChanges(for: notebook)
+    }
+
+    func primaryAction() {
+        switch option {
+        case .create:
+            createNotebook()
+        case .edit:
+            archiveNotebook()
+        }
+    }
+
+    func createNotebook() {
+        let trimmedName = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedName.isEmpty else {
+            errorMessage = "事件本名称不能为空"
+            return
+        }
+
+        guard let sanitizedColorHex = sanitizedColorHex else {
+            let notebook = Notebook(
+                name: trimmedName,
+                colorHex: nil,
+                iconSystemName: iconDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            )
+            modelContext.insert(notebook)
+            persistChanges(for: notebook, shouldClose: true)
+            return
+        }
+
+        guard Color(hex: sanitizedColorHex) != nil else {
+            errorMessage = "颜色 Hex 格式无效"
+            return
+        }
+
+        let notebook = Notebook(
+            name: trimmedName,
+            colorHex: sanitizedColorHex,
+            iconSystemName: iconDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        )
+        modelContext.insert(notebook)
+        persistChanges(for: notebook, shouldClose: true)
     }
 
     func archiveNotebook() {
+        guard case let .edit(notebook) = option else {
+            return
+        }
+
         notebook.isArchived = true
-        persistChanges()
-        onClose()
+        persistChanges(for: notebook, shouldClose: true)
     }
 
-    func persistChanges() {
+    func persistChanges(for notebook: Notebook, shouldClose: Bool = false) {
         notebook.updatedAt = .now
 
         do {
             try modelContext.save()
             onNotebookUpdated()
+            if shouldClose {
+                onClose()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -270,11 +382,19 @@ private extension NotebookEditorView {
 
 #Preview {
     NotebookEditorView(
-        notebook: Notebook(
-            name: "生活",
-            colorHex: "FF8A65",
-            iconSystemName: "leaf.fill"
+        option: .edit(
+            Notebook(
+                name: "生活",
+                colorHex: "FF8A65",
+                iconSystemName: "leaf.fill"
+            )
         )
     )
     .modelContainer(ModelContainerProvider.makePreviewContainer())
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }
