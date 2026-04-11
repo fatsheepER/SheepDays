@@ -14,6 +14,7 @@ struct HomeView: View {
 
     @State private var referenceDate = Calendar.current.startOfDay(for: .now)
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
+    @State private var focusState = HomeFocusState()
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
@@ -155,7 +156,11 @@ private extension HomeView {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
             let query = HomeQuery(
                 referenceDate: referenceDate,
-                includedNotebookIDs: [],
+                includedNotebookIDs: focusState.selectedNotebookIDs,
+                includedTagIDs: focusState.selectedTagIDs,
+                timeRange: focusState.timeRange,
+                groupingMode: focusState.groupingMode,
+                sortingMode: focusState.sortMode,
                 includeAllEvents: false
             )
 
@@ -328,10 +333,11 @@ private extension HomeView {
                 .transition(.opacity)
 
         case .focus:
-            SheetPlaceholderPage(
-                title: "Focus",
+            FocusSheetView(
+                focusState: $focusState,
                 onBack: { showHomeSheet() }
             )
+            .transition(.opacity)
 
         case .quickAdd:
             QuickAddSheetView(
@@ -372,7 +378,9 @@ private extension HomeView {
         switch route {
         case .home:
             return .height(190)
-        case .focus, .settings:
+        case .focus:
+            return .fraction(0.5)
+        case .settings:
             return .height(190)
         case .notebooks:
             return .fraction(0.82)

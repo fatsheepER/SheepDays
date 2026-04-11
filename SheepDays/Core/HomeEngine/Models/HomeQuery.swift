@@ -10,8 +10,9 @@ import Foundation
 struct HomeQuery {
     let referenceDate: Date
     let includedNotebookIDs: Set<UUID>
-//    let timeWindow: FocusTimeWindow
-//    let groupingMode: HomeGroupingMode
-//    let sortingMode: HomeSortingMode
+    let includedTagIDs: Set<UUID>
+    let timeRange: HomeFocusTimeRange
+    let groupingMode: HomeGroupingMode
+    let sortingMode: HomeSortMode
     let includeAllEvents: Bool  // true => including !showOnHome
 }

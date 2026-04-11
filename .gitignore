@@ -18,8 +18,14 @@ DerivedData/
 
 # Swift Package Manager
 .build/
+.build-cache
+Package.swift
 
 # Local environment / secrets
 .env
 .env.local
 Local.xcconfig
+
+# Outer tests
+Tests/
+TestsSupport/
