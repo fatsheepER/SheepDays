@@ -348,7 +348,7 @@ private extension HomeView {
 //            .transition(.move(edge: .bottom).combined(with: .opacity))
 
         case .notebooks:
-            NotebookListView(
+            NotebooksSheetView(
                 onBack: { showHomeSheet() },
                 onCreateNotebook: { showNotebookCreator() },
                 onEditNotebook: { notebook in
@@ -375,9 +375,9 @@ private extension HomeView {
         case .focus, .settings:
             return .height(190)
         case .notebooks:
-            return .fraction(0.75)
+            return .fraction(0.82)
         case .quickAdd:
-            return .height(235)
+            return .height(250)
         }
     }
 

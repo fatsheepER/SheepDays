@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-struct NotebookListView: View {
+struct NotebooksSheetView: View {
     @State private var isEditing = false
 
     @Query(
@@ -63,7 +63,7 @@ struct NotebookListView: View {
 }
 
 // MARK: - View State
-private extension NotebookListView {
+private extension NotebooksSheetView {
     var notebookSummaries: [NotebookSummary] {
         notebooks.map(makeSummary(for:))
     }
@@ -109,7 +109,7 @@ private extension NotebookListView {
 }
 
 // MARK: - Subviews
-private extension NotebookListView {
+private extension NotebooksSheetView {
     var header: some View {
         HStack {
             SDSheetTitleView(iconSystemName: "list.bullet", title: "事件本")
@@ -202,7 +202,7 @@ private extension NotebookListView {
 }
 
 #Preview {
-    NotebookListView(onBack: {})
+    NotebooksSheetView(onBack: {})
         .modelContainer(notebookListPreviewContainer)
         .padding()
 }

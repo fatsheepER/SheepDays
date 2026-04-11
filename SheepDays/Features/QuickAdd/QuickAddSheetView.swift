@@ -176,7 +176,7 @@ struct QuickAddSheetView: View {
             
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             prepareFormIfNeeded()
         }
