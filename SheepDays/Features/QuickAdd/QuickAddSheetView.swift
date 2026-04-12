@@ -47,95 +47,14 @@ struct QuickAddSheetView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                SDSheetTitleView(iconSystemName: "plus", title: "创建新事件")
-
-                Spacer()
-
-                Button {
-                    isDatePickerPresented = true
-                } label: {
-                    SDDateBadge(date: date)
-                }
-                .buttonStyle(.plain)
-            }
+            header
 
             VStack(spacing: 3) {
-                HStack(alignment: .center) {
-                    Button {
-                        iconDraft = sanitizedIconSystemName ?? ""
-                        isIconPromptPresented = true
-                    } label: {
-                        Image(systemName: displayedIconSystemName)
-                            .font(.system(size: 26, weight: .semibold, design: .rounded))
-                            .foregroundStyle(selectedNotebookTintColor)
-                            .frame(width: 28, height: 28)
-                    }
-                    .buttonStyle(.plain)
+                basicInfo
+                    .frame(height: 70)
 
-                    TextField("请输入事件名称", text: $title)
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .focused($isTitleFieldFocused)
-
-                    Text(offsetText)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color(.secondaryLabel))
-                        .contentTransition(.numericText())
-                }
-                .frame(height: 70)
-
-                HStack {
-                    Menu {
-                        if notebooks.isEmpty {
-                            Text("暂无事件本")
-                        } else {
-                            Section("选择事件本") {
-                                ForEach(notebooks) { notebook in
-                                    Button {
-                                        selectedNotebook = notebook
-                                    } label: {
-                                        notebookMenuLabel(
-                                            for: notebook,
-                                            isSelected: notebook.id == selectedNotebook?.id
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Section {
-                            Button {
-                                isNotebookCreatorPresented = true
-                            } label: {
-                                Label("新建事件本…", systemImage: "plus")
-                            }
-                        }
-                    } label: {
-                        SDNotebookBadge(notebook: selectedNotebook)
-                            .frame(height: 40)
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    Image(systemName: showOnHome ? "star.fill" : "star")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .onTapGesture {
-                            showOnHome.toggle()
-                        }
-                        .foregroundStyle(.yellow)
-                        .padding(.leading, 10)
-
-                    Image(systemName: pinToTop ? "pin.fill" : "pin")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .onTapGesture {
-                            pinToTop.toggle()
-                        }
-                        .foregroundStyle(Color(.secondaryLabel))
-                        .padding(.leading, 10)
-                }
-                .frame(height: 40)
+                advancedInfo
+                    .frame(height: 40)
             }
             .padding(10)
             .background(
@@ -148,33 +67,16 @@ struct QuickAddSheetView: View {
                     color: Color(.systemBackground)
                 )
             )
-
-            HStack {
-                Button(action: cancel) {
-                    SDSheetActionButton(
-                        iconSystemName: "arrow.left",
-                        title: "返回",
-                        placement: .left,
-                        style: .bright
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(isCancelling)
-
-                Button(action: submit) {
-                    SDSheetActionButton(
-                        iconSystemName: "checkmark",
-                        title: "保存",
-                        placement: .right,
-                        style: .prominent
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(!canSubmit)
-                .opacity(canSubmit ? 1 : 0.6)
+            
+            if !isTitleFieldFocused {
+                Spacer()
             }
             
-            Spacer()
+            controls
+            
+            if isTitleFieldFocused {
+                Spacer()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
@@ -238,6 +140,129 @@ struct QuickAddSheetView: View {
             }
         } message: {
             Text(errorMessage ?? "未知错误")
+        }
+    }
+}
+
+// MARK: - Subviews
+private extension QuickAddSheetView {
+    var header: some View {
+        HStack(spacing: 10) {
+            SDSheetTitleView(iconSystemName: "plus", title: "创建新事件")
+
+            Spacer()
+
+            Button {
+                isDatePickerPresented = true
+            } label: {
+                SDDateBadge(date: date)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    var basicInfo: some View {
+        HStack(alignment: .center) {
+            Button {
+                iconDraft = sanitizedIconSystemName ?? ""
+                isIconPromptPresented = true
+            } label: {
+                Image(systemName: displayedIconSystemName)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .foregroundStyle(selectedNotebookTintColor)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+
+            TextField("请输入事件名称", text: $title)
+                .font(.system(size: 18, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .focused($isTitleFieldFocused)
+
+            Text(offsetText)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Color(.secondaryLabel))
+                .contentTransition(.numericText())
+        }
+    }
+    
+    var advancedInfo: some View {
+        HStack {
+            Menu {
+                if notebooks.isEmpty {
+                    Text("暂无事件本")
+                } else {
+                    Section("选择事件本") {
+                        ForEach(notebooks) { notebook in
+                            Button {
+                                selectedNotebook = notebook
+                            } label: {
+                                notebookMenuLabel(
+                                    for: notebook,
+                                    isSelected: notebook.id == selectedNotebook?.id
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Section {
+                    Button {
+                        isNotebookCreatorPresented = true
+                    } label: {
+                        Label("新建事件本…", systemImage: "plus")
+                    }
+                }
+            } label: {
+                SDNotebookBadge(notebook: selectedNotebook)
+                    .frame(height: 40)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Image(systemName: showOnHome ? "star.fill" : "star")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .onTapGesture {
+                    showOnHome.toggle()
+                }
+                .foregroundStyle(.yellow)
+                .padding(.leading, 10)
+
+            Image(systemName: pinToTop ? "pin.fill" : "pin")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .onTapGesture {
+                    pinToTop.toggle()
+                }
+                .foregroundStyle(Color(.secondaryLabel))
+                .padding(.leading, 10)
+        }
+    }
+    
+    var controls: some View {
+        HStack {
+            Button(action: cancel) {
+                SDSheetActionButton(
+                    iconSystemName: "arrow.left",
+                    title: "返回",
+                    placement: .left,
+                    style: .bright
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isCancelling)
+
+            Button(action: submit) {
+                SDSheetActionButton(
+                    iconSystemName: "checkmark",
+                    title: "保存",
+                    placement: .right,
+                    style: .prominent
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSubmit)
+            .opacity(canSubmit ? 1 : 0.6)
         }
     }
 }
