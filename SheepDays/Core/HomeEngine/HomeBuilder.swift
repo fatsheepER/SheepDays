@@ -44,16 +44,32 @@ private extension HomeBuilder {
             return false
         }
 
-        if !query.includedNotebookIDs.isEmpty {
+        switch query.notebookSourceFilter {
+        case .all:
+            break
+        case let .selected(ids):
             guard let notebookId = event.notebook?.id,
-                  query.includedNotebookIDs.contains(notebookId) else {
+                  ids.contains(notebookId) else {
                 return false
             }
+        case .none:
+            return false
         }
 
-        if !query.includedTagIDs.isEmpty {
+        switch query.tagSourceFilter {
+        case .all:
+            break
+        case let .selected(ids):
+            if event.tags.isEmpty {
+                break
+            }
+
             let tagIDs = Set(event.tags.map(\.id))
-            guard !tagIDs.isDisjoint(with: query.includedTagIDs) else {
+            guard tagIDs.isSubset(of: ids) else {
+                return false
+            }
+        case .untaggedOnly:
+            guard event.tags.isEmpty else {
                 return false
             }
         }

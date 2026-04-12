@@ -6,28 +6,59 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct FocusSheetView: View {
     @Binding var focusState: HomeFocusState
 
+    @Query(
+        filter: #Predicate<Notebook> { !$0.isArchived },
+        sort: [
+            SortDescriptor(\Notebook.updatedAt, order: .reverse),
+            SortDescriptor(\Notebook.createdAt, order: .reverse)
+        ]
+    )
+    private var notebooks: [Notebook]
+
+    @Query(
+        sort: [
+            SortDescriptor(\Tag.name),
+            SortDescriptor(\Tag.createdAt)
+        ]
+    )
+    private var tags: [Tag]
+
     @State private var isShowingAdvancedOptions = false
+    @State private var notebookShakeTrigger = 0
+    @State private var tagShakeTrigger = 0
 
     let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: 15) {
+        VStack(spacing: 10) {
             header
 
             Group {
                 if isShowingAdvancedOptions {
                     advancedOptionsPlaceholder
                 } else {
-                    bentoPlaceholder
+                    VStack(spacing: 10) {
+                        sourceRange
+
+                        timeRange
+
+                        HStack(spacing: 10) {
+                            sortMode
+
+                            groupingMode
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             controls
+                .frame(height: 60)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -52,22 +83,63 @@ private extension FocusSheetView {
         }
     }
 
-    var bentoPlaceholder: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(.secondary)
+    var sourceRange: some View {
+        VStack(spacing: 10) {
+            FocusAreaTitleView(iconSystemName: "tray.full", title: "来源范围")
 
-            Text("聚焦条件面板待实现")
-                .font(.headline)
+            VStack(spacing: 10) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        if notebooks.isEmpty {
+                            emptyBadgeRow(text: "暂无事件本")
+                        } else {
+                            ForEach(notebooks) { notebook in
+                                SDNotebookBadge(
+                                    notebook: notebook,
+                                    isSelected: focusState.notebookSourceFilter.includes(id: notebook.id)
+                                )
+                                .contentShape(Rectangle())
+                                .modifier(FocusBadgeShakeModifier(trigger: CGFloat(notebookShakeTrigger)))
+                                .gesture(
+                                    exclusiveTapGesture(
+                                        onSingleTap: { toggleNotebookSelection(notebook) },
+                                        onDoubleTap: { toggleAllNotebooks() }
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    .frame(height: 40)
+                }
 
-            Text("底层筛选、排序和分组状态已经接通。下一步可以直接在这里接入 bento UI。")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        if tags.isEmpty {
+                            emptyBadgeRow(text: "暂无标签")
+                        } else {
+                            ForEach(tags) { tag in
+                                SDTagBadge(
+                                    tag: tag,
+                                    isSelected: focusState.tagSourceFilter.includes(id: tag.id)
+                                )
+                                .contentShape(Rectangle())
+                                .modifier(FocusBadgeShakeModifier(trigger: CGFloat(tagShakeTrigger)))
+                                .gesture(
+                                    exclusiveTapGesture(
+                                        onSingleTap: { toggleTagSelection(tag) },
+                                        onDoubleTap: { toggleAllTags() }
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    .frame(height: 40)
+                }
+            }
+            .frame(maxHeight: .infinity)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+        .frame(maxHeight: .infinity)
         .background(
             SDRoundedBackground(
                 topLeading: 35,
@@ -75,8 +147,47 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground)
+                color: Color(.secondarySystemBackground)
             )
+        )
+    }
+
+    @ViewBuilder
+    func emptyBadgeRow(text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color(.tertiaryLabel))
+            .padding(.horizontal, 10)
+            .frame(height: 35)
+    }
+
+    var timeRange: some View {
+        VStack {
+            Text("timeRange")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
+        )
+    }
+
+    var sortMode: some View {
+        VStack {
+            Text("sortMode")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
+        )
+    }
+
+    var groupingMode: some View {
+        VStack {
+            Text("groupingMode")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
         )
     }
 
@@ -159,7 +270,6 @@ private extension FocusSheetView {
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, 5)
     }
 
     var summaryText: String {
@@ -169,11 +279,11 @@ private extension FocusSheetView {
     var activeFilterCount: Int {
         var count = 0
 
-        if !focusState.selectedNotebookIDs.isEmpty {
+        if !focusState.notebookSourceFilter.isDefault {
             count += 1
         }
 
-        if !focusState.selectedTagIDs.isEmpty {
+        if !focusState.tagSourceFilter.isDefault {
             count += 1
         }
 
@@ -192,6 +302,65 @@ private extension FocusSheetView {
         return count
     }
 
+    var allNotebookIDs: Set<UUID> {
+        Set(notebooks.map(\.id))
+    }
+
+    var allTagIDs: Set<UUID> {
+        Set(tags.map(\.id))
+    }
+
+    func exclusiveTapGesture(
+        onSingleTap: @escaping () -> Void,
+        onDoubleTap: @escaping () -> Void
+    ) -> some Gesture {
+        TapGesture(count: 2)
+            .onEnded(onDoubleTap)
+            .exclusively(before: TapGesture(count: 1).onEnded(onSingleTap))
+    }
+
+    func toggleNotebookSelection(_ notebook: Notebook) {
+        withAnimation(.snappy(duration: 0.18)) {
+            focusState.notebookSourceFilter = focusState.notebookSourceFilter.toggleSingle(
+                id: notebook.id,
+                allIDs: allNotebookIDs
+            )
+        }
+    }
+
+    func toggleAllNotebooks() {
+        let nextFilter = focusState.notebookSourceFilter.toggleBulk(allIDs: allNotebookIDs)
+        guard nextFilter != focusState.notebookSourceFilter else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.26)) {
+            focusState.notebookSourceFilter = nextFilter
+            notebookShakeTrigger += 1
+        }
+    }
+
+    func toggleTagSelection(_ tag: Tag) {
+        withAnimation(.snappy(duration: 0.18)) {
+            focusState.tagSourceFilter = focusState.tagSourceFilter.toggleSingle(
+                id: tag.id,
+                allIDs: allTagIDs
+            )
+        }
+    }
+
+    func toggleAllTags() {
+        let nextFilter = focusState.tagSourceFilter.toggleBulk(allIDs: allTagIDs)
+        guard nextFilter != focusState.tagSourceFilter else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.26)) {
+            focusState.tagSourceFilter = nextFilter
+            tagShakeTrigger += 1
+        }
+    }
+
     func restorePreset() {
         // Preset restore will be implemented with the future preset feature.
     }
@@ -203,6 +372,22 @@ private extension FocusSheetView {
     }
 }
 
+private struct FocusBadgeShakeModifier: GeometryEffect {
+    var trigger: CGFloat
+    var amplitude: CGFloat = 4
+    var shakesPerUnit = 3
+
+    var animatableData: CGFloat {
+        get { trigger }
+        set { trigger = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let translationX = amplitude * sin(trigger * .pi * CGFloat(shakesPerUnit))
+        return ProjectionTransform(CGAffineTransform(translationX: translationX, y: 0))
+    }
+}
+
 #Preview {
     @Previewable @State var focusState = HomeFocusState()
 
@@ -210,5 +395,30 @@ private extension FocusSheetView {
         focusState: $focusState,
         onBack: {}
     )
+    .modelContainer(focusSheetPreviewContainer)
     .padding()
 }
+
+private let focusSheetPreviewContainer: ModelContainer = {
+    let container = ModelContainerProvider.makePreviewContainer()
+    let context = container.mainContext
+
+    let notebooks = [
+        Notebook(name: "学校", colorHex: "1B9616", iconSystemName: "book"),
+        Notebook(name: "家庭", colorHex: "00AEB3", iconSystemName: "house"),
+        Notebook(name: "游戏发售", colorHex: "30A2F3", iconSystemName: "dpad"),
+        Notebook(name: "节日", colorHex: "DA4646", iconSystemName: "party.popper")
+    ]
+    let tags = [
+        Tag(name: "期末考试"),
+        Tag(name: "暑假计划"),
+        Tag(name: "作业"),
+        Tag(name: "课程项目"),
+        Tag(name: "好吃的")
+    ]
+
+    notebooks.forEach(context.insert)
+    tags.forEach(context.insert)
+
+    return container
+}()

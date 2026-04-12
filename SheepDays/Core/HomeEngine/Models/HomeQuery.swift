@@ -9,8 +9,8 @@ import Foundation
 
 struct HomeQuery {
     let referenceDate: Date
-    let includedNotebookIDs: Set<UUID>
-    let includedTagIDs: Set<UUID>
+    let notebookSourceFilter: HomeNotebookSourceFilter
+    let tagSourceFilter: HomeTagSourceFilter
     let timeRange: HomeFocusTimeRange
     let groupingMode: HomeGroupingMode
     let sortingMode: HomeSortMode

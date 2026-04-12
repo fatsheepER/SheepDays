@@ -156,8 +156,8 @@ private extension HomeView {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
             let query = HomeQuery(
                 referenceDate: referenceDate,
-                includedNotebookIDs: focusState.selectedNotebookIDs,
-                includedTagIDs: focusState.selectedTagIDs,
+                notebookSourceFilter: focusState.notebookSourceFilter,
+                tagSourceFilter: focusState.tagSourceFilter,
                 timeRange: focusState.timeRange,
                 groupingMode: focusState.groupingMode,
                 sortingMode: focusState.sortMode,
@@ -379,7 +379,7 @@ private extension HomeView {
         case .home:
             return .height(190)
         case .focus:
-            return .fraction(0.5)
+            return .fraction(0.65)
         case .settings:
             return .height(190)
         case .notebooks:
