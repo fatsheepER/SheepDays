@@ -117,6 +117,7 @@ private extension NotebooksSheetView {
             // badge
             Text("\(notebooks.count)")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .contentTransition(.numericText())
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -134,7 +135,10 @@ private extension NotebooksSheetView {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: isEditing ? "checkmark" : "pencil")
+                        .contentTransition(.symbolEffect)
+                    
                     Text(isEditing ? "完成" : "编辑")
+                        .contentTransition(.numericText())
                 }
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))

@@ -49,9 +49,11 @@ struct SDNotebookBadge: View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             Image(systemName: iconSystemName)
                 .foregroundStyle(iconColor)
+                .contentTransition(.symbolEffect)
 
             Text(title)
                 .foregroundStyle(titleColor)
+                .contentTransition(.numericText())
         }
         .font(.system(size: 15, weight: .medium))
         .padding(10)

@@ -14,6 +14,7 @@ struct SDDateBadge: View {
         HStack(spacing: 5) {
             Image(systemName: "calendar")
             Text(dateLabel)
+                .contentTransition(.numericText())
         }
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(Color(.secondaryLabel))
