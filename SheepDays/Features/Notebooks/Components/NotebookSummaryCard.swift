@@ -104,7 +104,7 @@ struct NotebookSummaryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.systemGroupedBackground))
+                .fill(Color(.systemBackground))
         )
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture(perform: onTap)

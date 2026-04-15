@@ -147,7 +147,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.secondarySystemBackground)
+                color: Color(.systemBackground)
             )
         )
     }
@@ -167,7 +167,7 @@ private extension FocusSheetView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
         )
     }
 
@@ -177,7 +177,7 @@ private extension FocusSheetView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
         )
     }
 
@@ -187,7 +187,7 @@ private extension FocusSheetView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.secondarySystemBackground))
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
         )
     }
 

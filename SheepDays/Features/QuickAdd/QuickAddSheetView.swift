@@ -246,7 +246,7 @@ private extension QuickAddSheetView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .bright
+                    style: .plain
                 )
             }
             .buttonStyle(.plain)

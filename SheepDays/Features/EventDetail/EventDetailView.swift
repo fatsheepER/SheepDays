@@ -299,7 +299,7 @@ private extension EventDetailView {
             Button {
                 onClose()
             } label: {
-                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .bright)
+                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .plain)
             }
             
             // archive
