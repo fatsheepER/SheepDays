@@ -43,7 +43,7 @@ struct EventDetailView: View {
     var body: some View {
         VStack(spacing: 10) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 15) {
                     titleSection
                     notebookAndTagsSection
                     noteSection
