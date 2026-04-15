@@ -32,16 +32,25 @@ struct HomeSheetView: View {
 // MARK: - Subviews
 private extension HomeSheetView {
     var topBar: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 10) {
             Button(action: onToggleBadgeDisplayMode) {
-                Image(systemName: badgeDisplayModeToggleIcon)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .background(
-                        Circle()
-                            .fill(Color.accentColorSecondary)
-                            .frame(width: 30, height: 30)
-                    )
-                    .foregroundStyle(.accent)
+                HStack {
+                    Image(systemName: badgeDisplayModeToggleIcon)
+                        .contentTransition(.symbolEffect)
+                    
+                    Text(badgeDisplayModeToggleText)
+                        .contentTransition(.numericText())
+                }
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 10)
+                .background(
+                    Capsule()
+                        .fill(Color.accent.opacity(0.15))
+                        .frame(height: 30)
+                )
+                .foregroundStyle(.accent)
+                .frame(width: 80)
+                    
             }
             .buttonStyle(.plain)
             
@@ -53,7 +62,7 @@ private extension HomeSheetView {
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .background(
                         Circle()
-                            .fill(Color.accentColorSecondary)
+                            .fill(Color.accent.opacity(0.15))
                             .frame(width: 30, height: 30)
                     )
                     .foregroundStyle(.accent)
@@ -86,6 +95,15 @@ private extension HomeSheetView {
             return "number"
         case .date:
             return "calendar"
+        }
+    }
+    
+    var badgeDisplayModeToggleText: String {
+        switch badgeDisplayMode {
+        case.relativeText:
+            return "天数"
+        case .date:
+            return "日期"
         }
     }
 }
