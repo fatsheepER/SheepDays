@@ -36,7 +36,7 @@ struct NotebookSummaryCard: View {
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(tintColor)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .frame(minWidth: 35, minHeight: 35)
                     .background(
                         Capsule()
                             .foregroundStyle(tintColor.opacity(0.15))
@@ -48,12 +48,12 @@ struct NotebookSummaryCard: View {
                 Button(action: onAccessoryTap) {
                     Image(systemName: accessorySystemName)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color(.tertiaryLabel))
+                        .foregroundStyle(Color(.secondaryLabel))
                         .padding(10)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 35, height: 35)
                         .background(
                             Circle()
-                                .foregroundStyle(Color(.secondarySystemFill))
+                                .foregroundStyle(Color(.secondarySystemBackground))
                         )
                 }
                 .buttonStyle(.plain)
@@ -192,7 +192,7 @@ private extension NotebookPreviewEventRow {
         NotebookSummaryCard(
             summary: NotebookSummary(
                 notebook: notebook,
-                activeEventCount: 5,
+                activeEventCount: 155,
                 previewEvents: previewEvents,
                 remainingEventCount: 2
             ),
