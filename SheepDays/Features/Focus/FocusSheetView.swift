@@ -54,6 +54,14 @@ private enum FocusSortDirection: CaseIterable {
     }
 }
 
+private extension HomeGroupingMode {
+    static var longestTitle: String {
+        allCases
+            .map(\.title)
+            .max(by: { $0.count < $1.count }) ?? ""
+    }
+}
+
 struct FocusSheetView: View {
     @Binding var focusState: HomeFocusState
 
@@ -262,14 +270,14 @@ private extension FocusSheetView {
                         Button {
                             selectSortField(field)
                         } label: {
-                            sortMenuLabel(
+                            selectionMenuLabel(
                                 title: field.title,
                                 isSelected: field == selectedSortField
                             )
                         }
                     }
                 } label: {
-                    sortMenuTrigger(
+                    selectionMenuTrigger(
                         title: selectedSortField.title,
                         reservedTitle: FocusSortField.longestTitle
                     )
@@ -283,14 +291,14 @@ private extension FocusSheetView {
                         Button {
                             selectSortDirection(direction)
                         } label: {
-                            sortMenuLabel(
+                            selectionMenuLabel(
                                 title: direction.title,
                                 isSelected: direction == selectedSortDirection
                             )
                         }
                     }
                 } label: {
-                    sortMenuTrigger(
+                    selectionMenuTrigger(
                         title: selectedSortDirection.title,
                         reservedTitle: FocusSortDirection.longestTitle
                     )
@@ -316,15 +324,24 @@ private extension FocusSheetView {
         VStack(spacing: 10) {
             FocusAreaTitleView(iconSystemName: "square.grid.3x1.below.line.grid.1x2", title: "分组样式")
             
-            // content
             Menu {
-                
-            } label: {
-                HStack {
-                    Text("按事件本")
+                ForEach(HomeGroupingMode.allCases, id: \.self) { mode in
+                    Button {
+                        selectGroupingMode(mode)
+                    } label: {
+                        selectionMenuLabel(
+                            title: mode.title,
+                            isSelected: mode == focusState.groupingMode
+                        )
+                    }
                 }
-                .font(.system(size: 18, weight: .semibold))
+            } label: {
+                selectionMenuTrigger(
+                    title: focusState.groupingMode.title,
+                    reservedTitle: HomeGroupingMode.longestTitle
+                )
             }
+            .font(.system(size: 18, weight: .semibold))
             .padding(.vertical, 10)
         }
         .padding(10)
@@ -546,7 +563,7 @@ private extension FocusSheetView {
     }
 
     @ViewBuilder
-    func sortMenuLabel(title: String, isSelected: Bool) -> some View {
+    func selectionMenuLabel(title: String, isSelected: Bool) -> some View {
         HStack {
             Text(title)
 
@@ -558,7 +575,7 @@ private extension FocusSheetView {
     }
 
     @ViewBuilder
-    func sortMenuTrigger(title: String, reservedTitle: String) -> some View {
+    func selectionMenuTrigger(title: String, reservedTitle: String) -> some View {
         ZStack {
             Text(reservedTitle)
                 .hidden()
@@ -574,6 +591,16 @@ private extension FocusSheetView {
 
     func selectSortDirection(_ direction: FocusSortDirection) {
         updateSortMode(field: selectedSortField, direction: direction)
+    }
+
+    func selectGroupingMode(_ mode: HomeGroupingMode) {
+        guard focusState.groupingMode != mode else {
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            focusState.groupingMode = mode
+        }
     }
 
     func updateSortMode(field: FocusSortField, direction: FocusSortDirection) {
