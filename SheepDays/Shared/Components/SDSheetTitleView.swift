@@ -24,7 +24,7 @@ struct SDSheetTitleView: View {
             
             Text(title)
         }
-        .font(.system(size: 20, weight: .semibold, design: .rounded))
+        .font(.system(size: 22, weight: .semibold, design: .rounded))
         .foregroundStyle(Color(.secondaryLabel))
         .frame(height: 25)
     }

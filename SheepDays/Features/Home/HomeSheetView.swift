@@ -59,7 +59,7 @@ private extension HomeSheetView {
 
             Button(action: onTapToday) {
                 Image(systemName: "smallcircle.filled.circle")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .background(
                         Circle()
                             .fill(Color.accent.opacity(0.15))

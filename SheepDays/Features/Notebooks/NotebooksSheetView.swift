@@ -116,14 +116,14 @@ private extension NotebooksSheetView {
             
             // badge
             Text("\(notebooks.count)")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .contentTransition(.numericText())
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .foregroundStyle(Color(.secondarySystemBackground))
+                        .fill(.quinary)
                 )
             
             Spacer()
@@ -140,15 +140,16 @@ private extension NotebooksSheetView {
                     Text(isEditing ? "完成" : "编辑")
                         .contentTransition(.numericText())
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .fill(Color(.secondarySystemBackground))
+                        .fill(.quinary)
                 )
             }
+            .buttonStyle(.plain)
         }
     }
 
