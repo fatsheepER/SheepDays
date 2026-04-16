@@ -149,7 +149,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground)
+                color: Color(.systemBackground).opacity(0.6)
             )
         )
     }
@@ -195,7 +195,14 @@ private extension FocusSheetView {
         .padding(10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
+            SDRoundedBackground(
+                topLeading: 10,
+                topTrailing: 10,
+                bottomLeading: 10,
+                bottomTrailing: 10,
+                cornerStyle: .continuous,
+                color: Color(.systemBackground).opacity(0.6)
+            )
         )
     }
 
@@ -205,7 +212,13 @@ private extension FocusSheetView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
+            SDRoundedBackground(
+                topLeading: 10,
+                topTrailing: 10,
+                bottomLeading: 10,
+                bottomTrailing: 10,
+                cornerStyle: .continuous,
+                color: Color(.systemBackground)).opacity(0.6)
         )
     }
 
@@ -215,7 +228,13 @@ private extension FocusSheetView {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(
-            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
+            SDRoundedBackground(
+                topLeading: 10,
+                topTrailing: 10,
+                bottomLeading: 10,
+                bottomTrailing: 10,
+                cornerStyle: .continuous,
+                color: Color(.systemBackground)).opacity(0.6)
         )
     }
 
