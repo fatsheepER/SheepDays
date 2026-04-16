@@ -38,7 +38,7 @@ struct SDSheetActionButton: View {
     }
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 6) {
             if let iconSystemName {
                 Image(systemName: iconSystemName)
             }
@@ -127,4 +127,5 @@ private extension SDSheetActionButton {
         )
     }
     .padding()
+    .background(Color(.secondarySystemBackground).ignoresSafeArea())
 }
