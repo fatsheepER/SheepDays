@@ -8,6 +8,52 @@
 import SwiftUI
 import SwiftData
 
+private enum FocusSortField: CaseIterable {
+    case importance
+    case targetDate
+    case createdAt
+    case updatedAt
+
+    var title: String {
+        switch self {
+        case .importance:
+            return "按重要程度"
+        case .targetDate:
+            return "按日期"
+        case .createdAt:
+            return "按创建时间"
+        case .updatedAt:
+            return "按编辑时间"
+        }
+    }
+
+    static var longestTitle: String {
+        allCases
+            .map(\.title)
+            .max(by: { $0.count < $1.count }) ?? ""
+    }
+}
+
+private enum FocusSortDirection: CaseIterable {
+    case descending
+    case ascending
+
+    var title: String {
+        switch self {
+        case .descending:
+            return "降序"
+        case .ascending:
+            return "升序"
+        }
+    }
+
+    static var longestTitle: String {
+        allCases
+            .map(\.title)
+            .max(by: { $0.count < $1.count }) ?? ""
+    }
+}
+
 struct FocusSheetView: View {
     @Binding var focusState: HomeFocusState
 
@@ -207,10 +253,54 @@ private extension FocusSheetView {
     }
 
     var sortMode: some View {
-        VStack {
-            Text("sortMode")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 10) {
+            FocusAreaTitleView(iconSystemName: "arrow.up.arrow.down", title: "排序方式")
+            
+            HStack {
+                Menu {
+                    ForEach(FocusSortField.allCases, id: \.self) { field in
+                        Button {
+                            selectSortField(field)
+                        } label: {
+                            sortMenuLabel(
+                                title: field.title,
+                                isSelected: field == selectedSortField
+                            )
+                        }
+                    }
+                } label: {
+                    sortMenuTrigger(
+                        title: selectedSortField.title,
+                        reservedTitle: FocusSortField.longestTitle
+                    )
+                }
+                
+                Circle().frame(width: 3)
+                    .foregroundStyle(.accent.opacity(0.5))
+                
+                Menu {
+                    ForEach(FocusSortDirection.allCases, id: \.self) { direction in
+                        Button {
+                            selectSortDirection(direction)
+                        } label: {
+                            sortMenuLabel(
+                                title: direction.title,
+                                isSelected: direction == selectedSortDirection
+                            )
+                        }
+                    }
+                } label: {
+                    sortMenuTrigger(
+                        title: selectedSortDirection.title,
+                        reservedTitle: FocusSortDirection.longestTitle
+                    )
+                }
+            }
+            .font(.system(size: 18, weight: .semibold))
+            .padding(.vertical, 10)
         }
+        .padding(10)
+        .frame(maxWidth: .infinity)
         .background(
             SDRoundedBackground(
                 topLeading: 10,
@@ -223,10 +313,22 @@ private extension FocusSheetView {
     }
 
     var groupingMode: some View {
-        VStack {
-            Text("groupingMode")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 10) {
+            FocusAreaTitleView(iconSystemName: "square.grid.3x1.below.line.grid.1x2", title: "分组样式")
+            
+            // content
+            Menu {
+                
+            } label: {
+                HStack {
+                    Text("按事件本")
+                }
+                .font(.system(size: 18, weight: .semibold))
+            }
+            .padding(.vertical, 10)
         }
+        .padding(10)
+        .frame(maxWidth: .infinity)
         .background(
             SDRoundedBackground(
                 topLeading: 10,
@@ -290,10 +392,10 @@ private extension FocusSheetView {
         HStack {
             Button(action: restorePreset) {
                 SDSheetActionButton(
-                    iconSystemName: "arrow.uturn.backward",
+                    iconSystemName: "arrow.counterclockwise",
                     title: "还原",
                     placement: .left,
-                    style: .plain
+                    style: .destructive
                 )
             }
             .buttonStyle(.plain)
@@ -359,6 +461,28 @@ private extension FocusSheetView {
         Set(tags.map(\.id))
     }
 
+    var selectedSortField: FocusSortField {
+        switch focusState.sortMode {
+        case .importanceDescending, .importanceAscending:
+            return .importance
+        case .targetDateDescending, .targetDateAscending:
+            return .targetDate
+        case .createdAtDescending, .createdAtAscending:
+            return .createdAt
+        case .updatedAtDescending, .updatedAtAscending:
+            return .updatedAt
+        }
+    }
+
+    var selectedSortDirection: FocusSortDirection {
+        switch focusState.sortMode {
+        case .importanceDescending, .targetDateDescending, .createdAtDescending, .updatedAtDescending:
+            return .descending
+        case .importanceAscending, .targetDateAscending, .createdAtAscending, .updatedAtAscending:
+            return .ascending
+        }
+    }
+
     // MARK: - Functions
     func exclusiveTapGesture(
         onSingleTap: @escaping () -> Void,
@@ -418,6 +542,68 @@ private extension FocusSheetView {
 
         withAnimation(.snappy(duration: 0.18)) {
             focusState.timeRange = range
+        }
+    }
+
+    @ViewBuilder
+    func sortMenuLabel(title: String, isSelected: Bool) -> some View {
+        HStack {
+            Text(title)
+
+            if isSelected {
+                Spacer()
+                Image(systemName: "checkmark")
+            }
+        }
+    }
+
+    @ViewBuilder
+    func sortMenuTrigger(title: String, reservedTitle: String) -> some View {
+        ZStack {
+            Text(reservedTitle)
+                .hidden()
+
+            Text(title)
+                .lineLimit(1)
+        }
+    }
+
+    func selectSortField(_ field: FocusSortField) {
+        updateSortMode(field: field, direction: selectedSortDirection)
+    }
+
+    func selectSortDirection(_ direction: FocusSortDirection) {
+        updateSortMode(field: selectedSortField, direction: direction)
+    }
+
+    func updateSortMode(field: FocusSortField, direction: FocusSortDirection) {
+        let nextMode: HomeSortMode
+
+        switch (field, direction) {
+        case (.importance, .descending):
+            nextMode = .importanceDescending
+        case (.importance, .ascending):
+            nextMode = .importanceAscending
+        case (.targetDate, .descending):
+            nextMode = .targetDateDescending
+        case (.targetDate, .ascending):
+            nextMode = .targetDateAscending
+        case (.createdAt, .descending):
+            nextMode = .createdAtDescending
+        case (.createdAt, .ascending):
+            nextMode = .createdAtAscending
+        case (.updatedAt, .descending):
+            nextMode = .updatedAtDescending
+        case (.updatedAt, .ascending):
+            nextMode = .updatedAtAscending
+        }
+
+        guard focusState.sortMode != nextMode else {
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            focusState.sortMode = nextMode
         }
     }
 
