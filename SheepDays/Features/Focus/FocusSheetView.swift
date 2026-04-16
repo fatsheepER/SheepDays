@@ -82,7 +82,6 @@ struct FocusSheetView: View {
     )
     private var tags: [Tag]
 
-    @State private var isShowingAdvancedOptions = false
     @State private var notebookShakeTrigger = 0
     @State private var tagShakeTrigger = 0
 
@@ -93,21 +92,15 @@ struct FocusSheetView: View {
         VStack(spacing: 10) {
             header
 
-            Group {
-                if isShowingAdvancedOptions {
-                    advancedOptionsPlaceholder
-                } else {
-                    VStack(spacing: 10) {
-                        sourceRange
+            VStack(spacing: 10) {
+                sourceRange
 
-                        timeRange
+                timeRange
 
-                        HStack(spacing: 10) {
-                            sortMode
+                HStack(spacing: 10) {
+                    sortMode
 
-                            groupingMode
-                        }
-                    }
+                    groupingMode
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -357,80 +350,22 @@ private extension FocusSheetView {
         )
     }
 
-    // MARK: - Placeholder
-    var advancedOptionsPlaceholder: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 10) {
-                placeholderRow(
-                    title: "来源范围",
-                    detail: "事件本与标签的高级配置稍后接入"
-                )
-                placeholderRow(
-                    title: "时间范围",
-                    detail: "精细时间窗口规则稍后接入"
-                )
-                placeholderRow(
-                    title: "排序方式",
-                    detail: "排序条件的高级选项稍后接入"
-                )
-                placeholderRow(
-                    title: "分组方式",
-                    detail: "分组条件的高级选项稍后接入"
-                )
-            }
-        }
-    }
-
-    func placeholderRow(title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
-
-            Text(detail)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(Color(.secondaryLabel))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            SDRoundedBackground(
-                topLeading: 24,
-                topTrailing: 24,
-                bottomLeading: 10,
-                bottomTrailing: 10,
-                cornerStyle: .continuous,
-                color: Color(.systemBackground)
-            )
-        )
-    }
-
     var controls: some View {
         HStack {
-            Button(action: restorePreset) {
+            Button(action: onBack) {
                 SDSheetActionButton(
-                    iconSystemName: "arrow.counterclockwise",
-                    title: "还原",
+                    iconSystemName: "arrow.left",
+                    title: "返回",
                     placement: .left,
-                    style: .destructive
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button(action: toggleAdvancedOptions) {
-                SDSheetActionButton(
-                    iconSystemName: isShowingAdvancedOptions ? "chevron.down" : "ellipsis",
-                    title: isShowingAdvancedOptions ? "收起" : "更多",
-                    placement: .middle,
                     style: .plain
                 )
             }
             .buttonStyle(.plain)
 
-            Button(action: onBack) {
+            Button(action: restorePreset) {
                 SDSheetActionButton(
-                    iconSystemName: "checkmark",
-                    title: "应用",
+                    iconSystemName: "slider.horizontal.3",
+                    title: "预设",
                     placement: .right,
                     style: .prominent
                 )
@@ -636,12 +571,6 @@ private extension FocusSheetView {
 
     func restorePreset() {
         // Preset restore will be implemented with the future preset feature.
-    }
-
-    func toggleAdvancedOptions() {
-        withAnimation(.spring(duration: 0.2)) {
-            isShowingAdvancedOptions.toggle()
-        }
     }
 }
 
