@@ -158,7 +158,7 @@ private extension HomeView {
                 referenceDate: referenceDate,
                 notebookSourceFilter: focusState.notebookSourceFilter,
                 tagSourceFilter: focusState.tagSourceFilter,
-                timeRange: focusState.timeRange,
+                timeRangeFilter: focusState.timeRange,
                 groupingMode: focusState.groupingMode,
                 sortingMode: focusState.sortMode,
                 includeAllEvents: false

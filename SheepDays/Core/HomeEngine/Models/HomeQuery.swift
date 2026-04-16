@@ -11,7 +11,7 @@ struct HomeQuery {
     let referenceDate: Date
     let notebookSourceFilter: HomeNotebookSourceFilter
     let tagSourceFilter: HomeTagSourceFilter
-    let timeRange: HomeFocusTimeRange
+    let timeRangeFilter: HomeFocusTimeRange
     let groupingMode: HomeGroupingMode
     let sortingMode: HomeSortMode
     let includeAllEvents: Bool  // true => including !showOnHome

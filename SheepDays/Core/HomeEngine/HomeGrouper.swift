@@ -59,7 +59,7 @@ private extension HomeGrouper {
         query: HomeQuery,
         calendar: Calendar
     ) -> [HomeEventGroup] {
-        let buckets = HomeTimeRangeBucket.availableBuckets(for: query.timeRange)
+        let buckets = HomeTimeRangeBucket.availableBuckets(for: query.timeRangeFilter)
 
         return buckets.compactMap { bucket in
             let bucketEvents = events.filter { event in
@@ -93,73 +93,6 @@ private extension HomeGrouper {
                 title: "\(level)/5",
                 events: levelEvents
             )
-        }
-    }
-}
-
-private enum HomeTimeRangeBucket: String, CaseIterable {
-    case sevenDays
-    case oneMonth
-    case sixMonths
-    case furtherAway
-
-    var title: String {
-        switch self {
-        case .sevenDays:
-            return "7 天内"
-        case .oneMonth:
-            return "1 个月内"
-        case .sixMonths:
-            return "半年内"
-        case .furtherAway:
-            return "更远"
-        }
-    }
-
-    static func availableBuckets(for timeRange: HomeFocusTimeRange) -> [HomeTimeRangeBucket] {
-        switch timeRange {
-        case .sevenDays:
-            return [.sevenDays]
-        case .oneMonth:
-            return [.sevenDays, .oneMonth]
-        case .sixMonths:
-            return [.sevenDays, .oneMonth, .sixMonths]
-        case .all:
-            return [.sevenDays, .oneMonth, .sixMonths, .furtherAway]
-        }
-    }
-
-    func contains(_ date: Date, referenceDate: Date, calendar: Calendar) -> Bool {
-        let normalizedReferenceDate = calendar.startOfDay(for: referenceDate)
-        let normalizedDate = calendar.startOfDay(for: date)
-
-        switch self {
-        case .sevenDays:
-            guard let upperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate) else {
-                return false
-            }
-
-            return normalizedDate >= normalizedReferenceDate && normalizedDate <= upperBound
-        case .oneMonth:
-            guard let sevenDayUpperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate),
-                  let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate) else {
-                return false
-            }
-
-            return normalizedDate > sevenDayUpperBound && normalizedDate <= monthUpperBound
-        case .sixMonths:
-            guard let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate),
-                  let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
-                return false
-            }
-
-            return normalizedDate > monthUpperBound && normalizedDate <= sixMonthUpperBound
-        case .furtherAway:
-            guard let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
-                return false
-            }
-
-            return normalizedDate > sixMonthUpperBound
         }
     }
 }

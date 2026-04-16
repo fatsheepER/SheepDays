@@ -74,28 +74,11 @@ private extension HomeBuilder {
             }
         }
 
-        guard let upperBound = upperBound(for: query.timeRange, referenceDate: normalizedReferenceDate, calendar: calendar) else {
+        guard let upperBound = query.timeRangeFilter.upperBound(from: normalizedReferenceDate, calendar: calendar) else {
             return true
         }
 
         return normalizedTargetDate <= upperBound
-    }
-
-    static func upperBound(
-        for timeRange: HomeFocusTimeRange,
-        referenceDate: Date,
-        calendar: Calendar
-    ) -> Date? {
-        switch timeRange {
-        case .sevenDays:
-            return calendar.date(byAdding: .day, value: 7, to: referenceDate)
-        case .oneMonth:
-            return calendar.date(byAdding: .month, value: 1, to: referenceDate)
-        case .sixMonths:
-            return calendar.date(byAdding: .month, value: 6, to: referenceDate)
-        case .all:
-            return nil
-        }
     }
 
     static func makeDisplayItem(from event: Event, query: HomeQuery) -> HomeDisplayItem {

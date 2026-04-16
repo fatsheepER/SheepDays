@@ -34,6 +34,7 @@ struct FocusSheetView: View {
 
     let onBack: () -> Void
 
+    // MARK: - Body
     var body: some View {
         VStack(spacing: 10) {
             header
@@ -65,6 +66,7 @@ struct FocusSheetView: View {
 }
 
 private extension FocusSheetView {
+    // MARK: - Subviews
     var header: some View {
         HStack {
             SDSheetTitleView(iconSystemName: "eye", title: "聚焦")
@@ -163,9 +165,35 @@ private extension FocusSheetView {
 
     var timeRange: some View {
         VStack {
-            Text("timeRange")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            FocusAreaTitleView(iconSystemName: "clock", title: "时间范围")
+
+            VStack {
+                HStack {
+                    ForEach(HomeFocusTimeRange.allCases, id: \.self) { range in
+                        Button {
+                            selectTimeRange(range)
+                        } label: {
+                            Text(range.title)
+                        }
+                        .foregroundStyle(
+                            focusState.timeRange == range
+                            ? Color.accentColor
+                            : Color(.tertiaryLabel)
+                        )
+
+                        if range != .all {
+                            Spacer()
+                        }
+                    }
+                }
+                .font(.system(size: 20, weight: .semibold))
+                .buttonStyle(.plain)
+                .padding(.horizontal, 30)
+            }
+            .frame(maxHeight: .infinity)
         }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: Color(.systemBackground))
         )
@@ -191,6 +219,7 @@ private extension FocusSheetView {
         )
     }
 
+    // MARK: - Placeholder
     var advancedOptionsPlaceholder: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 10) {
@@ -252,7 +281,7 @@ private extension FocusSheetView {
 
             Button(action: toggleAdvancedOptions) {
                 SDSheetActionButton(
-                    iconSystemName: isShowingAdvancedOptions ? "square.grid.2x2" : "ellipsis",
+                    iconSystemName: isShowingAdvancedOptions ? "chevron.down" : "ellipsis",
                     title: isShowingAdvancedOptions ? "收起" : "更多",
                     placement: .middle,
                     style: .plain
@@ -272,6 +301,7 @@ private extension FocusSheetView {
         }
     }
 
+    // MARK: - Computed variables
     var summaryText: String {
         "\(activeFilterCount) 项"
     }
@@ -310,6 +340,7 @@ private extension FocusSheetView {
         Set(tags.map(\.id))
     }
 
+    // MARK: - Functions
     func exclusiveTapGesture(
         onSingleTap: @escaping () -> Void,
         onDoubleTap: @escaping () -> Void
@@ -361,6 +392,16 @@ private extension FocusSheetView {
         }
     }
 
+    func selectTimeRange(_ range: HomeFocusTimeRange) {
+        guard focusState.timeRange != range else {
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            focusState.timeRange = range
+        }
+    }
+
     func restorePreset() {
         // Preset restore will be implemented with the future preset feature.
     }
@@ -372,6 +413,7 @@ private extension FocusSheetView {
     }
 }
 
+// MARK: - Effects
 private struct FocusBadgeShakeModifier: GeometryEffect {
     var trigger: CGFloat
     var amplitude: CGFloat = 4
@@ -397,6 +439,10 @@ private struct FocusBadgeShakeModifier: GeometryEffect {
     )
     .modelContainer(focusSheetPreviewContainer)
     .padding()
+    .background {
+        Color(.secondarySystemBackground)
+            .ignoresSafeArea()
+    }
 }
 
 private let focusSheetPreviewContainer: ModelContainer = {
