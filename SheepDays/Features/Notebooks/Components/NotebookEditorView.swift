@@ -50,9 +50,12 @@ struct NotebookEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 15) {
+            header
+                .padding(.top, 5)
+                .padding(.horizontal, 5)
+            
             contentSection
-                .padding(.bottom, 10)
 
             controls
         }
@@ -100,7 +103,17 @@ struct NotebookEditorView: View {
     }
 }
 
+// MARK: - Subviews
 private extension NotebookEditorView {
+    
+    var header: some View {
+        HStack {
+            SDSheetTitleView(iconSystemName: "plus.app", title: "创建新事件本")
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
     
     var contentSection: some View {
         HStack {
@@ -143,7 +156,7 @@ private extension NotebookEditorView {
                 isEditingColorHex = true
             } label: {
                 Image(systemName: "swatchpalette")
-                    .font(.system(size: 25, weight: .semibold, design: .rounded))
+                    .font(.system(size: 20, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
             }
         }
