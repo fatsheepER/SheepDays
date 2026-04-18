@@ -162,7 +162,7 @@ private extension QuickAddSheetView {
     }
     
     var basicInfo: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .center, spacing: 15) {
             Button {
                 iconDraft = sanitizedIconSystemName ?? ""
                 isIconPromptPresented = true
