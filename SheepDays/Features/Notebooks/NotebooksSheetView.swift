@@ -36,6 +36,7 @@ struct NotebooksSheetView: View {
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 15) {
+                        // notebooks
                         ForEach(notebookSummaries) { summary in
                             NotebookSummaryCard(
                                 summary: summary,
@@ -52,6 +53,26 @@ struct NotebooksSheetView: View {
                                 }
                             )
                         }
+                        
+                        // arhived
+                        Button {
+                            
+                        } label: {
+                            HStack {
+                                Image(systemName: "tray")
+                                
+                                Text("已归档")
+                            }
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .padding(10)
+                            .background(
+                                Capsule()
+//                                    .foregroundStyle(.black.opacity(0.05))
+                                    .foregroundStyle(Color(.systemGroupedBackground))
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -210,6 +231,10 @@ private extension NotebooksSheetView {
     NotebooksSheetView(onBack: {})
         .modelContainer(notebookListPreviewContainer)
         .padding()
+        .background(
+            Color(.secondarySystemBackground)
+                .ignoresSafeArea()
+        )
 }
 
 private let notebookListPreviewContainer: ModelContainer = {

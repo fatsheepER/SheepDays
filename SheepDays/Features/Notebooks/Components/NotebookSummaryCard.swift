@@ -47,7 +47,7 @@ struct NotebookSummaryCard: View {
                 // Change to "pencil" when in edit mode
                 Button(action: onAccessoryTap) {
                     Image(systemName: accessorySystemName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(10)
                         .frame(width: 35, height: 35)
