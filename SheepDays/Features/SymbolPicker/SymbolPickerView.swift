@@ -97,7 +97,7 @@ struct SymbolPickerView: View {
                 stagedSystemName = nil
                 onSelect(nil)
             } label: {
-                SDSheetActionButton(iconSystemName: "nosign", title: "清除图标", placement: .left, style: .plain)
+                SDSheetActionButton(iconSystemName: "nosign", title: "清除图标", placement: .left, style: .secondary)
             }
             .buttonStyle(.plain)
 

@@ -14,7 +14,7 @@ struct EventDetailOverlayView: View {
     var onEventUpdated: () -> Void = {}
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .center) {
             if event != nil {
                 Color.black.opacity(0.2)
                     .ignoresSafeArea()

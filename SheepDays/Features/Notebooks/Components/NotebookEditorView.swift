@@ -64,7 +64,7 @@ struct NotebookEditorView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(.systemGroupedBackground))
+                .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
         )
         .alert(
@@ -167,7 +167,7 @@ private extension NotebookEditorView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .plain
+                    style: .secondary
                 )
             }
             .buttonStyle(.plain)
