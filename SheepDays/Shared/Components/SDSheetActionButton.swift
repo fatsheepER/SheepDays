@@ -15,6 +15,7 @@ enum SDSheetActionButtonPlacement {
 
 enum SDSheetActionButtonStyle {
     case plain
+    case secondary
     case prominent
     case destructive
 }
@@ -82,7 +83,7 @@ private extension SDSheetActionButton {
 
     var foregroundColor: Color {
         switch style {
-        case .plain:
+        case .plain, .secondary:
             return Color(.secondaryLabel)
         case .prominent:
             return .accentColor
@@ -95,6 +96,8 @@ private extension SDSheetActionButton {
         switch style {
         case .plain:
             return Color(.systemBackground)
+        case .secondary:
+            return Color(.secondarySystemBackground)
         case .prominent:
             return .accentColorSecondary
         case .destructive:
