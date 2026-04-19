@@ -21,21 +21,23 @@ struct NotebookEditorView: View {
     @State private var nameDraft: String
     @State private var iconDraft: String
     @State private var colorHexDraft: String
-    @State private var isEditingIcon = false
     @State private var isEditingColorHex = false
     @State private var errorMessage: String?
 
     var onClose: () -> Void = {}
     var onNotebookUpdated: () -> Void = {}
+    var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
 
     init(
         option: NotebookEditorOption,
         onClose: @escaping () -> Void = {},
-        onNotebookUpdated: @escaping () -> Void = {}
+        onNotebookUpdated: @escaping () -> Void = {},
+        onRequestSymbolPicker: @escaping (SymbolPickerPresentation) -> Void = { _ in }
     ) {
         self.option = option
         self.onClose = onClose
         self.onNotebookUpdated = onNotebookUpdated
+        self.onRequestSymbolPicker = onRequestSymbolPicker
 
         switch option {
         case .create:
@@ -54,7 +56,7 @@ struct NotebookEditorView: View {
             header
                 .padding(.top, 5)
                 .padding(.horizontal, 5)
-            
+
             contentSection
 
             controls
@@ -81,15 +83,6 @@ struct NotebookEditorView: View {
             }
         } message: {
             Text(errorMessage ?? "未知错误")
-        }
-        .alert("编辑图标", isPresented: $isEditingIcon) {
-            TextField("SF Symbol 名称", text: $iconDraft)
-            Button("保存", action: saveIconSystemName)
-            Button("取消", role: .cancel) {
-                iconDraft = currentPersistedIconSystemName
-            }
-        } message: {
-            Text("直接输入 `iconSystemName` 作为临时方案。")
         }
         .alert("编辑颜色", isPresented: $isEditingColorHex) {
             TextField("颜色 Hex", text: $colorHexDraft)
@@ -119,7 +112,7 @@ private extension NotebookEditorView {
         HStack {
             // symbol
             Button {
-                isEditingIcon = true
+                presentSymbolPicker()
             } label: {
                 Image(systemName: previewIconSystemName)
                     .font(.system(size: 25, weight: .semibold, design: .rounded))
@@ -222,6 +215,10 @@ private extension NotebookEditorView {
         return trimmedIcon.isEmpty ? "book.closed" : trimmedIcon
     }
 
+    var sanitizedIconDraft: String? {
+        iconDraft.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+
     var previewTintColor: Color {
         guard
             let sanitizedColorHex,
@@ -293,19 +290,6 @@ private extension NotebookEditorView {
         }
         .frame(height: 35)
         .foregroundStyle(Color(.secondaryLabel))
-    }
-
-    func saveIconSystemName() {
-        let trimmedIcon = iconDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        iconDraft = trimmedIcon
-
-        guard case let .edit(notebook) = option else {
-            return
-        }
-
-        notebook.iconSystemName = trimmedIcon.isEmpty ? nil : trimmedIcon
-        persistChanges(for: notebook)
     }
 
     func saveColorHex() {
@@ -390,6 +374,29 @@ private extension NotebookEditorView {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func presentSymbolPicker() {
+        onRequestSymbolPicker(
+            SymbolPickerPresentation(
+                title: "选择事件本图标",
+                sections: SFSymbolLibrary.notebookSections,
+                selectedSystemName: sanitizedIconDraft,
+                tintColor: previewTintColor,
+                onSelect: applySymbolSelection(_:)
+            )
+        )
+    }
+
+    func applySymbolSelection(_ systemName: String?) {
+        iconDraft = systemName ?? ""
+
+        guard case let .edit(notebook) = option else {
+            return
+        }
+
+        notebook.iconSystemName = systemName
+        persistChanges(for: notebook)
     }
 }
 

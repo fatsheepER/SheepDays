@@ -25,6 +25,7 @@ struct HomeView: View {
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
+    @State private var symbolPickerPresentation: SymbolPickerPresentation?
 
     var body: some View {
         NavigationStack {
@@ -64,6 +65,9 @@ struct HomeView: View {
                 .sheet(isPresented: $isBottomSheetPresented) {
                     sheetContainer
                         .ignoresSafeArea()
+                }
+                .fullScreenCover(item: homeSymbolPickerBinding) { presentation in
+                    symbolPickerHost(for: presentation)
                 }
         }
     }
@@ -108,7 +112,8 @@ private extension HomeView {
             NotebookEditorOverlayView(
                 option: notebookEditorOption,
                 onClose: dismissNotebookEditor,
-                onNotebookUpdated: refreshHomeContent
+                onNotebookUpdated: refreshHomeContent,
+                onRequestSymbolPicker: presentSymbolPicker(_:)
             )
             .zIndex(2)
         }
@@ -288,6 +293,43 @@ private extension HomeView {
         }
         refreshHomeContent()
     }
+
+    func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
+        symbolPickerPresentation = presentation
+    }
+
+    func dismissSymbolPicker() {
+        symbolPickerPresentation = nil
+    }
+
+    var homeSymbolPickerBinding: Binding<SymbolPickerPresentation?> {
+        Binding(
+            get: { isBottomSheetPresented ? nil : symbolPickerPresentation },
+            set: { symbolPickerPresentation = $0 }
+        )
+    }
+
+    var sheetSymbolPickerBinding: Binding<SymbolPickerPresentation?> {
+        Binding(
+            get: { isBottomSheetPresented ? symbolPickerPresentation : nil },
+            set: { symbolPickerPresentation = $0 }
+        )
+    }
+
+    @ViewBuilder
+    func symbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
+        SymbolPickerOverlayView(
+            isPresented: true,
+            title: presentation.title,
+            sections: presentation.sections,
+            selectedSystemName: presentation.selectedSystemName,
+            tintColor: presentation.tintColor,
+            onSelect: presentation.onSelect,
+            onClose: dismissSymbolPicker
+        )
+        .presentationBackground(.clear)
+        .ignoresSafeArea()
+    }
 }
 
 // MARK: - Sheet Container
@@ -305,6 +347,9 @@ private extension HomeView {
         .animation(.snappy(duration: 0.25), value: sheetRoute)
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
+        }
+        .fullScreenCover(item: sheetSymbolPickerBinding) { presentation in
+            symbolPickerHost(for: presentation)
         }
     }
 
@@ -348,7 +393,8 @@ private extension HomeView {
                 },
                 onCancel: {
                     showHomeSheet()
-                }
+                },
+                onRequestSymbolPicker: presentSymbolPicker(_:)
             )
             .transition(.opacity)
 //            .transition(.move(edge: .bottom).combined(with: .opacity))

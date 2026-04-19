@@ -32,8 +32,6 @@ struct QuickAddSheetView: View {
     @State private var hasPreparedDefaults = false
 
     @State private var isDatePickerPresented = false
-    @State private var isIconPromptPresented = false
-    @State private var iconDraft = ""
     @State private var isNotebookCreatorPresented = false
     @State private var newNotebookName = ""
     @State private var newNotebookIconSystemName = ""
@@ -44,6 +42,7 @@ struct QuickAddSheetView: View {
     var shouldAutoFocusTitle = false
     var onCreate: (Event) -> Void = { _ in }
     var onCancel: () -> Void = {}
+    var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -67,13 +66,13 @@ struct QuickAddSheetView: View {
                     color: Color(.systemBackground)
                 )
             )
-            
+
             if !isTitleFieldFocused {
                 Spacer()
             }
-            
+
             controls
-            
+
             if isTitleFieldFocused {
                 Spacer()
             }
@@ -115,15 +114,6 @@ struct QuickAddSheetView: View {
         .sheet(isPresented: $isNotebookCreatorPresented) {
             notebookCreatorSheet
         }
-        .alert("设置 SF Symbol", isPresented: $isIconPromptPresented) {
-            TextField("systemName", text: $iconDraft)
-            Button("取消", role: .cancel) {}
-            Button("确定") {
-                applyIconDraft()
-            }
-        } message: {
-            Text("直接输入 SF Symbol 的 systemName。")
-        }
         .alert(
             "保存失败",
             isPresented: Binding(
@@ -164,8 +154,7 @@ private extension QuickAddSheetView {
     var basicInfo: some View {
         HStack(alignment: .center, spacing: 15) {
             Button {
-                iconDraft = sanitizedIconSystemName ?? ""
-                isIconPromptPresented = true
+                presentSymbolPicker()
             } label: {
                 Image(systemName: displayedIconSystemName)
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
@@ -398,10 +387,6 @@ extension QuickAddSheetView {
         isSaving = false
     }
 
-    func applyIconDraft() {
-        iconSystemName = iconDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     func createNotebook() {
         guard canCreateNotebook else {
             return
@@ -528,6 +513,22 @@ private extension QuickAddSheetView {
                     .foregroundStyle(Color(.secondaryLabel))
             }
         }
+    }
+
+    func presentSymbolPicker() {
+        onRequestSymbolPicker(
+            SymbolPickerPresentation(
+                title: "选择事件图标",
+                sections: SFSymbolLibrary.eventSections,
+                selectedSystemName: sanitizedIconSystemName,
+                tintColor: selectedNotebookTintColor,
+                onSelect: applySymbolSelection(_:)
+            )
+        )
+    }
+
+    func applySymbolSelection(_ systemName: String?) {
+        iconSystemName = systemName ?? ""
     }
 }
 

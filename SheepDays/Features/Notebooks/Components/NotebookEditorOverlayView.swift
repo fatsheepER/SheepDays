@@ -12,6 +12,7 @@ struct NotebookEditorOverlayView: View {
     let option: NotebookEditorOption?
     var onClose: () -> Void = {}
     var onNotebookUpdated: () -> Void = {}
+    var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -26,7 +27,8 @@ struct NotebookEditorOverlayView: View {
                 NotebookEditorView(
                     option: option,
                     onClose: onClose,
-                    onNotebookUpdated: onNotebookUpdated
+                    onNotebookUpdated: onNotebookUpdated,
+                    onRequestSymbolPicker: onRequestSymbolPicker
                 )
                 .padding(.horizontal, 15)
                 .padding(.vertical, 15)
