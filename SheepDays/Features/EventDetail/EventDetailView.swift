@@ -29,16 +29,15 @@ struct EventDetailView: View {
     )
     private var allTags: [Tag]
 
-    @State private var iconDraft = ""
     @State private var tagNameDraft = ""
     @State private var selectedTagForEditing: Tag?
-    @State private var isEditingIcon = false
     @State private var isManagingTag = false
     @State private var isCreatingTag = false
     @State private var errorMessage: String?
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
+    var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -82,15 +81,6 @@ struct EventDetailView: View {
         } message: {
             Text(errorMessage ?? "未知错误")
         }
-        .alert("编辑图标", isPresented: $isEditingIcon) {
-            TextField("SF Symbol 名称", text: $iconDraft)
-            Button("保存", action: saveIconSystemName)
-            Button("取消", role: .cancel) {
-                iconDraft = event.iconSystemName ?? ""
-            }
-        } message: {
-            Text("直接输入 `iconSystemName` 作为临时方案。")
-        }
         .alert("新建标签", isPresented: $isCreatingTag) {
             TextField("标签名称", text: $tagNameDraft)
             Button("添加", action: createTagFromDraft)
@@ -128,8 +118,7 @@ private extension EventDetailView {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Button {
-                    iconDraft = event.iconSystemName ?? ""
-                    isEditingIcon = true
+                    presentSymbolPicker()
                 } label: {
                     Image(systemName: event.iconSystemName ?? "calendar")
                         .font(.system(size: 40, weight: .semibold, design: .rounded))
@@ -444,10 +433,21 @@ private extension EventDetailView {
     }
 
     // MARK: - Functions
-    func saveIconSystemName() {
-        let trimmedIcon = iconDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        event.iconSystemName = trimmedIcon.isEmpty ? nil : trimmedIcon
+    func applySymbolSelection(_ systemName: String?) {
+        event.iconSystemName = systemName
         persistChanges()
+    }
+
+    func presentSymbolPicker() {
+        onRequestSymbolPicker(
+            SymbolPickerPresentation(
+                title: "选择事件图标",
+                sections: SFSymbolLibrary.eventSections,
+                selectedSystemName: event.iconSystemName,
+                tintColor: eventAccentColor,
+                onSelect: applySymbolSelection(_:)
+            )
+        )
     }
 
     func createTagFromDraft() {

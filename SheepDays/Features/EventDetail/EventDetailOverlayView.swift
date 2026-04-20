@@ -12,6 +12,7 @@ struct EventDetailOverlayView: View {
     let event: Event?
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
+    var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
 
     var body: some View {
         ZStack(alignment: .center) {
@@ -23,7 +24,12 @@ struct EventDetailOverlayView: View {
             }
 
             if let event {
-                EventDetailView(event: event, onClose: onClose, onEventUpdated: onEventUpdated)
+                EventDetailView(
+                    event: event,
+                    onClose: onClose,
+                    onEventUpdated: onEventUpdated,
+                    onRequestSymbolPicker: onRequestSymbolPicker
+                )
                     .frame(maxHeight: 700)
                     .padding(.horizontal, 15)
                     .transition(.move(edge: .bottom).combined(with: .opacity))

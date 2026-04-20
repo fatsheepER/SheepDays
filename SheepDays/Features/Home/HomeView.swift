@@ -66,9 +66,6 @@ struct HomeView: View {
                     sheetContainer
                         .ignoresSafeArea()
                 }
-                .fullScreenCover(item: homeSymbolPickerBinding) { presentation in
-                    symbolPickerHost(for: presentation)
-                }
         }
     }
 }
@@ -105,7 +102,8 @@ private extension HomeView {
             EventDetailOverlayView(
                 event: selectedEvent,
                 onClose: dismissEventDetail,
-                onEventUpdated: refreshHomeContent
+                onEventUpdated: refreshHomeContent,
+                onRequestSymbolPicker: presentSymbolPicker(_:)
             )
             .zIndex(1)
 
@@ -116,9 +114,15 @@ private extension HomeView {
                 onRequestSymbolPicker: presentSymbolPicker(_:)
             )
             .zIndex(2)
+
+            if let presentation = homeSymbolPickerPresentation {
+                symbolPickerHost(for: presentation)
+                    .zIndex(3)
+            }
         }
         .animation(.snappy(duration: 0.3), value: selectedEvent != nil)
         .animation(.snappy(duration: 0.3), value: notebookEditorOption != nil)
+        .animation(.snappy(duration: 0.3), value: homeSymbolPickerPresentation != nil)
     }
 
     var sectionList: some View {
@@ -302,16 +306,17 @@ private extension HomeView {
         symbolPickerPresentation = nil
     }
 
-    var homeSymbolPickerBinding: Binding<SymbolPickerPresentation?> {
-        Binding(
-            get: { isBottomSheetPresented ? nil : symbolPickerPresentation },
-            set: { symbolPickerPresentation = $0 }
-        )
+    var homeSymbolPickerPresentation: SymbolPickerPresentation? {
+        isBottomSheetPresented ? nil : symbolPickerPresentation
+    }
+
+    var sheetSymbolPickerPresentation: SymbolPickerPresentation? {
+        isBottomSheetPresented ? symbolPickerPresentation : nil
     }
 
     var sheetSymbolPickerBinding: Binding<SymbolPickerPresentation?> {
         Binding(
-            get: { isBottomSheetPresented ? symbolPickerPresentation : nil },
+            get: { sheetSymbolPickerPresentation },
             set: { symbolPickerPresentation = $0 }
         )
     }
@@ -324,6 +329,22 @@ private extension HomeView {
             sections: presentation.sections,
             selectedSystemName: presentation.selectedSystemName,
             tintColor: presentation.tintColor,
+            presentationDelay: .zero,
+            onSelect: presentation.onSelect,
+            onClose: dismissSymbolPicker
+        )
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    func sheetSymbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
+        SymbolPickerOverlayView(
+            isPresented: true,
+            title: presentation.title,
+            sections: presentation.sections,
+            selectedSystemName: presentation.selectedSystemName,
+            tintColor: presentation.tintColor,
+            presentationDelay: .milliseconds(180),
             onSelect: presentation.onSelect,
             onClose: dismissSymbolPicker
         )
@@ -349,7 +370,7 @@ private extension HomeView {
             transitionDetent(to: newValue)
         }
         .fullScreenCover(item: sheetSymbolPickerBinding) { presentation in
-            symbolPickerHost(for: presentation)
+            sheetSymbolPickerHost(for: presentation)
         }
     }
 
