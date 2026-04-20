@@ -94,14 +94,17 @@ struct FocusSheetView: View {
 
             VStack(spacing: 10) {
                 sourceRange
+                    .layoutPriority(1.5)
 
                 timeRange
+                    .layoutPriority(1.5)
 
                 HStack(spacing: 10) {
                     sortMode
 
                     groupingMode
                 }
+                .layoutPriority(1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -299,9 +302,10 @@ private extension FocusSheetView {
             }
             .font(.system(size: 18, weight: .semibold))
             .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(10)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             SDRoundedBackground(
                 topLeading: 10,
@@ -336,9 +340,10 @@ private extension FocusSheetView {
             }
             .font(.system(size: 18, weight: .semibold))
             .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(10)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             SDRoundedBackground(
                 topLeading: 10,
