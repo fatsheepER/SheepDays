@@ -53,7 +53,7 @@ struct EventDetailView: View {
                     importanceLevelSection
                 }
                 .padding(.top, 24)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 15)
             }
             
             controls
@@ -217,7 +217,7 @@ private extension EventDetailView {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.systemBackground))
+                        .fill(Color(.secondarySystemBackground))
                 )
         }
     }

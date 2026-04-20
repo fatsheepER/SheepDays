@@ -53,11 +53,13 @@ struct NotebookEditorView: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            header
-                .padding(.top, 5)
-                .padding(.horizontal, 5)
-
-            contentSection
+            VStack(spacing: 10) {
+                header
+                contentSection
+            }
+            .padding(.top, 10)
+            .padding(.horizontal, 5)
+            
 
             controls
         }
