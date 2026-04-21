@@ -32,7 +32,7 @@ struct HomeDateView: View {
                 if content.dayOffsetFromToday != 0 {
                     SDIncreBadge(text: content.badgeText)
                         .padding(.leading, 5)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .font(.system(size: 32, weight: .semibold, design: .rounded))
