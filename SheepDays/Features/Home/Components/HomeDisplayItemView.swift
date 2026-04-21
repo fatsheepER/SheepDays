@@ -16,7 +16,6 @@ struct HomeDisplayItemView: View {
     let item: HomeDisplayItem
     var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
-    var onTap: () -> Void = {}
 
     private var iconColor: Color {
         if let tintHex = item.tintHex,
@@ -44,8 +43,6 @@ struct HomeDisplayItemView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
 //        .background(
 //            RoundedRectangle(cornerRadius: 20, style: .continuous)
 //                .fill(Color(.secondarySystemBackground))

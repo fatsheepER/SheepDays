@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CapsuleRollerView: View {
+    @Environment(\.haptics) private var haptics
     @Binding var adjustedDate: Date
 
     let lineSpacing: CGFloat
@@ -21,8 +22,6 @@ struct CapsuleRollerView: View {
     @State private var scrollIndex: Int?
     @State private var resetTask: DispatchWorkItem?
     @State private var isResetting = false
-
-    private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
     init(adjustedDate: Binding<Date>, lineSpacing: CGFloat = 5, lineHeight: CGFloat = 60) {
         _adjustedDate = adjustedDate
@@ -56,7 +55,7 @@ struct CapsuleRollerView: View {
             .scrollPosition(id: $scrollIndex, anchor: .leading)
             .onAppear {
                 scrollIndex = centerIndex
-                hapticGenerator.prepare()
+                haptics.prepare(.selectionStep)
             }
             .onChange(of: scrollIndex) { previousValue, newValue in
                 guard let unwrappedPreviousValue = previousValue, let unwrappedNewValue = newValue else {
@@ -74,7 +73,7 @@ struct CapsuleRollerView: View {
                 
                 // 2. 处理正常的用户滑动操作
                 if unwrappedPreviousValue != unwrappedNewValue {
-                    hapticGenerator.impactOccurred()
+                    haptics.play(.selectionStep)
                     
                     var delta = unwrappedNewValue - unwrappedPreviousValue
                     let factor = adjustmentFactor(for: visibleLineCount)

@@ -12,7 +12,7 @@ import Foundation
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @State private var referenceDate = Calendar.current.startOfDay(for: .now)
+    @State private var referenceDate = HomeReferenceDate.normalized(.now)
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     @State private var focusState = HomeFocusState()
 
@@ -140,14 +140,13 @@ private extension HomeView {
 
                     VStack(spacing: 5) {
                         ForEach(section.items) { item in
-                            HomeDisplayItemView(
+                            HomeDisplayItemRow(
                                 item: item,
                                 badgeDisplayMode: itemBadgeDisplayMode,
                                 badgeDate: targetDatesByEventID[item.sourceEventId],
-                                onTap: {
-                                    withAnimation {
-                                        presentEventDetail(for: item.sourceEventId)
-                                    }
+                                openDetail: { openEventDetail(for: item.sourceEventId) },
+                                jumpToEventDate: {
+                                    jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
                                 }
                             )
                                 .transition(.scale.combined(with: .opacity))
@@ -262,6 +261,12 @@ private extension HomeView {
     }
 
     // MARK: - Event Detail Functions
+    func openEventDetail(for eventID: UUID) {
+        withAnimation {
+            presentEventDetail(for: eventID)
+        }
+    }
+
     func presentEventDetail(for eventID: UUID) {
         do {
             let predicate = #Predicate<Event> { event in
@@ -275,6 +280,22 @@ private extension HomeView {
             }
         } catch {
             assertionFailure("Failed to load event detail: \(error.localizedDescription)")
+        }
+    }
+
+    func jumpHomeDateIfPossible(_ targetDate: Date?) {
+        guard let targetDate else {
+            return
+        }
+
+        jumpHomeDate(to: targetDate)
+    }
+
+    func jumpHomeDate(to date: Date) {
+        let normalizedDate = HomeReferenceDate.normalized(date)
+
+        withAnimation {
+            referenceDate = normalizedDate
         }
     }
 
@@ -386,9 +407,7 @@ private extension HomeView {
                 onTapNotebooks: { showNotebooks() },
                 onTapSettings: { showSettings() },
                 onTapToday: {
-                    withAnimation {
-                        referenceDate = Calendar.current.startOfDay(for: .now)
-                    }
+                    jumpHomeDate(to: .now)
                 },
                 onToggleBadgeDisplayMode: {
                     withAnimation(.bouncy(duration: 0.2)) {
