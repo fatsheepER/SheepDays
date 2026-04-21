@@ -10,9 +10,12 @@ import SwiftData
 
 @main
 struct SheepDaysApp: App {
+    private let appEnvironment = AppEnvironment.live
+
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.haptics, appEnvironment.haptics)
         }
         .modelContainer(ModelContainerProvider.shared)
     }
