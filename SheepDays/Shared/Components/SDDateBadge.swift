@@ -13,13 +13,14 @@ struct SDDateBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "calendar")
+                .accessibilityHidden(true)
             Text(dateLabel)
                 .contentTransition(.numericText())
         }
-        .font(.system(size: 15, weight: .semibold))
+        .font(.system(size: 15, weight: .semibold, design: .rounded))
         .foregroundStyle(Color(.secondaryLabel))
         .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .frame(minHeight: 31)
         .background(
             Capsule()
                 .fill(Color(.secondarySystemBackground))

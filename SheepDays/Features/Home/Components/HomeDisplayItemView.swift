@@ -16,6 +16,8 @@ struct HomeDisplayItemView: View {
     let item: HomeDisplayItem
     var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
+    var primaryAction: (() -> Void)?
+    var badgeAction: (() -> Void)?
 
     private var iconColor: Color {
         if let tintHex = item.tintHex,
@@ -28,15 +30,7 @@ struct HomeDisplayItemView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 15) {
-            Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .frame(width: 20)
-                .foregroundStyle(iconColor)
-
-            Text(item.title)
-                .font(.system(size: 18, weight: .medium, design: .rounded))
-                .foregroundStyle(item.isToday ? iconColor : .primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            primaryContent
 
             badgeView
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -52,29 +46,98 @@ struct HomeDisplayItemView: View {
 
 private extension HomeDisplayItemView {
     @ViewBuilder
+    var primaryContent: some View {
+        if let primaryAction {
+            Button(action: primaryAction) {
+                primaryContentLabel
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.title)
+            .accessibilityHint("查看详情")
+        } else {
+            primaryContentLabel
+        }
+    }
+
+    var primaryContentLabel: some View {
+        HStack(alignment: .center, spacing: 15) {
+            Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
+                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .frame(width: 20)
+                .foregroundStyle(iconColor)
+                .accessibilityHidden(true)
+
+            Text(item.title)
+                .font(.system(size: 18, weight: .medium, design: .rounded))
+                .foregroundStyle(item.isToday ? iconColor : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
     var badgeView: some View {
         switch badgeDisplayMode {
         case .relativeText:
             if let badgeText = item.badgeText {
-                Text(badgeText)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(
-                        item.isToday ? iconColor : Color(.secondaryLabel)
-                    )
-                    .contentTransition(.numericText())
+                badgeContainer {
+                    textBadge(text: badgeText)
+                }
             }
         case .date:
             if let badgeDate {
-                SDDateBadge(date: badgeDate)
+                badgeContainer {
+                    SDDateBadge(date: badgeDate)
+                }
             } else if let badgeText = item.badgeText {
-                Text(badgeText)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(
-                        item.isToday ? iconColor : Color(.secondaryLabel)
-                    )
-                    .contentTransition(.numericText())
+                badgeContainer {
+                    textBadge(text: badgeText)
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    func badgeContainer<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if let badgeAction, let badgeDate {
+            Button(action: badgeAction) {
+                content()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("跳到该日期")
+            .accessibilityValue(Text(accessibilityDateLabel(for: badgeDate)))
+            .accessibilityHint("跳转到这个事件的发生日期")
+        } else {
+            content()
+        }
+    }
+
+    func textBadge(text: String) -> some View {
+        Text(text)
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundStyle(
+                item.isToday ? iconColor : Color(.secondaryLabel)
+            )
+            .contentTransition(.numericText())
+            .padding(.horizontal, 10)
+            .frame(minHeight: 31)
+            .background(
+                Capsule()
+                    .fill(Color(.secondarySystemBackground))
+            )
+    }
+
+    func accessibilityDateLabel(for date: Date) -> String {
+        date.formatted(
+            .dateTime
+                .year()
+                .month()
+                .day()
+                .locale(.autoupdatingCurrent)
+        )
     }
 }
 

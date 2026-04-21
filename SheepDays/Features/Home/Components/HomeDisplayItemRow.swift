@@ -17,13 +17,20 @@ struct HomeDisplayItemRow: View {
     var jumpToEventDate: () -> Void = {}
 
     var body: some View {
-        HomeDisplayItemView(
+        let primaryAction: () -> Void = {
+            openDetailWithFeedback()
+        }
+        let badgeAction: (() -> Void)? = canJumpToEventDate ? {
+            jumpToEventDateWithFeedback()
+        } : nil
+
+        return HomeDisplayItemView(
             item: item,
             badgeDisplayMode: badgeDisplayMode,
-            badgeDate: badgeDate
+            badgeDate: badgeDate,
+            primaryAction: primaryAction,
+            badgeAction: badgeAction
         )
-        .contentShape(Rectangle())
-        .gesture(primaryGesture)
         .contextMenu(menuItems: {
             Button(action: openDetailWithoutFeedback) {
                 Label("查看详情", systemImage: "info.circle")
@@ -34,33 +41,12 @@ struct HomeDisplayItemRow: View {
             }
             .disabled(!canJumpToEventDate)
         })
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: Text("查看详情")) {
-            openDetailWithFeedback()
-        }
-        .accessibilityAction(named: Text("跳到该日期")) {
-            jumpToEventDateWithFeedback()
-        }
     }
 }
 
 private extension HomeDisplayItemRow {
     var canJumpToEventDate: Bool {
         badgeDate != nil
-    }
-
-    var primaryGesture: some Gesture {
-        TapGesture(count: 2)
-            .onEnded { _ in
-                jumpToEventDateWithFeedback()
-            }
-            .exclusively(
-                before: TapGesture(count: 1)
-                    .onEnded { _ in
-                        openDetailWithFeedback()
-                    }
-            )
     }
 
     func openDetailWithFeedback() {
