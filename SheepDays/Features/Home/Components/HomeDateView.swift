@@ -19,7 +19,7 @@ struct HomeDateView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(content.yearText)
                 .font(.system(size: 50, weight: .bold, design: .rounded))
                 .foregroundStyle(.accent)
@@ -35,8 +35,8 @@ struct HomeDateView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .font(.system(size: 40, weight: .medium, design: .rounded))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 32, weight: .medium, design: .rounded))
+            .foregroundStyle(.primary)
             .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
