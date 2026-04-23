@@ -19,7 +19,7 @@ struct SDIncreBadge: View {
             .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(.accentColorSecondary)
+                    .fill(.accent.opacity(0.1))
             )
     }
 }

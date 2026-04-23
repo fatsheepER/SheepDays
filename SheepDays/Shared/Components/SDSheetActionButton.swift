@@ -99,9 +99,9 @@ private extension SDSheetActionButton {
         case .secondary:
             return Color(.secondarySystemBackground)
         case .prominent:
-            return .accentColorSecondary
+            return .accent.opacity(0.1)
         case .destructive:
-            return Color.red.opacity(0.15)
+            return Color.red.opacity(0.1)
         }
     }
 }
