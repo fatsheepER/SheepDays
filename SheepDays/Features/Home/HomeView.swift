@@ -37,8 +37,6 @@ struct HomeView: View {
                             .frame(height: 170)
                     }
                 }
-                .navigationTitle("Sheep Days")
-                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         HStack {
@@ -72,6 +70,8 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
+    static let homeContentToolbarOverlap: CGFloat = 28
+
     static let previewNotebookDefinitions: [(name: String, colorHex: String, iconSystemName: String)] = [
         ("Preview Inbox", "#FFB347", "tray.full.fill"),
         ("Preview Life", "#7EC8E3", "leaf.fill"),
@@ -98,6 +98,7 @@ private extension HomeView {
                 }
             }
             .padding(.horizontal)
+            .padding(.top, -Self.homeContentToolbarOverlap)
 
             EventDetailOverlayView(
                 event: selectedEvent,
@@ -131,14 +132,18 @@ private extension HomeView {
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        return VStack(alignment: .leading, spacing: 20) {
+        // spacing for section header and content
+        return VStack(alignment: .leading, spacing: 30) {
             ForEach(sections) { section in
-                VStack(alignment: .leading, spacing: 12) {
+                
+                // spacing between sections
+                VStack(alignment: .leading, spacing: 20) {
                     if sections.count > 1 {
                         SectionHeaderView(title: section.title)
                     }
 
-                    VStack(spacing: 5) {
+                    // spacing between items
+                    VStack(spacing: 30) {
                         ForEach(section.items) { item in
                             HomeDisplayItemRow(
                                 item: item,

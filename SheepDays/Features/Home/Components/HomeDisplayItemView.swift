@@ -29,14 +29,14 @@ struct HomeDisplayItemView: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 15) {
+        HStack {
             primaryContent
 
+            Spacer()
+            
             badgeView
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
 //        .background(
 //            RoundedRectangle(cornerRadius: 20, style: .continuous)
 //                .fill(Color(.secondarySystemBackground))
@@ -60,15 +60,15 @@ private extension HomeDisplayItemView {
     }
 
     var primaryContentLabel: some View {
-        HStack(alignment: .center, spacing: 15) {
+        HStack(alignment: .center, spacing: 10) {
             Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .frame(width: 20)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .frame(width: 30, height: 30)
                 .foregroundStyle(iconColor)
                 .accessibilityHidden(true)
 
             Text(item.title)
-                .font(.system(size: 18, weight: .medium, design: .rounded))
+                .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(item.isToday ? iconColor : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -126,7 +126,8 @@ private extension HomeDisplayItemView {
             .frame(minHeight: 31)
             .background(
                 Capsule()
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(item.isToday ? iconColor.opacity(0.2) : Color(.secondarySystemBackground))
+//                    .fill(Color(.secondarySystemBackground))
             )
     }
 
@@ -142,7 +143,7 @@ private extension HomeDisplayItemView {
 }
 
 #Preview {
-    VStack {
+    VStack(spacing: 20) {
         HomeDisplayItemView(
             item: HomeDisplayItem(
                 id: UUID(),
