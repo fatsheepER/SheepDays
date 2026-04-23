@@ -21,7 +21,7 @@ struct HomeDateView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(content.yearText)
-                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .font(.system(size: 50, weight: .bold, design: .rounded))
                 .foregroundStyle(.accent)
 
             HStack(alignment: .center, spacing: 0) {
@@ -35,7 +35,7 @@ struct HomeDateView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .font(.system(size: 32, weight: .semibold, design: .rounded))
+            .font(.system(size: 40, weight: .medium, design: .rounded))
             .foregroundStyle(.secondary)
             .contentTransition(.numericText())
         }
