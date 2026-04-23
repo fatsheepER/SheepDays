@@ -37,6 +37,7 @@ struct HomeDisplayItemView: View {
             badgeView
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+        .padding(.vertical, 12.5)
 //        .background(
 //            RoundedRectangle(cornerRadius: 20, style: .continuous)
 //                .fill(Color(.secondarySystemBackground))
@@ -143,7 +144,7 @@ private extension HomeDisplayItemView {
 }
 
 #Preview {
-    VStack(spacing: 20) {
+    VStack(spacing: 5) {
         HomeDisplayItemView(
             item: HomeDisplayItem(
                 id: UUID(),

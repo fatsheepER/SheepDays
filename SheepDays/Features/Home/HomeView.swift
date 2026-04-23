@@ -87,8 +87,12 @@ private extension HomeView {
         ZStack {
 //            Color(.systemGroupedBackground)
 //                .ignoresSafeArea()
-            VStack {
+            VStack(spacing: 0) {
                 HomeDateView(referenceDate: referenceDate)
+                
+                Divider()
+                    .padding(.horizontal)
+                    .padding(.vertical, 20)
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -143,7 +147,7 @@ private extension HomeView {
                     }
 
                     // spacing between items
-                    VStack(spacing: 30) {
+                    VStack(spacing: 5) {
                         ForEach(section.items) { item in
                             HomeDisplayItemRow(
                                 item: item,
