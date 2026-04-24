@@ -35,32 +35,31 @@ struct SymbolPickerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 10) {
-                header
-                    .padding(.bottom, 10)
+        VStack(spacing: 0) {
+            header
+            
+            Divider()
+                .padding(.horizontal)
+                .padding(.vertical, 20)
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        ForEach(sections) { section in
-                            SymbolPickerSectionView(
-                                section: section,
-                                selectedSystemName: stagedSystemName,
-                                tintColor: tintColor,
-                                onSelect: handleSelect
-                            )
-                        }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(sections) { section in
+                        SymbolPickerSectionView(
+                            section: section,
+                            selectedSystemName: stagedSystemName,
+                            tintColor: tintColor,
+                            onSelect: handleSelect
+                        )
                     }
                 }
             }
-            .padding(.horizontal, 15)
-            .padding(.top, 20)
-            
-            controls
         }
         .onAppear {
             stagedSystemName = selectedSystemName
         }
+        .padding(.horizontal, 15)
+        .padding(.top, 20)
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
@@ -70,16 +69,17 @@ struct SymbolPickerView: View {
     }
 
     private var header: some View {
-        VStack {
+        VStack(spacing: 10) {
             HStack {
                 Text(title)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Color(.secondaryLabel))
                 
                 Spacer()
+
+                SDHeaderActionButton(iconSystemName: "xmark", action: onClose)
             }
-            .padding(.bottom, 10)
-            
+
             HStack {
                 Image(systemName: stagedSystemName ?? "questionmark.circle")
                     .font(.system(size: 40, weight: .semibold, design: .rounded))
@@ -88,23 +88,6 @@ struct SymbolPickerView: View {
                 
                 Spacer()
             }
-        }
-    }
-
-    private var controls: some View {
-        HStack(spacing: 10) {
-            Button {
-                stagedSystemName = nil
-                onSelect(nil)
-            } label: {
-                SDSheetActionButton(iconSystemName: "nosign", title: "清除图标", placement: .left, style: .secondary)
-            }
-            .buttonStyle(.plain)
-
-            Button(action: onClose) {
-                SDSheetActionButton(iconSystemName: "checkmark", title: "应用", placement: .right, style: .prominent)
-            }
-            .buttonStyle(.plain)
         }
     }
 
