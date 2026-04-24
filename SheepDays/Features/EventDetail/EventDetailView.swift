@@ -9,6 +9,40 @@ import SwiftUI
 import SwiftData
 
 struct EventDetailView: View {
+    private enum PendingManagementAction: String, Identifiable {
+        case archive
+        case delete
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .archive:
+                return "归档事件"
+            case .delete:
+                return "删除事件"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .archive:
+                return "归档后，这个事件会从当前列表中隐藏。"
+            case .delete:
+                return "删除后无法恢复。"
+            }
+        }
+
+        var confirmButtonTitle: String {
+            switch self {
+            case .archive:
+                return "确认归档"
+            case .delete:
+                return "确认删除"
+            }
+        }
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Bindable var event: Event
 
@@ -34,6 +68,7 @@ struct EventDetailView: View {
     @State private var isManagingTag = false
     @State private var isCreatingTag = false
     @State private var errorMessage: String?
+    @State private var pendingManagementAction: PendingManagementAction?
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
@@ -108,6 +143,20 @@ struct EventDetailView: View {
             }
         } message: { _ in
             Text("你可以重命名这个标签，或者将它从当前事件移除。")
+        }
+        .alert(
+            pendingManagementAction?.title ?? "管理事件",
+            isPresented: pendingManagementActionIsPresented,
+            presenting: pendingManagementAction
+        ) { action in
+            Button(action.confirmButtonTitle, role: .destructive) {
+                performManagementAction(action)
+            }
+            Button("取消", role: .cancel) {
+                pendingManagementAction = nil
+            }
+        } message: { action in
+            Text(action.message)
         }
     }
 }
@@ -292,11 +341,20 @@ private extension EventDetailView {
             }
             .buttonStyle(.plain)
             
-            // archive
-            Button {
-                archiveEvent()
+            Menu {
+                Button {
+                    pendingManagementAction = .archive
+                } label: {
+                    Label("归档", systemImage: "tray")
+                }
+
+                Button(role: .destructive) {
+                    pendingManagementAction = .delete
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
             } label: {
-                SDSheetActionButton(iconSystemName: "archivebox", title: "归档", placement: .right, style: .prominent)
+                SDSheetActionButton(iconSystemName: "tray", title: "管理", placement: .right, style: .destructive)
             }
             .buttonStyle(.plain)
         }
@@ -340,6 +398,17 @@ private extension EventDetailView {
 
     var importanceLevelText: String {
         "\(event.importanceLevel)/5"
+    }
+
+    var pendingManagementActionIsPresented: Binding<Bool> {
+        Binding(
+            get: { pendingManagementAction != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingManagementAction = nil
+                }
+            }
+        )
     }
 
     // MARK: - Bindings
@@ -508,11 +577,35 @@ private extension EventDetailView {
         persistChanges()
     }
 
+    private func performManagementAction(_ action: PendingManagementAction) {
+        switch action {
+        case .archive:
+            archiveEvent()
+        case .delete:
+            deleteEvent()
+        }
+    }
+
     func archiveEvent() {
         event.isArchived = true
         event.archivedAt = .now
-        persistChanges()
-        onClose()
+
+        if persistChanges() {
+            onClose()
+        }
+    }
+
+    func deleteEvent() {
+        modelContext.delete(event)
+
+        do {
+            try modelContext.save()
+            onEventUpdated()
+            onClose()
+        } catch {
+            modelContext.rollback()
+            errorMessage = error.localizedDescription
+        }
     }
 
     func setImportanceLevel(_ level: Int) {
@@ -525,14 +618,17 @@ private extension EventDetailView {
         persistChanges()
     }
 
-    func persistChanges() {
+    @discardableResult
+    func persistChanges() -> Bool {
         event.updatedAt = .now
 
         do {
             try modelContext.save()
             onEventUpdated()
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 }
