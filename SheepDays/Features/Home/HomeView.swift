@@ -87,12 +87,12 @@ private extension HomeView {
         ZStack {
 //            Color(.systemGroupedBackground)
 //                .ignoresSafeArea()
-            VStack(spacing: 0) {
+            VStack(spacing: 20) {
                 HomeDateView(referenceDate: referenceDate)
                 
-                Divider()
-                    .padding(.horizontal)
-                    .padding(.vertical, 20)
+//                Divider()
+//                    .padding(.horizontal)
+//                    .padding(.vertical, 20)
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -144,10 +144,12 @@ private extension HomeView {
                 VStack(alignment: .leading, spacing: 20) {
                     if let title = section.title, !title.isEmpty {
                         SectionHeaderView(title: title)
+                    } else {
+                        Divider()
                     }
 
                     // spacing between items
-                    VStack(spacing: 5) {
+                    VStack(spacing: 0) {
                         ForEach(section.items) { item in
                             HomeDisplayItemRow(
                                 item: item,
