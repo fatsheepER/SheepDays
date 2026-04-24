@@ -20,10 +20,18 @@ struct SDTagBadge: View {
         tag?.name ?? "无标签"
     }
 
+    private var activeEventCount: Int {
+        tag?.events.filter { !$0.isArchived }.count ?? 0
+    }
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
+        HStack(alignment: .center, spacing: 5) {
             Image(systemName: "number")
             Text(title)
+            
+            Text("\(activeEventCount)")
+                .font(.system(size: 10, weight: .regular))
+                .frame(maxHeight: .infinity, alignment: .top)
         }
         .font(.system(size: 15, weight: .medium))
         .foregroundStyle(Color(.secondaryLabel))
