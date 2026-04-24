@@ -142,8 +142,8 @@ private extension HomeView {
                 
                 // spacing between sections
                 VStack(alignment: .leading, spacing: 20) {
-                    if sections.count > 1 {
-                        SectionHeaderView(title: section.title)
+                    if let title = section.title, !title.isEmpty {
+                        SectionHeaderView(title: title)
                     }
 
                     // spacing between items

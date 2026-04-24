@@ -18,7 +18,7 @@ enum HomeGrouper {
             return [
                 HomeEventGroup(
                     id: "all",
-                    title: "Events",
+                    title: nil,
                     events: events
                 )
             ]
@@ -34,7 +34,7 @@ enum HomeGrouper {
 
 struct HomeEventGroup {
     let id: String
-    let title: String
+    let title: String?
     let events: [Event]
 }
 
@@ -50,7 +50,7 @@ private extension HomeGrouper {
                 return HomeEventGroup(id: "notebook:\(key)", title: title, events: events)
             }
             .sorted { lhs, rhs in
-                lhs.title.localizedCompare(rhs.title) == .orderedAscending
+                (lhs.title ?? "").localizedCompare(rhs.title ?? "") == .orderedAscending
             }
     }
 

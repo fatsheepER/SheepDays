@@ -13,21 +13,46 @@ enum HomeBuilder {
             matchesFilters(event: event, query: query)
         }
         let sortedEvents = HomeSorter.sort(filteredEvents, mode: query.sortingMode)
-        let groups = HomeGrouper.group(sortedEvents, query: query)
-
-        return groups.map { group in
-            HomeSection(
-                id: group.id,
-                title: group.title,
-                items: group.events.map { event in
-                    makeDisplayItem(from: event, query: query)
-                }
-            )
+        let pinnedEvents = sortedEvents.filter(\.pinToTop)
+        let regularEvents = sortedEvents.filter { !$0.pinToTop }
+        let pinnedSection = makePinnedSection(from: pinnedEvents, query: query)
+        let regularSections = HomeGrouper.group(regularEvents, query: query).map { group in
+            makeSection(from: group, query: query)
         }
+
+        if let pinnedSection {
+            return [pinnedSection] + regularSections
+        }
+
+        return regularSections
     }
 }
 
 private extension HomeBuilder {
+    static func makePinnedSection(from events: [Event], query: HomeQuery) -> HomeSection? {
+        guard !events.isEmpty else {
+            return nil
+        }
+
+        return HomeSection(
+            id: "pinned",
+            title: "置顶",
+            items: events.map { event in
+                makeDisplayItem(from: event, query: query)
+            }
+        )
+    }
+
+    static func makeSection(from group: HomeEventGroup, query: HomeQuery) -> HomeSection {
+        HomeSection(
+            id: group.id,
+            title: group.title,
+            items: group.events.map { event in
+                makeDisplayItem(from: event, query: query)
+            }
+        )
+    }
+
     static func matchesFilters(event: Event, query: HomeQuery, calendar: Calendar = .current) -> Bool {
         guard !event.isArchived else {
             return false

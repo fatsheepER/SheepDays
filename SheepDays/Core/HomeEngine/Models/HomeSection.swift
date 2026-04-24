@@ -7,6 +7,6 @@
 
 struct HomeSection: Identifiable {
     let id: String
-    let title: String
+    let title: String?
     let items: [HomeDisplayItem]
 }
