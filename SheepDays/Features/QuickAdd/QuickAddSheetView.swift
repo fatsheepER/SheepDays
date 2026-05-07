@@ -519,7 +519,7 @@ private extension QuickAddSheetView {
         onRequestSymbolPicker(
             SymbolPickerPresentation(
                 title: "选择事件图标",
-                sections: SFSymbolLibrary.eventSections,
+                sections: SFSymbolLibrary.generalSections,
                 selectedSystemName: sanitizedIconSystemName,
                 tintColor: selectedNotebookTintColor,
                 onSelect: applySymbolSelection(_:)

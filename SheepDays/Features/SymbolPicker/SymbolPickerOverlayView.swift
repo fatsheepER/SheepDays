@@ -144,7 +144,7 @@ private extension SymbolPickerOverlayView {
         SymbolPickerOverlayView(
             isPresented: true,
             title: "选择事件本图标",
-            sections: SFSymbolLibrary.notebookSections,
+            sections: SFSymbolLibrary.generalSections,
             selectedSystemName: "book.closed.fill",
             tintColor: .orange,
             presentationDelay: .zero,

@@ -382,7 +382,7 @@ private extension NotebookEditorView {
         onRequestSymbolPicker(
             SymbolPickerPresentation(
                 title: "选择事件本图标",
-                sections: SFSymbolLibrary.notebookSections,
+                sections: SFSymbolLibrary.generalSections,
                 selectedSystemName: sanitizedIconDraft,
                 tintColor: previewTintColor,
                 onSelect: applySymbolSelection(_:)

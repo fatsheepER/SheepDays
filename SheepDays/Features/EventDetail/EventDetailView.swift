@@ -174,6 +174,7 @@ private extension EventDetailView {
                         .foregroundStyle(eventAccentColor)
                 }
                 .buttonStyle(.plain)
+                .frame(height: 50)
                 
                 Spacer()
                 
@@ -513,7 +514,7 @@ private extension EventDetailView {
         onRequestSymbolPicker(
             SymbolPickerPresentation(
                 title: "选择事件图标",
-                sections: SFSymbolLibrary.eventSections,
+                sections: SFSymbolLibrary.generalSections,
                 selectedSystemName: event.iconSystemName,
                 tintColor: eventAccentColor,
                 onSelect: applySymbolSelection(_:)
