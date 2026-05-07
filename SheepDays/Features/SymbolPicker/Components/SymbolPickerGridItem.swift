@@ -30,8 +30,8 @@ struct SymbolPickerGridItem: View {
     }
     @ViewBuilder
     private var selectionOutline: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .stroke(isSelected ? tintColor.opacity(0.15) : Color(.separator).opacity(0), lineWidth: 2)
+        Capsule(style: .continuous)
+            .stroke(isSelected ? tintColor.opacity(0.3) : Color(.separator).opacity(0), lineWidth: 2)
     }
 }
 

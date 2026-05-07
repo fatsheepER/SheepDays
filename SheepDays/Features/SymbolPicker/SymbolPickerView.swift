@@ -58,9 +58,8 @@ struct SymbolPickerView: View {
         .onAppear {
             stagedSystemName = selectedSystemName
         }
-        .padding(.horizontal, 15)
-        .padding(.top, 20)
-        .padding(10)
+        .padding(.horizontal, 25)
+        .padding(.vertical, 20)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
                 .fill(Color(.systemBackground))
@@ -106,6 +105,7 @@ struct SymbolPickerView: View {
         onSelect: { _ in },
         onClose: {}
     )
-    .padding()
+    .padding(.horizontal, 40)
+    .frame(maxHeight: 600)
     .background(Color(.secondarySystemBackground))
 }

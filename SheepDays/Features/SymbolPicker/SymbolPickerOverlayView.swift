@@ -40,9 +40,9 @@ struct SymbolPickerOverlayView: View {
                     onSelect: onSelect,
                     onClose: requestClose
                 )
-                .padding(.horizontal, 25)
+                .padding(.horizontal, 40)
                 .padding(.vertical, 50)
-                .frame(maxHeight: 700)
+                .frame(maxHeight: 600)
                 .transition(.move(edge: .bottom))
             }
         }
