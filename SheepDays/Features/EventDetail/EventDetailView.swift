@@ -328,6 +328,8 @@ private extension EventDetailView {
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.vertical)
+            .padding(.horizontal)
         }
     }
 

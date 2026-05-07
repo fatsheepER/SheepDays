@@ -31,7 +31,7 @@ struct EventDetailOverlayView: View {
                     onRequestSymbolPicker: onRequestSymbolPicker
                 )
                     .frame(maxHeight: 700)
-                    .padding(.horizontal, 15)
+                    .padding(.horizontal, 30)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
