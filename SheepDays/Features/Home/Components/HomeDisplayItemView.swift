@@ -64,7 +64,7 @@ private extension HomeDisplayItemView {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: item.iconSystemName ?? "figure.roll.runningpace")
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .frame(width: 30, height: 30)
+                .frame(width: 40, height: 30)
                 .foregroundStyle(iconColor)
                 .accessibilityHidden(true)
 
