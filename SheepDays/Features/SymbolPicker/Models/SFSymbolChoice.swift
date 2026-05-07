@@ -17,4 +17,10 @@ struct SFSymbolChoice: Identifiable, Hashable {
         self.systemName = systemName
         self.title = title
     }
+    
+    init(systemName: String) {
+        self.id = systemName
+        self.systemName = systemName
+        self.title = "图标"
+    }
 }
