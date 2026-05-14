@@ -44,6 +44,7 @@ struct EventDetailView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.haptics) private var haptics
     @Bindable var event: Event
 
     @Query(
@@ -610,8 +611,10 @@ private extension EventDetailView {
 
     func setImportanceLevel(_ level: Int) {
         if level == 1, event.importanceLevel == 1 {
+            haptics.play(.error)
             event.importanceLevel = 0
         } else {
+            haptics.play(.selectionStep)
             event.importanceLevel = level
         }
 

@@ -319,6 +319,7 @@ private extension HomeView {
         let dayOffset = calendar.dateComponents([.day], from: startDate, to: targetDate).day ?? 0
 
         guard dayOffset != 0 else {
+            haptics.play(.error)
             referenceDate = targetDate
             dateRestoreTask = nil
             return
@@ -485,7 +486,10 @@ private extension HomeView {
         case .focus:
             FocusSheetView(
                 focusState: $focusState,
-                onBack: { showHomeSheet() }
+                onBack: {
+                    haptics.play(.openDetailTap)
+                    showHomeSheet()
+                }
             )
             .transition(.blurReplace)
 
@@ -505,7 +509,10 @@ private extension HomeView {
 
         case .notebooks:
             NotebooksSheetView(
-                onBack: { showHomeSheet() },
+                onBack: {
+                    haptics.play(.openDetailTap)
+                    showHomeSheet()
+                },
                 onCreateNotebook: { showNotebookCreator() },
                 onEditNotebook: { notebook in
                     showNotebookEditor(for: notebook)
@@ -570,9 +577,9 @@ private extension HomeView {
         case .notebooks:
             return .fraction(0.82)
         case .notebookEditor:
-            return .height(220)
+            return .height(200)
         case .quickAdd:
-            return .height(250)
+            return .height(240)
         case .eventDetail:
             return .fraction(0.82)
         }
