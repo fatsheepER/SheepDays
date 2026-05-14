@@ -9,40 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct EventDetailView: View {
-    private enum PendingManagementAction: String, Identifiable {
-        case archive
-        case delete
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .archive:
-                return "归档事件"
-            case .delete:
-                return "删除事件"
-            }
-        }
-
-        var message: String {
-            switch self {
-            case .archive:
-                return "归档后，这个事件会从当前列表中隐藏。"
-            case .delete:
-                return "删除后无法恢复。"
-            }
-        }
-
-        var confirmButtonTitle: String {
-            switch self {
-            case .archive:
-                return "确认归档"
-            case .delete:
-                return "确认删除"
-            }
-        }
-    }
-
     @Environment(\.modelContext) private var modelContext
     @Environment(\.haptics) private var haptics
     @Bindable var event: Event
@@ -411,6 +377,40 @@ private extension EventDetailView {
             }
         )
     }
+    
+    private enum PendingManagementAction: String, Identifiable {
+        case archive
+        case delete
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .archive:
+                return "归档事件"
+            case .delete:
+                return "删除事件"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .archive:
+                return "归档后，这个事件会从当前列表中隐藏。"
+            case .delete:
+                return "删除后无法恢复。"
+            }
+        }
+
+        var confirmButtonTitle: String {
+            switch self {
+            case .archive:
+                return "确认归档"
+            case .delete:
+                return "确认删除"
+            }
+        }
+    }
 
     // MARK: - Bindings
     var titleBinding: Binding<String> {
@@ -636,6 +636,7 @@ private extension EventDetailView {
     }
 }
 
+// MARK: - Preview
 #Preview("Home Sheet") {
     EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
         .modelContainer(eventDetailPreviewContainer)
