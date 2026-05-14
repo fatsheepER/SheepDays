@@ -142,13 +142,12 @@ private extension QuickAddSheetView {
             SDSheetTitleView(iconSystemName: "plus", title: "创建新事件")
 
             Spacer()
+            
+            Text(offsetText)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Color(.secondaryLabel))
+                .contentTransition(.numericText())
 
-            Button {
-                isDatePickerPresented = true
-            } label: {
-                SDDateBadge(date: date)
-            }
-            .buttonStyle(.plain)
         }
     }
     
@@ -169,10 +168,12 @@ private extension QuickAddSheetView {
                 .frame(maxWidth: .infinity)
                 .focused($isTitleFieldFocused)
 
-            Text(offsetText)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Color(.secondaryLabel))
-                .contentTransition(.numericText())
+            Button {
+                isDatePickerPresented = true
+            } label: {
+                SDDateBadge(date: date)
+            }
+            .buttonStyle(.plain)
         }
     }
     
