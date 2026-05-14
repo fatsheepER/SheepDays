@@ -20,7 +20,9 @@ struct SectionHeaderView: View {
                 Spacer(minLength: 0)
             }
             
-            Divider()
+            Capsule(style: .continuous)
+                .frame(height: 2)
+                .foregroundStyle(.primary.quaternary)
         }
         
     }
