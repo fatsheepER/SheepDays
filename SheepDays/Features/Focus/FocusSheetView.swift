@@ -109,7 +109,6 @@ struct FocusSheetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             controls
-                .frame(height: 60)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
