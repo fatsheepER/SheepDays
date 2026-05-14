@@ -52,23 +52,15 @@ struct NotebookEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 15) {
-            VStack(spacing: 10) {
-                header
-                contentSection
-            }
-            .padding(.top, 10)
-            .padding(.horizontal, 5)
-            
-
+        VStack(spacing: 5) {
+            header
+//                .padding(.top, 10)
+            Spacer(minLength: 0)
+            contentSection
+            Spacer(minLength: 0)
             controls
         }
-        .padding(10)
-//        .background(
-//            RoundedRectangle(cornerRadius: 40, style: .continuous)
-//                .fill(Color(.systemBackground))
-//                .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
-//        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .alert(
             "操作失败",
             isPresented: Binding(
