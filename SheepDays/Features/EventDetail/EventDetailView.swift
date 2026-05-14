@@ -87,17 +87,14 @@ struct EventDetailView: View {
                     importanceLevelSection
                 }
                 .padding(.top, 24)
-                .padding(.horizontal, 15)
+                .padding(.horizontal, 5)
             }
             
             controls
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(.systemBackground))
-//                .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
+        .background(            SDRoundedBackground(topLeading: 35, topTrailing: 35, bottomLeading: 40, bottomTrailing: 40, cornerStyle: .continuous, color: Color(.systemBackground))
         )
         .alert(
             "操作失败",
@@ -636,9 +633,82 @@ private extension EventDetailView {
     }
 }
 
-#Preview {
-    EventDetailView(event: eventDetailPreviewEvent)
+#Preview("Home Sheet") {
+    EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
         .modelContainer(eventDetailPreviewContainer)
+}
+
+private struct EventDetailSheetPreviewHost: View {
+    @State private var isBottomSheetPresented = true
+    @State private var selectedSheetDetent: PresentationDetent = .fraction(0.82)
+    @State private var symbolPickerPresentation: SymbolPickerPresentation?
+
+    let event: Event
+
+    var body: some View {
+        NavigationStack {
+            previewHomeContent
+                .safeAreaInset(edge: .bottom) {
+                    if isBottomSheetPresented {
+                        Color.clear
+                            .frame(height: 170)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+                .sheet(isPresented: $isBottomSheetPresented) {
+                    sheetContainer
+                        .ignoresSafeArea()
+                }
+        }
+    }
+
+    private var previewHomeContent: some View {
+        Color(.systemGroupedBackground)
+            .ignoresSafeArea()
+    }
+
+    private var sheetContainer: some View {
+        VStack(spacing: 0) {
+            EventDetailView(
+                event: event,
+                onClose: {},
+                onRequestSymbolPicker: { presentation in
+                    symbolPickerPresentation = presentation
+                }
+            )
+            .transition(.opacity)
+        }
+        .presentationDetents([.fraction(0.82)], selection: $selectedSheetDetent)
+        .presentationDragIndicator(.hidden)
+        .presentationBackground(.clear)
+        .presentationBackgroundInteraction(.enabled)
+        .interactiveDismissDisabled()
+        .padding(15)
+        .fullScreenCover(item: $symbolPickerPresentation) { presentation in
+            sheetSymbolPickerHost(for: presentation)
+        }
+    }
+
+    private func sheetSymbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
+        SymbolPickerOverlayView(
+            isPresented: true,
+            title: presentation.title,
+            sections: presentation.sections,
+            selectedSystemName: presentation.selectedSystemName,
+            tintColor: presentation.tintColor,
+            presentationDelay: .milliseconds(180),
+            onSelect: presentation.onSelect,
+            onClose: {
+                symbolPickerPresentation = nil
+            }
+        )
+        .presentationBackground(.clear)
+        .ignoresSafeArea()
+    }
 }
 
 private let eventDetailPreviewContainer: ModelContainer = {
