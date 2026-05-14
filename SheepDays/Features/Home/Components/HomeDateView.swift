@@ -21,7 +21,7 @@ struct HomeDateView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(content.yearText)
-                .font(.system(size: 50, weight: .bold, design: .rounded))
+                .font(.system(size: 50, weight: .semibold, design: .rounded))
                 .foregroundStyle(.accent)
 
             HStack(alignment: .center, spacing: 0) {

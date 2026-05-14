@@ -30,13 +30,6 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             homeContent
-                .safeAreaInset(edge: .bottom) {
-                    if isBottomSheetPresented {
-                        // 给主页主内容预留底部空间，避免被常驻 sheet 挡住
-                        Color.clear
-                            .frame(height: 170)
-                    }
-                }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         HStack {
@@ -85,21 +78,28 @@ private extension HomeView {
 
     var homeContent: some View {
         ZStack {
-//            Color(.systemGroupedBackground)
-//                .ignoresSafeArea()
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+            
             VStack(spacing: 20) {
                 HomeDateView(referenceDate: referenceDate)
-                
-//                Divider()
-//                    .padding(.horizontal)
-//                    .padding(.vertical, 20)
                 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 16) {
                         sectionList
                     }
-                    .padding(.bottom)
+                    .padding(.horizontal)
+                    .safeAreaInset(edge: .bottom) {
+                        if isBottomSheetPresented {
+                            Color.clear
+                                .frame(height: 180)
+                        }
+                    }
                 }
+                .background(
+                    SDRoundedBackground(topLeading: 25, topTrailing: 25, bottomLeading: 35, bottomTrailing: 35, cornerStyle: .continuous, color: Color(.systemBackground))
+                )
+                .padding(.bottom)
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
@@ -128,15 +128,14 @@ private extension HomeView {
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
         // spacing for section header and content
-        return VStack(alignment: .leading, spacing: 30) {
+        return VStack(alignment: .leading, spacing: 10) {
+            Color.clear.frame(height: 5)
+            
             ForEach(sections) { section in
-                
                 // spacing between sections
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 10) {
                     if let title = section.title, !title.isEmpty {
                         SectionHeaderView(title: title)
-                    } else {
-                        Divider()
                     }
 
                     // spacing between items
