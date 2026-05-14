@@ -13,6 +13,8 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var referenceDate = HomeReferenceDate.normalized(.now)
+    @State private var dateRestoreTask: Task<Void, Never>?
+    @State private var dateRestoreToken = 0
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     @State private var focusState = HomeFocusState()
 
@@ -53,6 +55,9 @@ struct HomeView: View {
                 .onAppear {
                     isBottomSheetPresented = true
                 }
+                .onDisappear {
+                    cancelDateRestore()
+                }
                 .sheet(isPresented: $isBottomSheetPresented) {
                     sheetContainer
                         .ignoresSafeArea()
@@ -64,6 +69,9 @@ struct HomeView: View {
 // MARK: - Main Content
 private extension HomeView {
     static let homeContentToolbarOverlap: CGFloat = 28
+    static let todayRestoreStepDelay: Duration = .milliseconds(220)
+    static let todayRestoreStepCount = 3
+    static let todayRestoreMinimumSegmentedDayOffset = 10
 
     static let previewNotebookDefinitions: [(name: String, colorHex: String, iconSystemName: String)] = [
         ("Preview Inbox", "#FFB347", "tray.full.fill"),
@@ -293,11 +301,95 @@ private extension HomeView {
     }
 
     func jumpHomeDate(to date: Date) {
+        cancelDateRestore()
+
         let normalizedDate = HomeReferenceDate.normalized(date)
 
         withAnimation {
             referenceDate = normalizedDate
         }
+    }
+
+    func restoreHomeDateToToday(
+        stepCount requestedStepCount: Int = Self.todayRestoreStepCount,
+        stepDelay: Duration = Self.todayRestoreStepDelay,
+        minimumSegmentedDayOffset: Int = Self.todayRestoreMinimumSegmentedDayOffset
+    ) {
+        dateRestoreTask?.cancel()
+        dateRestoreToken += 1
+        let restoreToken = dateRestoreToken
+
+        let calendar = Calendar.current
+        let targetDate = HomeReferenceDate.normalized(.now, calendar: calendar)
+        let startDate = HomeReferenceDate.normalized(referenceDate, calendar: calendar)
+        let dayOffset = calendar.dateComponents([.day], from: startDate, to: targetDate).day ?? 0
+
+        guard dayOffset != 0 else {
+            referenceDate = targetDate
+            dateRestoreTask = nil
+            return
+        }
+
+        let totalDistance = abs(dayOffset)
+        guard totalDistance >= max(minimumSegmentedDayOffset, 1) else {
+            withAnimation {
+                referenceDate = targetDate
+            }
+            dateRestoreTask = nil
+            return
+        }
+
+        let direction = dayOffset.signum()
+        let stepCount = min(totalDistance, max(requestedStepCount, 1))
+        let stepDates = (1...stepCount).compactMap { stepIndex in
+            let progress = Double(stepIndex) / Double(stepCount)
+            let stepDistance = Int((Double(totalDistance) * progress).rounded()) * direction
+            return calendar.date(byAdding: .day, value: stepDistance, to: startDate)
+        }
+
+        dateRestoreTask = Task { @MainActor in
+            for stepIndex in stepDates.indices {
+                guard restoreToken == dateRestoreToken, !Task.isCancelled else {
+                    return
+                }
+
+                withAnimation {
+                    referenceDate = stepDates[stepIndex]
+                }
+
+                guard stepIndex < stepDates.index(before: stepDates.endIndex) else {
+                    continue
+                }
+
+                do {
+                    try await Task.sleep(for: stepDelay)
+                } catch {
+                    return
+                }
+            }
+
+            guard restoreToken == dateRestoreToken else {
+                return
+            }
+
+            dateRestoreTask = nil
+        }
+    }
+
+    func cancelDateRestore() {
+        dateRestoreTask?.cancel()
+        dateRestoreTask = nil
+        dateRestoreToken += 1
+    }
+
+    var interactiveReferenceDate: Binding<Date> {
+        Binding(
+            get: { referenceDate },
+            set: { newValue in
+                cancelDateRestore()
+                referenceDate = HomeReferenceDate.normalized(newValue)
+            }
+        )
     }
 
     func dismissEventDetail() {
@@ -401,14 +493,14 @@ private extension HomeView {
         switch sheetRoute {
         case .home:
             HomeSheetView(
-                referenceDate: $referenceDate,
+                referenceDate: interactiveReferenceDate,
                 badgeDisplayMode: itemBadgeDisplayMode,
                 onTapFocus: { showFocus() },
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
                 onTapSettings: { showSettings() },
                 onTapToday: {
-                    jumpHomeDate(to: .now)
+                    restoreHomeDateToToday(stepCount: 3, minimumSegmentedDayOffset: 10)
                 },
                 onToggleBadgeDisplayMode: {
                     withAnimation(.bouncy(duration: 0.2)) {
