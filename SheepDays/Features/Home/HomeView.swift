@@ -146,7 +146,7 @@ private extension HomeView {
                         SectionHeaderView(title: title)
                     }
                     else if sections.count > 1 {
-                        SectionHeaderView(title: "")
+                        Color.clear.frame(height: 5)
                     }
 
                     // spacing between items
@@ -161,10 +161,12 @@ private extension HomeView {
                                     jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
                                 }
                             )
-                                .transition(.scale.combined(with: .opacity))
+                            .id(item.id)
+                            .transition(.blurReplace.combined(with: .opacity))
                         }
                     }
                 }
+                .transition(.scale.combined(with: .blurReplace))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -511,14 +513,14 @@ private extension HomeView {
                     }
                 }
             )
-                .transition(.opacity)
+                .transition(.blurReplace)
 
         case .focus:
             FocusSheetView(
                 focusState: $focusState,
                 onBack: { showHomeSheet() }
             )
-            .transition(.opacity)
+            .transition(.blurReplace)
 
         case .quickAdd:
             QuickAddSheetView(
@@ -532,8 +534,7 @@ private extension HomeView {
                 },
                 onRequestSymbolPicker: presentSymbolPicker(_:)
             )
-            .transition(.opacity)
-//            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(.blurReplace)
 
         case .notebooks:
             NotebooksSheetView(
@@ -546,13 +547,14 @@ private extension HomeView {
                     showNotebookDetail(for: notebook)
                 }
             )
-            .transition(.opacity)
+            .transition(.blurReplace)
 
         case .settings:
             SheetPlaceholderPage(
                 title: "Settings",
                 onBack: { showHomeSheet() }
             )
+            .transition(.blurReplace)
 
         case .eventDetail:
             if let selectedEvent {
@@ -562,7 +564,7 @@ private extension HomeView {
                     onEventUpdated: refreshHomeContent,
                     onRequestSymbolPicker: presentSymbolPicker(_:)
                 )
-                .transition(.opacity)
+                .transition(.blurReplace)
             } else {
                 SheetPlaceholderPage(
                     title: "Event",
