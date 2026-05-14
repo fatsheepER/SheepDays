@@ -18,6 +18,7 @@ enum SDSheetActionButtonStyle {
     case secondary
     case prominent
     case destructive
+    case lightTransparent
 }
 
 struct SDSheetActionButton: View {
@@ -89,6 +90,8 @@ private extension SDSheetActionButton {
             return .accentColor
         case .destructive:
             return .red
+        case .lightTransparent:
+            return .white
         }
     }
 
@@ -102,6 +105,8 @@ private extension SDSheetActionButton {
             return .accent.opacity(0.1)
         case .destructive:
             return Color.red.opacity(0.1)
+        case .lightTransparent:
+            return .white.opacity(0.2)
         }
     }
 }
