@@ -60,7 +60,7 @@ struct NotebookSummaryCard: View {
             }
             .padding(.bottom, 5)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 // empty indicator
                 if summary.previewEvents.isEmpty {
                     HStack(spacing: 5) {

@@ -11,6 +11,7 @@ import Foundation
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.haptics) private var haptics
 
     @State private var referenceDate = HomeReferenceDate.normalized(.now)
     @State private var dateRestoreTask: Task<Void, Never>?
@@ -276,6 +277,7 @@ private extension HomeView {
 
     // MARK: - Event Detail Functions
     func openEventDetail(for eventID: UUID) {
+        haptics.play(.openDetailTap)
         withAnimation {
             presentEventDetail(for: eventID)
         }
@@ -310,6 +312,7 @@ private extension HomeView {
 
         let normalizedDate = HomeReferenceDate.normalized(date)
 
+        haptics.play(.selectionStep)
         withAnimation {
             referenceDate = normalizedDate
         }
@@ -338,6 +341,7 @@ private extension HomeView {
         let totalDistance = abs(dayOffset)
         guard totalDistance >= max(minimumSegmentedDayOffset, 1) else {
             withAnimation {
+                haptics.play(.selectionStep)
                 referenceDate = targetDate
             }
             dateRestoreTask = nil
@@ -359,6 +363,7 @@ private extension HomeView {
                 }
 
                 withAnimation {
+                    haptics.play(.selectionStep)
                     referenceDate = stepDates[stepIndex]
                 }
 
@@ -398,6 +403,7 @@ private extension HomeView {
     }
 
     func dismissEventDetail() {
+        haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             sheetRoute = .home
             selectedEvent = nil
@@ -410,6 +416,7 @@ private extension HomeView {
     }
 
     func dismissNotebookEditor() {
+        haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = nil
             isBottomSheetPresented = true
@@ -418,10 +425,12 @@ private extension HomeView {
     }
 
     func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
+        haptics.play(.openDetailTap)
         symbolPickerPresentation = presentation
     }
 
     func dismissSymbolPicker() {
+        haptics.play(.openDetailTap)
         symbolPickerPresentation = nil
     }
 
@@ -508,6 +517,7 @@ private extension HomeView {
                     restoreHomeDateToToday(stepCount: 3, minimumSegmentedDayOffset: 10)
                 },
                 onToggleBadgeDisplayMode: {
+                    haptics.play(.openDetailTap)
                     withAnimation(.bouncy(duration: 0.2)) {
                         itemBadgeDisplayMode.toggle()
                     }
@@ -641,6 +651,7 @@ private extension HomeItemBadgeDisplayMode {
 // MARK: - Routing
 private extension HomeView {
     func showHomeSheet() {
+        // haptics depends on caller
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = false
             selectedEvent = nil
@@ -649,11 +660,13 @@ private extension HomeView {
     }
 
     func showFocus() {
+        haptics.play(.openDetailTap)
         selectedEvent = nil
         sheetRoute = .focus
     }
 
     func showQuickAdd() {
+        haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = true
             selectedEvent = nil
@@ -662,6 +675,7 @@ private extension HomeView {
     }
 
     func showNotebooks() {
+        haptics.play(.openDetailTap)
         withAnimation {
             selectedEvent = nil
             sheetRoute = .notebooks
@@ -674,6 +688,7 @@ private extension HomeView {
     }
 
     func showNotebookCreator() {
+        haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             isBottomSheetPresented = false
             notebookEditorOption = .create
@@ -681,6 +696,7 @@ private extension HomeView {
     }
 
     func showNotebookEditor(for notebook: Notebook) {
+        haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             isBottomSheetPresented = false
             notebookEditorOption = .edit(notebook)

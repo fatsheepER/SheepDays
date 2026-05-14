@@ -18,7 +18,7 @@ struct HomeDisplayItemRow: View {
 
     var body: some View {
         let primaryAction: () -> Void = {
-            openDetailWithFeedback()
+            openDetail()
         }
         let badgeAction: (() -> Void)? = canJumpToEventDate ? {
             jumpToEventDateWithFeedback()
@@ -32,7 +32,7 @@ struct HomeDisplayItemRow: View {
             badgeAction: badgeAction
         )
         .contextMenu(menuItems: {
-            Button(action: openDetailWithoutFeedback) {
+            Button(action: openDetail) {
                 Label("查看详情", systemImage: "info.circle")
             }
 
@@ -47,15 +47,6 @@ struct HomeDisplayItemRow: View {
 private extension HomeDisplayItemRow {
     var canJumpToEventDate: Bool {
         badgeDate != nil
-    }
-
-    func openDetailWithFeedback() {
-        haptics.play(.openDetailTap)
-        openDetail()
-    }
-
-    func openDetailWithoutFeedback() {
-        openDetail()
     }
 
     func jumpToEventDateWithFeedback() {

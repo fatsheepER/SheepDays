@@ -10,6 +10,7 @@ import SwiftData
 
 struct QuickAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.haptics) private var haptics
 
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
@@ -327,6 +328,7 @@ extension QuickAddSheetView {
             return
         }
 
+        haptics.play(.openDetailTap)
         isCancelling = true
         isTitleFieldFocused = false
 
@@ -349,6 +351,7 @@ extension QuickAddSheetView {
             return
         }
 
+        haptics.play(.success)
         isSaving = true
         errorMessage = nil
         isTitleFieldFocused = false

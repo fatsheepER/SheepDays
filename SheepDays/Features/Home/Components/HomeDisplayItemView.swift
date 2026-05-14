@@ -35,7 +35,7 @@ struct HomeDisplayItemView: View {
             Spacer()
             
             badgeView
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .blurReplace))
         }
         .padding(.vertical, 12.5)
 //        .background(
