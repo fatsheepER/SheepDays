@@ -104,14 +104,6 @@ private extension HomeView {
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
 
-            EventDetailOverlayView(
-                event: selectedEvent,
-                onClose: dismissEventDetail,
-                onEventUpdated: refreshHomeContent,
-                onRequestSymbolPicker: presentSymbolPicker(_:)
-            )
-            .zIndex(1)
-
             NotebookEditorOverlayView(
                 option: notebookEditorOption,
                 onClose: dismissNotebookEditor,
@@ -125,7 +117,6 @@ private extension HomeView {
                     .zIndex(3)
             }
         }
-        .animation(.snappy(duration: 0.3), value: selectedEvent != nil)
         .animation(.snappy(duration: 0.3), value: notebookEditorOption != nil)
         .animation(.snappy(duration: 0.3), value: homeSymbolPickerPresentation != nil)
     }
@@ -286,8 +277,8 @@ private extension HomeView {
             var descriptor = FetchDescriptor<Event>(predicate: predicate)
             descriptor.fetchLimit = 1
             if let event = try modelContext.fetch(descriptor).first {
-                isBottomSheetPresented = false
                 selectedEvent = event
+                sheetRoute = .eventDetail
             }
         } catch {
             assertionFailure("Failed to load event detail: \(error.localizedDescription)")
@@ -312,8 +303,8 @@ private extension HomeView {
 
     func dismissEventDetail() {
         withAnimation(.spring(duration: 0.2)) {
+            sheetRoute = .home
             selectedEvent = nil
-            isBottomSheetPresented = true
         }
         refreshHomeContent()
     }
@@ -468,6 +459,23 @@ private extension HomeView {
                 title: "Settings",
                 onBack: { showHomeSheet() }
             )
+
+        case .eventDetail:
+            if let selectedEvent {
+                EventDetailView(
+                    event: selectedEvent,
+                    onClose: dismissEventDetail,
+                    onEventUpdated: refreshHomeContent,
+                    onRequestSymbolPicker: presentSymbolPicker(_:)
+                )
+                .transition(.opacity)
+            } else {
+                SheetPlaceholderPage(
+                    title: "Event",
+                    onBack: { showHomeSheet() }
+                )
+                .transition(.opacity)
+            }
         }
     }
 
@@ -483,6 +491,8 @@ private extension HomeView {
             return .fraction(0.82)
         case .quickAdd:
             return .height(250)
+        case .eventDetail:
+            return .fraction(0.82)
         }
     }
 
@@ -537,28 +547,33 @@ private extension HomeView {
     func showHomeSheet() {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = false
+            selectedEvent = nil
             sheetRoute = .home
         }
     }
 
     func showFocus() {
+        selectedEvent = nil
         sheetRoute = .focus
     }
 
     func showQuickAdd() {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = true
+            selectedEvent = nil
             sheetRoute = .quickAdd
         }
     }
 
     func showNotebooks() {
         withAnimation {
+            selectedEvent = nil
             sheetRoute = .notebooks
         }
     }
 
     func showSettings() {
+        selectedEvent = nil
         sheetRoute = .settings
     }
 
@@ -589,6 +604,7 @@ private enum HomeSheetRoute {
     case quickAdd
     case notebooks
     case settings
+    case eventDetail
 }
 #Preview {
     HomeView()
