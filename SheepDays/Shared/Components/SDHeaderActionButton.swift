@@ -9,25 +9,55 @@ import SwiftUI
 
 struct SDHeaderActionButton: View {
     let iconSystemName: String
+    let foregroundColor: Color
+    let backgroundColor: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: iconSystemName)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color(.secondaryLabel))
+                .foregroundStyle(foregroundColor)
                 .padding(10)
                 .background(
                     Circle()
-                        .fill(Color(.secondarySystemBackground))
+                        .fill(backgroundColor)
                 )
         }
         .buttonStyle(.plain)
     }
+    
+    init(iconSystemName: String, foregroundColor: Color, backgroundColor: Color, action: @escaping () -> Void) {
+        self.iconSystemName = iconSystemName
+        self.foregroundColor = foregroundColor
+        self.backgroundColor = backgroundColor
+        self.action = action
+    }
+    
+    init(iconSystemName: String, action: @escaping () -> Void) {
+        self.iconSystemName = iconSystemName
+        self.foregroundColor = Color(.secondaryLabel)
+        self.backgroundColor = Color(.secondarySystemBackground)
+        self.action = action
+    }
+    
+    init(action: @escaping () -> Void) {
+        self.iconSystemName = "xmark"
+        self.foregroundColor = Color(.secondaryLabel)
+        self.backgroundColor = Color(.secondarySystemBackground)
+        self.action = action
+    }
 }
 
 #Preview {
-    SDHeaderActionButton(iconSystemName: "xmark") {}
-        .padding()
-        .background(Color(.systemBackground))
+    VStack(spacing: 15) {
+        SDHeaderActionButton() {}
+        
+        SDHeaderActionButton(iconSystemName: "checkmark") {}
+        
+        SDHeaderActionButton(iconSystemName: "tag", foregroundColor: .accent, backgroundColor: .accentColorSecondary) {
+            
+        }
+    }
+    .padding()
 }
