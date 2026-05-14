@@ -64,11 +64,11 @@ struct NotebookEditorView: View {
             controls
         }
         .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
-        )
+//        .background(
+//            RoundedRectangle(cornerRadius: 40, style: .continuous)
+//                .fill(Color(.systemBackground))
+//                .shadow(color: .black.opacity(0.2), radius: 30, y: 2)
+//        )
         .alert(
             "操作失败",
             isPresented: Binding(

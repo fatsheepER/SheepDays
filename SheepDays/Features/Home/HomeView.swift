@@ -112,22 +112,7 @@ private extension HomeView {
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
-
-            NotebookEditorOverlayView(
-                option: notebookEditorOption,
-                onClose: dismissNotebookEditor,
-                onNotebookUpdated: refreshHomeContent,
-                onRequestSymbolPicker: presentSymbolPicker(_:)
-            )
-            .zIndex(2)
-
-            if let presentation = homeSymbolPickerPresentation {
-                symbolPickerHost(for: presentation)
-                    .zIndex(3)
-            }
         }
-        .animation(.snappy(duration: 0.3), value: notebookEditorOption != nil)
-        .animation(.snappy(duration: 0.3), value: homeSymbolPickerPresentation != nil)
     }
 
     var sectionList: some View {
@@ -292,6 +277,7 @@ private extension HomeView {
             descriptor.fetchLimit = 1
             if let event = try modelContext.fetch(descriptor).first {
                 selectedEvent = event
+                notebookEditorOption = nil
                 sheetRoute = .eventDetail
             }
         } catch {
@@ -407,6 +393,7 @@ private extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             sheetRoute = .home
             selectedEvent = nil
+            notebookEditorOption = nil
         }
         refreshHomeContent()
     }
@@ -419,7 +406,7 @@ private extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = nil
-            isBottomSheetPresented = true
+            sheetRoute = .notebooks
         }
         refreshHomeContent()
     }
@@ -432,36 +419,6 @@ private extension HomeView {
     func dismissSymbolPicker() {
         haptics.play(.openDetailTap)
         symbolPickerPresentation = nil
-    }
-
-    var homeSymbolPickerPresentation: SymbolPickerPresentation? {
-        isBottomSheetPresented ? nil : symbolPickerPresentation
-    }
-
-    var sheetSymbolPickerPresentation: SymbolPickerPresentation? {
-        isBottomSheetPresented ? symbolPickerPresentation : nil
-    }
-
-    var sheetSymbolPickerBinding: Binding<SymbolPickerPresentation?> {
-        Binding(
-            get: { sheetSymbolPickerPresentation },
-            set: { symbolPickerPresentation = $0 }
-        )
-    }
-
-    @ViewBuilder
-    func symbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
-        SymbolPickerOverlayView(
-            isPresented: true,
-            title: presentation.title,
-            sections: presentation.sections,
-            selectedSystemName: presentation.selectedSystemName,
-            tintColor: presentation.tintColor,
-            presentationDelay: .zero,
-            onSelect: presentation.onSelect,
-            onClose: dismissSymbolPicker
-        )
-        .ignoresSafeArea()
     }
 
     @ViewBuilder
@@ -497,7 +454,7 @@ private extension HomeView {
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
         }
-        .fullScreenCover(item: sheetSymbolPickerBinding) { presentation in
+        .fullScreenCover(item: $symbolPickerPresentation) { presentation in
             sheetSymbolPickerHost(for: presentation)
         }
     }
@@ -559,6 +516,23 @@ private extension HomeView {
             )
             .transition(.blurReplace)
 
+        case .notebookEditor:
+            if let notebookEditorOption {
+                NotebookEditorView(
+                    option: notebookEditorOption,
+                    onClose: dismissNotebookEditor,
+                    onNotebookUpdated: refreshHomeContent,
+                    onRequestSymbolPicker: presentSymbolPicker(_:)
+                )
+                .transition(.blurReplace)
+            } else {
+                SheetPlaceholderPage(
+                    title: "Notebook",
+                    onBack: { showNotebooks() }
+                )
+                .transition(.opacity)
+            }
+
         case .settings:
             SheetPlaceholderPage(
                 title: "Settings",
@@ -595,6 +569,8 @@ private extension HomeView {
             return .height(190)
         case .notebooks:
             return .fraction(0.82)
+        case .notebookEditor:
+            return .height(220)
         case .quickAdd:
             return .height(250)
         case .eventDetail:
@@ -655,6 +631,7 @@ private extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = false
             selectedEvent = nil
+            notebookEditorOption = nil
             sheetRoute = .home
         }
     }
@@ -662,6 +639,7 @@ private extension HomeView {
     func showFocus() {
         haptics.play(.openDetailTap)
         selectedEvent = nil
+        notebookEditorOption = nil
         sheetRoute = .focus
     }
 
@@ -670,6 +648,7 @@ private extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = true
             selectedEvent = nil
+            notebookEditorOption = nil
             sheetRoute = .quickAdd
         }
     }
@@ -678,28 +657,32 @@ private extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation {
             selectedEvent = nil
+            notebookEditorOption = nil
             sheetRoute = .notebooks
         }
     }
 
     func showSettings() {
         selectedEvent = nil
+        notebookEditorOption = nil
         sheetRoute = .settings
     }
 
     func showNotebookCreator() {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
-            isBottomSheetPresented = false
             notebookEditorOption = .create
+            selectedEvent = nil
+            sheetRoute = .notebookEditor
         }
     }
 
     func showNotebookEditor(for notebook: Notebook) {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
-            isBottomSheetPresented = false
             notebookEditorOption = .edit(notebook)
+            selectedEvent = nil
+            sheetRoute = .notebookEditor
         }
     }
 
@@ -715,6 +698,7 @@ private enum HomeSheetRoute {
     case focus
     case quickAdd
     case notebooks
+    case notebookEditor
     case settings
     case eventDetail
 }
