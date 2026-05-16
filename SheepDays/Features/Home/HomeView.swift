@@ -29,6 +29,7 @@ struct HomeView: View {
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
     @State private var symbolPickerPresentation: SymbolPickerPresentation?
+    @State private var tagListPresentation: TagListPresentation?
 
     var body: some View {
         NavigationStack {
@@ -422,6 +423,17 @@ private extension HomeView {
         symbolPickerPresentation = nil
     }
 
+    func presentTagList(_ presentation: TagListPresentation) {
+        haptics.play(.openDetailTap)
+        tagListPresentation = presentation
+    }
+
+    func dismissTagList() {
+        haptics.play(.openDetailTap)
+        tagListPresentation = nil
+        refreshHomeContent()
+    }
+
     @ViewBuilder
     func sheetSymbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
         SymbolPickerOverlayView(
@@ -433,6 +445,18 @@ private extension HomeView {
             presentationDelay: .milliseconds(180),
             onSelect: presentation.onSelect,
             onClose: dismissSymbolPicker
+        )
+        .presentationBackground(.clear)
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    func sheetTagListHost(for presentation: TagListPresentation) -> some View {
+        TagListOverlayView(
+            isPresented: true,
+            mode: presentation.mode,
+            presentationDelay: .milliseconds(180),
+            onClose: dismissTagList
         )
         .presentationBackground(.clear)
         .ignoresSafeArea()
@@ -457,6 +481,9 @@ private extension HomeView {
         }
         .fullScreenCover(item: $symbolPickerPresentation) { presentation in
             sheetSymbolPickerHost(for: presentation)
+        }
+        .fullScreenCover(item: $tagListPresentation) { presentation in
+            sheetTagListHost(for: presentation)
         }
     }
 
@@ -503,7 +530,8 @@ private extension HomeView {
                 onCancel: {
                     showHomeSheet()
                 },
-                onRequestSymbolPicker: presentSymbolPicker(_:)
+                onRequestSymbolPicker: presentSymbolPicker(_:),
+                onRequestTagList: presentTagList(_:)
             )
             .transition(.blurReplace)
 
@@ -553,7 +581,8 @@ private extension HomeView {
                     event: selectedEvent,
                     onClose: dismissEventDetail,
                     onEventUpdated: refreshHomeContent,
-                    onRequestSymbolPicker: presentSymbolPicker(_:)
+                    onRequestSymbolPicker: presentSymbolPicker(_:),
+                    onRequestTagList: presentTagList(_:)
                 )
                 .transition(.blurReplace)
             } else {

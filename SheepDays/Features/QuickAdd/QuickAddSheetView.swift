@@ -21,10 +21,19 @@ struct QuickAddSheetView: View {
     )
     private var notebooks: [Notebook]
 
+    @Query(
+        sort: [
+            SortDescriptor(\Tag.name),
+            SortDescriptor(\Tag.createdAt)
+        ]
+    )
+    private var allTags: [Tag]
+
     @State private var iconSystemName = "figure.roll.runningpace"
     @State private var title = ""
     @State private var date = Calendar.current.startOfDay(for: .now)
     @State private var selectedNotebook: Notebook?
+    @State private var selectedTagIDs: Set<UUID> = []
     @State private var showOnHome = true
     @State private var pinToTop = false
 
@@ -44,6 +53,7 @@ struct QuickAddSheetView: View {
     var onCreate: (Event) -> Void = { _ in }
     var onCancel: () -> Void = {}
     var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
+    var onRequestTagList: (TagListPresentation) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -212,6 +222,12 @@ private extension QuickAddSheetView {
 
             Spacer()
 
+            Button(action: presentTagList) {
+                tagSelectionIcon
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 10)
+
             Image(systemName: showOnHome ? "star.fill" : "star")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .onTapGesture {
@@ -254,6 +270,28 @@ private extension QuickAddSheetView {
             .buttonStyle(.plain)
             .disabled(!canSubmit)
             .opacity(canSubmit ? 1 : 0.6)
+        }
+    }
+
+    var tagSelectionIcon: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: selectedTagIDs.isEmpty ? "tag" : "tag.fill")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(selectedTagIDs.isEmpty ? Color(.secondaryLabel) : Color.accentColor)
+                .frame(width: 18, height: 18)
+
+            if !selectedTagIDs.isEmpty {
+                Text("\(selectedTagIDs.count)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color(.systemBackground))
+                    )
+                    .offset(x: 9, y: 10)
+            }
         }
     }
 }
@@ -385,6 +423,7 @@ extension QuickAddSheetView {
         title = ""
         date = Calendar.current.startOfDay(for: .now)
         selectedNotebook = notebooks.first
+        selectedTagIDs = []
         showOnHome = true
         pinToTop = false
         errorMessage = nil
@@ -471,8 +510,13 @@ private extension QuickAddSheetView {
             iconSystemName: sanitizedIconSystemName,
             showOnHome: showOnHome,
             pinToTop: pinToTop,
-            notebook: selectedNotebook
+            notebook: selectedNotebook,
+            tags: selectedTags
         )
+    }
+
+    var selectedTags: [Tag] {
+        allTags.filter { selectedTagIDs.contains($0.id) }
     }
 
     func syncSelectedNotebookIfNeeded() {
@@ -534,6 +578,22 @@ private extension QuickAddSheetView {
     func applySymbolSelection(_ systemName: String?) {
         iconSystemName = systemName ?? ""
     }
+
+    func presentTagList() {
+        isTitleFieldFocused = false
+        onRequestTagList(
+            TagListPresentation(
+                mode: .selection(
+                    selectedTagIDs: selectedTagIDs,
+                    onSelectionChange: applyTagSelection(_:)
+                )
+            )
+        )
+    }
+
+    func applyTagSelection(_ selectedTagIDs: Set<UUID>) {
+        self.selectedTagIDs = selectedTagIDs
+    }
 }
 
 #Preview {
@@ -553,6 +613,12 @@ private let quickAddPreviewContainer: ModelContainer = {
     ]
 
     notebooks.forEach(context.insert)
+
+    [
+        Tag(name: "健康"),
+        Tag(name: "暑假计划"),
+        Tag(name: "课程项目")
+    ].forEach(context.insert)
 
     return container
 }()

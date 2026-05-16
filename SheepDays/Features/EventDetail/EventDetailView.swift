@@ -30,16 +30,13 @@ struct EventDetailView: View {
     )
     private var allTags: [Tag]
 
-    @State private var tagNameDraft = ""
-    @State private var selectedTagForEditing: Tag?
-    @State private var isManagingTag = false
-    @State private var isCreatingTag = false
     @State private var errorMessage: String?
     @State private var pendingManagementAction: PendingManagementAction?
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
     var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
+    var onRequestTagList: (TagListPresentation) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -79,34 +76,6 @@ struct EventDetailView: View {
             }
         } message: {
             Text(errorMessage ?? "未知错误")
-        }
-        .alert("新建标签", isPresented: $isCreatingTag) {
-            TextField("标签名称", text: $tagNameDraft)
-            Button("添加", action: createTagFromDraft)
-            Button("取消", role: .cancel) {
-                tagNameDraft = ""
-            }
-        } message: {
-            Text("输入新的标签名称。")
-        }
-        .alert(
-            selectedTagForEditing?.name ?? "管理标签",
-            isPresented: $isManagingTag,
-            presenting: selectedTagForEditing
-        ) { tag in
-            TextField("标签名称", text: $tagNameDraft)
-            Button("重命名") {
-                renameTag(tag, to: tagNameDraft)
-            }
-            Button("删除", role: .destructive) {
-                removeTag(tag)
-            }
-            Button("取消", role: .cancel) {
-                selectedTagForEditing = nil
-                tagNameDraft = ""
-            }
-        } message: { _ in
-            Text("你可以重命名这个标签，或者将它从当前事件移除。")
         }
         .alert(
             pendingManagementAction?.title ?? "管理事件",
@@ -182,9 +151,7 @@ private extension EventDetailView {
 
                     ForEach(event.tags.sorted(by: { $0.name.localizedCompare($1.name) == .orderedAscending })) { tag in
                         Button {
-                            selectedTagForEditing = tag
-                            tagNameDraft = tag.name
-                            isManagingTag = true
+                            presentTagList()
                         } label: {
                             SDTagBadge(tag: tag)
                         }
@@ -192,8 +159,7 @@ private extension EventDetailView {
                     }
 
                     Button {
-                        tagNameDraft = ""
-                        isCreatingTag = true
+                        presentTagList()
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -359,10 +325,6 @@ private extension EventDetailView {
         event.title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    var trimmedTagNameDraft: String {
-        tagNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     var importanceLevelText: String {
         "\(event.importanceLevel)/5"
     }
@@ -520,56 +482,24 @@ private extension EventDetailView {
         )
     }
 
-    func createTagFromDraft() {
-        guard !trimmedTagNameDraft.isEmpty else {
-            return
-        }
-
-        if let existingTag = allTags.first(where: { $0.normalizedName == trimmedTagNameDraft.lowercased() }) {
-            addTag(existingTag)
-            tagNameDraft = ""
-            return
-        }
-
-        let tag = Tag(name: trimmedTagNameDraft)
-        modelContext.insert(tag)
-        event.tags.append(tag)
-        tagNameDraft = ""
-        persistChanges()
+    func presentTagList() {
+        onRequestTagList(
+            TagListPresentation(
+                mode: .selection(
+                    selectedTagIDs: Set(event.tags.map(\.id)),
+                    onSelectionChange: applyTagSelection(_:)
+                )
+            )
+        )
     }
 
-    func renameTag(_ tag: Tag, to newName: String) {
-        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else {
+    func applyTagSelection(_ selectedTagIDs: Set<UUID>) {
+        let currentTagIDs = Set(event.tags.map(\.id))
+        guard currentTagIDs != selectedTagIDs else {
             return
         }
 
-        if let existingTag = allTags.first(where: { $0.id != tag.id && $0.normalizedName == trimmedName.lowercased() }) {
-            errorMessage = "已存在同名标签“\(existingTag.name)”"
-            return
-        }
-
-        tag.name = trimmedName
-        tag.normalizedName = trimmedName.lowercased()
-        tag.updatedAt = .now
-        selectedTagForEditing = nil
-        tagNameDraft = ""
-        persistChanges()
-    }
-
-    func addTag(_ tag: Tag) {
-        guard !event.tags.contains(where: { $0.id == tag.id }) else {
-            return
-        }
-
-        event.tags.append(tag)
-        persistChanges()
-    }
-
-    func removeTag(_ tag: Tag) {
-        event.tags.removeAll(where: { $0.id == tag.id })
-        selectedTagForEditing = nil
-        tagNameDraft = ""
+        event.tags = allTags.filter { selectedTagIDs.contains($0.id) }
         persistChanges()
     }
 
@@ -646,6 +576,7 @@ private struct EventDetailSheetPreviewHost: View {
     @State private var isBottomSheetPresented = true
     @State private var selectedSheetDetent: PresentationDetent = .fraction(0.82)
     @State private var symbolPickerPresentation: SymbolPickerPresentation?
+    @State private var tagListPresentation: TagListPresentation?
 
     let event: Event
 
@@ -682,6 +613,9 @@ private struct EventDetailSheetPreviewHost: View {
                 onClose: {},
                 onRequestSymbolPicker: { presentation in
                     symbolPickerPresentation = presentation
+                },
+                onRequestTagList: { presentation in
+                    tagListPresentation = presentation
                 }
             )
             .transition(.opacity)
@@ -694,6 +628,9 @@ private struct EventDetailSheetPreviewHost: View {
         .padding(15)
         .fullScreenCover(item: $symbolPickerPresentation) { presentation in
             sheetSymbolPickerHost(for: presentation)
+        }
+        .fullScreenCover(item: $tagListPresentation) { presentation in
+            sheetTagListHost(for: presentation)
         }
     }
 
@@ -708,6 +645,19 @@ private struct EventDetailSheetPreviewHost: View {
             onSelect: presentation.onSelect,
             onClose: {
                 symbolPickerPresentation = nil
+            }
+        )
+        .presentationBackground(.clear)
+        .ignoresSafeArea()
+    }
+
+    private func sheetTagListHost(for presentation: TagListPresentation) -> some View {
+        TagListOverlayView(
+            isPresented: true,
+            mode: presentation.mode,
+            presentationDelay: .milliseconds(180),
+            onClose: {
+                tagListPresentation = nil
             }
         )
         .presentationBackground(.clear)
