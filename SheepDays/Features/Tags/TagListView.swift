@@ -8,19 +8,6 @@
 import SwiftUI
 import SwiftData
 
-enum TagListMode {
-    case management
-    case selection(selectedTagIDs: Set<UUID>, onSelectionChange: (Set<UUID>) -> Void)
-
-    var initialSelectedTagIDs: Set<UUID> {
-        switch self {
-        case .management:
-            return []
-        case .selection(let selectedTagIDs, _):
-            return selectedTagIDs
-        }
-    }
-}
 
 struct TagListView: View {
     @Environment(\.modelContext) private var modelContext

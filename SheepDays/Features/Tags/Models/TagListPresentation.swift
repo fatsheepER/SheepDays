@@ -2,10 +2,10 @@
 //  TagListPresentation.swift
 //  SheepDays
 //
-//  Created by Codex on 2026/5/15.
+//  Created by 王飞扬 on 2026/5/15.
 //
 
-import Foundation
+import SwiftUI
 
 struct TagListPresentation: Identifiable {
     let id = UUID()
