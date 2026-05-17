@@ -9,8 +9,18 @@ import SwiftUI
 import SwiftData
 
 struct RootView: View {
+    @Environment(\.haptics) private var haptics
+    @StateObject private var overlayCoordinator = AppOverlayCoordinator()
+
     var body: some View {
         HomeView()
+            .environment(\.appOverlayCoordinator, overlayCoordinator)
+            .background(
+                AppOverlayWindowPresenter(
+                    coordinator: overlayCoordinator,
+                    haptics: haptics
+                )
+            )
     }
 }
 

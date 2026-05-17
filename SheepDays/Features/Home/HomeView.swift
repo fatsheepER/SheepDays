@@ -12,6 +12,7 @@ import Foundation
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.haptics) private var haptics
+    @Environment(\.appOverlayCoordinator) private var overlayCoordinator
 
     @State private var referenceDate = HomeReferenceDate.normalized(.now)
     @State private var dateRestoreTask: Task<Void, Never>?
@@ -28,8 +29,6 @@ struct HomeView: View {
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
-    @State private var symbolPickerPresentation: SymbolPickerPresentation?
-    @State private var tagListPresentation: TagListPresentation?
 
     var body: some View {
         NavigationStack {
@@ -415,51 +414,31 @@ private extension HomeView {
 
     func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
         haptics.play(.openDetailTap)
-        symbolPickerPresentation = presentation
-    }
-
-    func dismissSymbolPicker() {
-        haptics.play(.openDetailTap)
-        symbolPickerPresentation = nil
+        overlayCoordinator.present(
+            .symbolPicker(
+                presentation: presentation,
+                onDismiss: handleSymbolPickerDismissed
+            )
+        )
     }
 
     func presentTagList(_ presentation: TagListPresentation) {
         haptics.play(.openDetailTap)
-        tagListPresentation = presentation
+        overlayCoordinator.present(
+            .tagList(
+                presentation: presentation,
+                onDismiss: handleTagListDismissed
+            )
+        )
     }
 
-    func dismissTagList() {
+    func handleSymbolPickerDismissed() {
         haptics.play(.openDetailTap)
-        tagListPresentation = nil
+    }
+
+    func handleTagListDismissed() {
+        haptics.play(.openDetailTap)
         refreshHomeContent()
-    }
-
-    @ViewBuilder
-    func sheetSymbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
-        SymbolPickerOverlayView(
-            isPresented: true,
-            title: presentation.title,
-            sections: presentation.sections,
-            selectedSystemName: presentation.selectedSystemName,
-            tintColor: presentation.tintColor,
-            presentationDelay: .milliseconds(180),
-            onSelect: presentation.onSelect,
-            onClose: dismissSymbolPicker
-        )
-        .presentationBackground(.clear)
-        .ignoresSafeArea()
-    }
-
-    @ViewBuilder
-    func sheetTagListHost(for presentation: TagListPresentation) -> some View {
-        TagListOverlayView(
-            isPresented: true,
-            mode: presentation.mode,
-            presentationDelay: .milliseconds(180),
-            onClose: dismissTagList
-        )
-        .presentationBackground(.clear)
-        .ignoresSafeArea()
     }
 }
 
@@ -478,12 +457,6 @@ private extension HomeView {
         .animation(.snappy(duration: 0.25), value: sheetRoute)
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
-        }
-        .fullScreenCover(item: $symbolPickerPresentation) { presentation in
-            sheetSymbolPickerHost(for: presentation)
-        }
-        .fullScreenCover(item: $tagListPresentation) { presentation in
-            sheetTagListHost(for: presentation)
         }
     }
 
@@ -740,5 +713,6 @@ private enum HomeSheetRoute {
 }
 #Preview {
     HomeView()
+        .environment(\.appOverlayCoordinator, AppOverlayCoordinator())
         .modelContainer(for: [Event.self, Notebook.self, Tag.self], inMemory: true)
 }

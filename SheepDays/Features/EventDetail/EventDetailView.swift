@@ -573,10 +573,10 @@ private extension EventDetailView {
 }
 
 private struct EventDetailSheetPreviewHost: View {
+    @Environment(\.haptics) private var haptics
+    @StateObject private var overlayCoordinator = AppOverlayCoordinator()
     @State private var isBottomSheetPresented = true
     @State private var selectedSheetDetent: PresentationDetent = .fraction(0.82)
-    @State private var symbolPickerPresentation: SymbolPickerPresentation?
-    @State private var tagListPresentation: TagListPresentation?
 
     let event: Event
 
@@ -599,6 +599,14 @@ private struct EventDetailSheetPreviewHost: View {
                         .ignoresSafeArea()
                 }
         }
+        .environment(\.appOverlayCoordinator, overlayCoordinator)
+        .background(
+            AppOverlayWindowPresenter(
+                coordinator: overlayCoordinator,
+                haptics: haptics,
+                modelContainer: eventDetailPreviewContainer
+            )
+        )
     }
 
     private var previewHomeContent: some View {
@@ -611,12 +619,8 @@ private struct EventDetailSheetPreviewHost: View {
             EventDetailView(
                 event: event,
                 onClose: {},
-                onRequestSymbolPicker: { presentation in
-                    symbolPickerPresentation = presentation
-                },
-                onRequestTagList: { presentation in
-                    tagListPresentation = presentation
-                }
+                onRequestSymbolPicker: presentSymbolPicker(_:),
+                onRequestTagList: presentTagList(_:)
             )
             .transition(.opacity)
         }
@@ -626,42 +630,24 @@ private struct EventDetailSheetPreviewHost: View {
         .presentationBackgroundInteraction(.enabled)
         .interactiveDismissDisabled()
         .padding(15)
-        .fullScreenCover(item: $symbolPickerPresentation) { presentation in
-            sheetSymbolPickerHost(for: presentation)
-        }
-        .fullScreenCover(item: $tagListPresentation) { presentation in
-            sheetTagListHost(for: presentation)
-        }
     }
 
-    private func sheetSymbolPickerHost(for presentation: SymbolPickerPresentation) -> some View {
-        SymbolPickerOverlayView(
-            isPresented: true,
-            title: presentation.title,
-            sections: presentation.sections,
-            selectedSystemName: presentation.selectedSystemName,
-            tintColor: presentation.tintColor,
-            presentationDelay: .milliseconds(180),
-            onSelect: presentation.onSelect,
-            onClose: {
-                symbolPickerPresentation = nil
-            }
+    private func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
+        overlayCoordinator.present(
+            .symbolPicker(
+                presentation: presentation,
+                onDismiss: {}
+            )
         )
-        .presentationBackground(.clear)
-        .ignoresSafeArea()
     }
 
-    private func sheetTagListHost(for presentation: TagListPresentation) -> some View {
-        TagListOverlayView(
-            isPresented: true,
-            mode: presentation.mode,
-            presentationDelay: .milliseconds(180),
-            onClose: {
-                tagListPresentation = nil
-            }
+    private func presentTagList(_ presentation: TagListPresentation) {
+        overlayCoordinator.present(
+            .tagList(
+                presentation: presentation,
+                onDismiss: {}
+            )
         )
-        .presentationBackground(.clear)
-        .ignoresSafeArea()
     }
 }
 
