@@ -579,7 +579,7 @@ private extension HomeView {
         case .notebooks:
             return .fraction(0.82)
         case .notebookEditor:
-            return .height(200)
+            return .height(190)
         case .quickAdd:
             return .height(240)
         case .eventDetail:

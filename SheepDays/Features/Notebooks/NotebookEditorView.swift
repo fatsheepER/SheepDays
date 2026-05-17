@@ -23,6 +23,7 @@ struct NotebookEditorView: View {
     @State private var colorHexDraft: String
     @State private var isEditingColorHex = false
     @State private var errorMessage: String?
+    @FocusState private var isNameFieldFocused: Bool
 
     var onClose: () -> Void = {}
     var onNotebookUpdated: () -> Void = {}
@@ -54,11 +55,18 @@ struct NotebookEditorView: View {
     var body: some View {
         VStack(spacing: 5) {
             header
-//                .padding(.top, 10)
-            Spacer(minLength: 0)
+            if !isNameFieldFocused {
+                Spacer(minLength: 0)
+            }
             contentSection
-            Spacer(minLength: 0)
+                .padding(.vertical)
+            if !isNameFieldFocused {
+                Spacer(minLength: 0)
+            }
             controls
+            if isNameFieldFocused {
+                Spacer(minLength: 0)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .alert(
@@ -133,6 +141,7 @@ private extension NotebookEditorView {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .focused($isNameFieldFocused)
                 .background(
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .foregroundStyle(.white.opacity(0.3))
