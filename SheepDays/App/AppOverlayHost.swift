@@ -34,6 +34,7 @@ private extension AppOverlayHost {
                 sections: symbolPickerPresentation.sections,
                 selectedSystemName: symbolPickerPresentation.selectedSystemName,
                 tintColor: symbolPickerPresentation.tintColor,
+                recentSymbolLimit: symbolPickerPresentation.recentSymbolLimit,
                 presentationDelay: .zero,
                 onSelect: symbolPickerPresentation.onSelect,
                 onClose: {

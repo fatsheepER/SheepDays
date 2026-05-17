@@ -13,6 +13,7 @@ struct SymbolPickerOverlayView: View {
     let sections: [SFSymbolSection]
     let selectedSystemName: String?
     let tintColor: Color
+    let recentSymbolLimit: Int
     let presentationDelay: Duration
     let onSelect: (String?) -> Void
     let onClose: () -> Void
@@ -37,6 +38,7 @@ struct SymbolPickerOverlayView: View {
                     sections: sections,
                     selectedSystemName: selectedSystemName,
                     tintColor: tintColor,
+                    recentSymbolLimit: recentSymbolLimit,
                     onSelect: onSelect,
                     onClose: requestClose
                 )
@@ -147,6 +149,7 @@ private extension SymbolPickerOverlayView {
             sections: SFSymbolLibrary.generalSections,
             selectedSystemName: "book.closed.fill",
             tintColor: .orange,
+            recentSymbolLimit: SymbolPickerPresentation.defaultRecentSymbolLimit,
             presentationDelay: .zero,
             onSelect: { _ in },
             onClose: {}

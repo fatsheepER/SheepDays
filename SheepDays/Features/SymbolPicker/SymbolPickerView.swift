@@ -12,16 +12,22 @@ struct SymbolPickerView: View {
     let sections: [SFSymbolSection]
     let selectedSystemName: String?
     let tintColor: Color
+    let recentSymbolLimit: Int
     let onSelect: (String?) -> Void
     let onClose: () -> Void
     
     @State private var stagedSystemName: String?
+    @State private var recentSystemNames: [String]
+
+    private let recentSymbolStore: RecentSFSymbolStore
 
     init(
         title: String,
         sections: [SFSymbolSection],
         selectedSystemName: String?,
         tintColor: Color,
+        recentSymbolLimit: Int = SymbolPickerPresentation.defaultRecentSymbolLimit,
+        recentSymbolStore: RecentSFSymbolStore = .shared,
         onSelect: @escaping (String?) -> Void,
         onClose: @escaping () -> Void
     ) {
@@ -29,9 +35,12 @@ struct SymbolPickerView: View {
         self.sections = sections
         self.selectedSystemName = selectedSystemName
         self.tintColor = tintColor
+        self.recentSymbolLimit = recentSymbolLimit
+        self.recentSymbolStore = recentSymbolStore
         self.onSelect = onSelect
         self.onClose = onClose
         _stagedSystemName = State(initialValue: selectedSystemName)
+        _recentSystemNames = State(initialValue: recentSymbolStore.load(limit: recentSymbolLimit))
     }
 
     var body: some View {
@@ -44,7 +53,7 @@ struct SymbolPickerView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
-                    ForEach(sections) { section in
+                    ForEach(displaySections) { section in
                         SymbolPickerSectionView(
                             section: section,
                             selectedSystemName: stagedSystemName,
@@ -57,6 +66,7 @@ struct SymbolPickerView: View {
         }
         .onAppear {
             stagedSystemName = selectedSystemName
+            recentSystemNames = recentSymbolStore.load(limit: recentSymbolLimit)
         }
         .padding(.horizontal, 25)
         .padding(.vertical, 20)
@@ -90,8 +100,43 @@ struct SymbolPickerView: View {
         }
     }
 
+    private var displaySections: [SFSymbolSection] {
+        guard let recentSection else {
+            return sections
+        }
+
+        return [recentSection] + sections
+    }
+
+    private var recentSection: SFSymbolSection? {
+        guard recentSymbolLimit > 0 else {
+            return nil
+        }
+
+        let recentSymbols = recentSystemNames
+            .compactMap { symbolChoice(for: $0) }
+            .prefix(recentSymbolLimit)
+
+        guard !recentSymbols.isEmpty else {
+            return nil
+        }
+
+        return SFSymbolSection(title: "最近使用", symbols: Array(recentSymbols))
+    }
+
+    private func symbolChoice(for systemName: String) -> SFSymbolChoice? {
+        for section in sections {
+            if let symbol = section.symbols.first(where: { $0.systemName == systemName }) {
+                return symbol
+            }
+        }
+
+        return nil
+    }
+
     private func handleSelect(_ systemName: String) {
         stagedSystemName = systemName
+        recentSystemNames = recentSymbolStore.record(systemName, limit: recentSymbolLimit)
         onSelect(systemName)
     }
 }
@@ -102,6 +147,7 @@ struct SymbolPickerView: View {
         sections: SFSymbolLibrary.generalSections,
         selectedSystemName: "calendar.badge.clock",
         tintColor: .orange,
+        recentSymbolLimit: SymbolPickerPresentation.defaultRecentSymbolLimit,
         onSelect: { _ in },
         onClose: {}
     )
