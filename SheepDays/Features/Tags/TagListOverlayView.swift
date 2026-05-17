@@ -2,7 +2,7 @@
 //  TagListOverlayView.swift
 //  SheepDays
 //
-//  Created by Codex on 2026/5/15.
+//  Created by 王飞扬 on 2026/5/15.
 //
 
 import SwiftUI
@@ -33,7 +33,7 @@ struct TagListOverlayView: View {
                     .padding(.horizontal, 40)
                     .padding(.vertical, 50)
                     .frame(maxHeight: 600)
-                    .transition(.move(edge: .bottom))
+                    .transition(.move(edge: .bottom).combined(with: .blurReplace))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

@@ -53,6 +53,7 @@ struct TagListView: View {
             Spacer()
 
             controls
+                .frame(height: 40)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
