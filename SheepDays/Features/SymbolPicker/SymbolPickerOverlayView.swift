@@ -45,7 +45,7 @@ struct SymbolPickerOverlayView: View {
                 .padding(.horizontal, 40)
                 .padding(.vertical, 50)
                 .frame(maxHeight: 600)
-                .transition(.move(edge: .bottom))
+                .transition(.move(edge: .bottom).combined(with: .blurReplace))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

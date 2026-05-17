@@ -61,6 +61,7 @@ struct SymbolPickerView: View {
                             onSelect: handleSelect
                         )
                     }
+                    .padding(.horizontal, 2) // to avoid covered stroke
                 }
             }
         }
@@ -68,7 +69,7 @@ struct SymbolPickerView: View {
             stagedSystemName = selectedSystemName
             recentSystemNames = recentSymbolStore.load(limit: recentSymbolLimit)
         }
-        .padding(.horizontal, 25)
+        .padding(.horizontal, 23)
         .padding(.vertical, 20)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
@@ -94,10 +95,12 @@ struct SymbolPickerView: View {
                     .font(.system(size: 40, weight: .semibold, design: .rounded))
                     .foregroundStyle(tintColor)
                     .frame(width: 60, height: 50)
+                    .contentTransition(.symbolEffect)
                 
                 Spacer()
             }
         }
+        .animation(.bouncy(duration: 0.1), value: stagedSystemName)
     }
 
     private var displaySections: [SFSymbolSection] {

@@ -32,6 +32,7 @@ struct SymbolPickerSectionView: View {
                     ) {
                         onSelect(symbol.systemName)
                     }
+                    .transition(.scale) // this is to remove animation when symbol swapping position
                 }
             }
         }

@@ -17,8 +17,8 @@ struct SymbolPickerGridItem: View {
         Button(action: action) {
             VStack() {
                 Image(systemName: choice.systemName)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .frame(width: 28, height: 28)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .frame(width: 30, height: 30)
                     .foregroundStyle(isSelected ? tintColor : .secondary)
             }
             .frame(maxWidth: .infinity)
@@ -28,9 +28,10 @@ struct SymbolPickerGridItem: View {
         }
         .buttonStyle(.plain)
     }
+    
     @ViewBuilder
     private var selectionOutline: some View {
-        Capsule(style: .continuous)
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
             .stroke(isSelected ? tintColor.opacity(0.3) : Color(.separator).opacity(0), lineWidth: 2)
     }
 }
