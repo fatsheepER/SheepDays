@@ -380,6 +380,7 @@ private extension NotebookEditorView {
     }
 
     func presentSymbolPicker() {
+        isNameFieldFocused = false
         onRequestSymbolPicker(
             SymbolPickerPresentation(
                 title: "选择事件本图标",

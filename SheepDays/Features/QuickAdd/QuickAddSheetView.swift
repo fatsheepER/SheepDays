@@ -564,6 +564,7 @@ private extension QuickAddSheetView {
     }
 
     func presentSymbolPicker() {
+        isTitleFieldFocused = false
         onRequestSymbolPicker(
             SymbolPickerPresentation(
                 title: "选择事件图标",
