@@ -53,13 +53,26 @@ struct SymbolPickerView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
-                    ForEach(displaySections) { section in
-                        SymbolPickerSectionView(
-                            section: section,
-                            selectedSystemName: stagedSystemName,
-                            tintColor: tintColor,
-                            onSelect: handleSelect
-                        )
+                    Group {
+                        if recentSymbolLimit > 0 {
+                            SymbolPickerSectionView(
+                                section: recentSection,
+                                selectedSystemName: stagedSystemName,
+                                tintColor: tintColor,
+                                placeholderCount: recentPlaceholderCount,
+                                onSelect: handleSelect
+                            )
+                        }
+
+                        ForEach(sections) { section in
+                            SymbolPickerSectionView(
+                                section: section,
+                                selectedSystemName: stagedSystemName,
+                                tintColor: tintColor,
+                                placeholderCount: 0,
+                                onSelect: handleSelect
+                            )
+                        }
                     }
                     .padding(.horizontal, 2) // to avoid covered stroke
                 }
@@ -103,28 +116,20 @@ struct SymbolPickerView: View {
         .animation(.bouncy(duration: 0.1), value: stagedSystemName)
     }
 
-    private var displaySections: [SFSymbolSection] {
-        guard let recentSection else {
-            return sections
-        }
-
-        return [recentSection] + sections
+    private var recentSection: SFSymbolSection {
+        SFSymbolSection(title: "最近使用", symbols: recentSymbols)
     }
 
-    private var recentSection: SFSymbolSection? {
-        guard recentSymbolLimit > 0 else {
-            return nil
-        }
-
+    private var recentSymbols: [SFSymbolChoice] {
         let recentSymbols = recentSystemNames
             .compactMap { symbolChoice(for: $0) }
             .prefix(recentSymbolLimit)
 
-        guard !recentSymbols.isEmpty else {
-            return nil
-        }
+        return Array(recentSymbols)
+    }
 
-        return SFSymbolSection(title: "最近使用", symbols: Array(recentSymbols))
+    private var recentPlaceholderCount: Int {
+        max(0, recentSymbolLimit - recentSymbols.count)
     }
 
     private func symbolChoice(for systemName: String) -> SFSymbolChoice? {

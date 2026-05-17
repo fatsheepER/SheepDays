@@ -11,6 +11,7 @@ struct SymbolPickerSectionView: View {
     let section: SFSymbolSection
     let selectedSystemName: String?
     let tintColor: Color
+    let placeholderCount: Int
     let onSelect: (String) -> Void
 
     private let columns = [
@@ -33,6 +34,13 @@ struct SymbolPickerSectionView: View {
                         onSelect(symbol.systemName)
                     }
                     .transition(.scale) // this is to remove animation when symbol swapping position
+                }
+
+                ForEach(0..<max(0, placeholderCount), id: \.self) { _ in
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .padding(.horizontal, 4)
                 }
             }
         }
