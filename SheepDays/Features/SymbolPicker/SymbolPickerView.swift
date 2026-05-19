@@ -89,6 +89,10 @@ struct SymbolPickerView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.18), radius: 28, y: 3)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 40, style: .continuous)
+                .stroke(Color(.separator), lineWidth: 2)
+        }
     }
 
     private var header: some View {

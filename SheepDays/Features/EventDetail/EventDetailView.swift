@@ -53,13 +53,16 @@ struct EventDetailView: View {
                 .padding(.top, 24)
                 .padding(.horizontal, 5)
             }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .foregroundStyle(Color(.quaternarySystemFill))
+            )
             
             controls
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(10)
-        .background(            SDRoundedBackground(topLeading: 35, topTrailing: 35, bottomLeading: 40, bottomTrailing: 40, cornerStyle: .continuous, color: Color(.systemBackground))
-        )
+        
         .alert(
             "操作失败",
             isPresented: Binding(
@@ -167,7 +170,7 @@ private extension EventDetailView {
                             .padding(10)
                             .background(
                                 Capsule()
-                                    .foregroundStyle(Color(.quaternarySystemFill))
+                                    .foregroundStyle(Color(.tertiarySystemFill))
                             )
                     }
                     .buttonStyle(.plain)
@@ -186,7 +189,7 @@ private extension EventDetailView {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
+                        .fill(Color(.tertiarySystemFill))
                 )
         }
     }
@@ -253,7 +256,7 @@ private extension EventDetailView {
                             .foregroundStyle(
                                 event.importanceLevel >= level
                                 ? eventAccentColor
-                                : Color(.tertiaryLabel)
+                                : Color(.tertiarySystemFill)
                             )
                     }
                     .buttonStyle(.plain)

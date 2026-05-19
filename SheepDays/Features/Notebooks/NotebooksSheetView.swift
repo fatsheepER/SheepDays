@@ -31,7 +31,7 @@ struct NotebooksSheetView: View {
     private let previewEventLimit = 3
 
     var body: some View {
-        VStack(spacing: 15) {
+        VStack(spacing: 5) {
             header
 
             content
@@ -151,6 +151,8 @@ private extension NotebooksSheetView {
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 15) {
+                    Color.clear.frame(height: 10)
+                    
                     if activeNotebookSummaries.isEmpty {
                         emptyStateCard
                     } else {

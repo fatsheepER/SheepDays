@@ -59,7 +59,11 @@ struct TagListView: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
-                .fill(Color(hex: "272D34") ?? Color(.secondarySystemBackground))
+                .fill(Color(hex: "272D34")!)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 40, style: .continuous)
+                        .stroke(Color(.separator), lineWidth: 2)
+                }
         )
         .foregroundStyle(.white)
         .onAppear(perform: syncDraftsIfNeeded)
