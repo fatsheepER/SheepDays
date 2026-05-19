@@ -38,7 +38,7 @@ struct CapsuleRollerView: View {
                     ForEach(0..<(centerIndex * 2), id: \.self) { index in
                         Capsule()
                             .frame(width: lineWidth, height: lineHeight)
-                            .foregroundStyle(.gray.secondary)
+                            .foregroundStyle(Color(.secondarySystemFill))
                             .id(index)
                             .scrollTransition { content, phase in
                                 content

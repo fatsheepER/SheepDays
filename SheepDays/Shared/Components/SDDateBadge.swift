@@ -18,12 +18,12 @@ struct SDDateBadge: View {
                 .contentTransition(.numericText())
         }
         .font(.system(size: 15, weight: .semibold, design: .rounded))
-        .foregroundStyle(Color(.secondaryLabel))
+        .foregroundStyle(Color(.tertiaryLabel))
         .padding(.horizontal, 10)
         .frame(minHeight: 31)
         .background(
             Capsule()
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color(.tertiarySystemFill))
         )
     }
 }

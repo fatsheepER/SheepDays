@@ -198,7 +198,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground).opacity(0.6)
+                color: Color(.quaternarySystemFill)
             )
         )
     }
@@ -250,7 +250,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground).opacity(0.6)
+                color: Color(.quaternarySystemFill)
             )
         )
     }
@@ -312,7 +312,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground)).opacity(0.6)
+                color: Color(.quaternarySystemFill))
         )
     }
 
@@ -350,7 +350,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.systemBackground)).opacity(0.6)
+                color: Color(.quaternarySystemFill))
         )
     }
 

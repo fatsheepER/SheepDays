@@ -15,14 +15,14 @@ struct SectionHeaderView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(.tertiaryLabel))
 
                 Spacer(minLength: 0)
             }
             
             Capsule(style: .continuous)
-                .frame(height: 2)
-                .foregroundStyle(.primary.quaternary)
+                .frame(height: 1.5)
+                .foregroundStyle(Color(.separator))
         }
         
     }

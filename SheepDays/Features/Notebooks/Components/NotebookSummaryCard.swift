@@ -51,10 +51,6 @@ struct NotebookSummaryCard: View {
                         .foregroundStyle(Color(.secondaryLabel))
                         .padding(10)
                         .frame(width: 35, height: 35)
-                        .background(
-                            Circle()
-                                .foregroundStyle(Color(.secondarySystemBackground))
-                        )
                 }
                 .buttonStyle(.plain)
             }
@@ -104,7 +100,7 @@ struct NotebookSummaryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.systemBackground))
+                .fill(Color(.quaternarySystemFill))
         )
         .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture(perform: onTap)

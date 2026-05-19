@@ -14,7 +14,7 @@ struct HomeSheetActionCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
+            VStack(spacing: 10) {
                 Spacer()
                 
                 Image(systemName: systemImage)
@@ -22,7 +22,7 @@ struct HomeSheetActionCard: View {
                     .frame(height: 22)
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
                     .lineLimit(1)
                 
                 Spacer()
@@ -31,7 +31,7 @@ struct HomeSheetActionCard: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 35, style: .continuous)
-                    .fill(.quinary)
+                    .fill(Color(.tertiarySystemFill))
             )
         }
         .buttonStyle(.plain)

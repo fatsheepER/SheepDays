@@ -67,16 +67,12 @@ struct QuickAddSheetView: View {
                     .frame(height: 40)
             }
             .padding(10)
+            .padding(.horizontal, 5)
             .background(
-                SDRoundedBackground(
-                    topLeading: 35,
-                    topTrailing: 35,
-                    bottomLeading: 10,
-                    bottomTrailing: 10,
-                    cornerStyle: .continuous,
-                    color: Color(.systemBackground)
-                )
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(Color(.quaternarySystemFill))
             )
+            .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
 
             if !isTitleFieldFocused {
                 Spacer()
@@ -601,6 +597,7 @@ private extension QuickAddSheetView {
     QuickAddSheetView()
         .modelContainer(quickAddPreviewContainer)
         .padding()
+        .background(Color(.systemBackground))
 }
 
 private let quickAddPreviewContainer: ModelContainer = {

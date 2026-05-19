@@ -106,7 +106,12 @@ private extension HomeView {
                     }
                 }
                 .background(
-                    SDRoundedBackground(topLeading: 25, topTrailing: 25, bottomLeading: 35, bottomTrailing: 35, cornerStyle: .continuous, color: Color(.systemBackground))
+                    SDRoundedBackground(topLeading: 25, topTrailing: 25, bottomLeading: 35, bottomTrailing: 35, cornerStyle: .continuous, color: Color(.secondarySystemGroupedBackground))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                                .stroke(lineWidth: 2)
+                                .foregroundStyle(.separator.secondary)
+                        }
                 )
                 .padding(.bottom)
             }

@@ -98,9 +98,9 @@ private extension SDSheetActionButton {
     var backgroundColor: Color {
         switch style {
         case .plain:
-            return Color(.systemBackground)
+            return Color(.quaternarySystemFill)
         case .secondary:
-            return Color(.secondarySystemBackground)
+            return Color(.quaternarySystemFill)
         case .prominent:
             return .accent.opacity(0.1)
         case .destructive:
