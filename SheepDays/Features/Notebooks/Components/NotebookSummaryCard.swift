@@ -23,7 +23,7 @@ struct NotebookSummaryCard: View {
     }
 
     private var accessorySystemName: String {
-        isEditing ? "gearshape" : "chevron.right"
+        isEditing ? "ellipsis" : "chevron.right"
     }
 
     var body: some View {
