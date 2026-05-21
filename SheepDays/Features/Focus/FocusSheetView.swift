@@ -94,17 +94,24 @@ struct FocusSheetView: View {
 
             VStack(spacing: 10) {
                 sourceRange
-                    .layoutPriority(1.5)
+//                    .layoutPriority(1.5)
 
                 timeRange
-                    .layoutPriority(1.5)
+//                    .layoutPriority(1.5)
 
                 HStack(spacing: 10) {
                     sortMode
 
                     groupingMode
                 }
-                .layoutPriority(1)
+//                .layoutPriority(1.2)
+                
+                Button {
+                    // open advanced settings
+                } label: {
+                    advanced
+                }
+//                .layoutPriority(1.0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -198,7 +205,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.quaternarySystemFill)
+                color: sectionBackgroundColor
             )
         )
     }
@@ -250,7 +257,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.quaternarySystemFill)
+                color: sectionBackgroundColor
             )
         )
     }
@@ -312,7 +319,7 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.quaternarySystemFill))
+                color: sectionBackgroundColor)
         )
     }
 
@@ -350,7 +357,18 @@ private extension FocusSheetView {
                 bottomLeading: 10,
                 bottomTrailing: 10,
                 cornerStyle: .continuous,
-                color: Color(.quaternarySystemFill))
+                color: sectionBackgroundColor)
+        )
+    }
+    
+    var advanced: some View {
+        VStack(spacing: 10) {
+            FocusAreaTitleView(iconSystemName: "gearshape.2", title: "高级选项")
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            SDRoundedBackground(topLeading: 10, topTrailing: 10, bottomLeading: 10, bottomTrailing: 10, cornerStyle: .continuous, color: sectionBackgroundColor)
         )
     }
 
@@ -575,6 +593,13 @@ private extension FocusSheetView {
 
     func restorePreset() {
         // Preset restore will be implemented with the future preset feature.
+    }
+}
+
+// MARK: - Style constants
+private extension FocusSheetView {
+    var sectionBackgroundColor: Color {
+        Color(.quaternarySystemFill)
     }
 }
 
