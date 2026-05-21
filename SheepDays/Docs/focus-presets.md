@@ -8,12 +8,13 @@ Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `
 
 当前实现的核心约束是：
 
-- 预设是创建时快照，不是动态规则。
+- 预设保存的是配置语义；其中 `.all` 保持动态全选含义，不展开成创建时快照。
 - 选中某个预设只表示用户刚刚选择或保存了该预设。
 - 任意实际设置变更都会清空当前选中预设。
 - 允许创建内部设置完全相同的多个预设。
 - 不允许两个预设重名，重名判断使用 trim + lowercase。
 - 恢复默认不认为选中了任何预设。
+- 上次 Focus 状态会被单独持久化，下次启动恢复。
 
 ## 数据模型
 
@@ -42,14 +43,14 @@ Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `
 
 `FocusPresetSettings` 是 Codable 值类型，位于 `Core/HomeEngine/Models/FocusPresetSettings.swift`。
 
-它是预设、未来无名临时 Focus 配置、以及未来“上次聚焦状态”持久化的共同载体。
+它是预设、无名临时 Focus 配置、以及“上次聚焦状态”持久化的共同载体。
 
 当前字段：
 
 | 字段 | 作用 |
 | --- | --- |
-| `selectedNotebookIDs` | 创建快照时选中的事件本 ID 集合。 |
-| `tagSelection` | 标签选择快照。支持按名称保存，或只看无标签项。 |
+| `notebookSelection` | 事件本选择语义。支持 `.all`、`.none`、或按 ID 保存显式选择。 |
+| `tagSelection` | 标签选择语义。支持 `.all`、`.none`、按名称保存显式选择、或只看无标签项。 |
 | `timeRange` | 时间范围。 |
 | `sortMode` | 排序方式。 |
 | `groupingMode` | 分组方式。 |
@@ -64,17 +65,17 @@ Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `
 FocusPresetSettings.snapshot(from:notebooks:tags:)
 ```
 
-该方法会把当前 `HomeFocusState` 转成静态快照：
+该方法会把当前 `HomeFocusState` 转成可持久化配置：
 
-- 事件本 `.all` 会展开成当时已有事件本 ID 集合。
+- 事件本 `.all` 保存为 `.all`，保持动态全选语义。
 - 事件本 `.selected` 直接保存选中 ID。
-- 事件本 `.none` 保存为空集合。
-- 标签 `.all` 会展开成当时已有标签名称集合。
+- 事件本 `.none` 保存为 `.none`。
+- 标签 `.all` 保存为 `.all`，保持动态全选语义。
 - 标签 `.selected` 会把选中标签 ID 映射成标签名称集合。
-- 标签 `.none` 保存为空名称集合。
+- 标签 `.none` 保存为 `.none`。
 - 标签 `.untaggedOnly` 保存为独立语义。
 
-这样做是为了保证旧预设不会因为后来新增事件本或标签而自动扩大范围。
+这样做是为了让用户选择“全部”时真正代表全部：后续新增事件本或标签后，旧预设和上次 Focus 状态也会自然包含它们。显式选择仍然保持快照语义。
 
 只有 `HomeFocusState()` 代表真正的动态默认状态：
 
@@ -108,12 +109,14 @@ settings.resolved(notebooks: allNotebooks, tags: tags)
 事件本：
 
 - 加载时使用所有事件本，包括归档事件本。
-- 新增事件本不会自动加入旧预设。
+- `.all` 会恢复成运行时 `.all`，新增事件本会自动加入。
+- `.selected` 只恢复保存的 ID，新增事件本不会自动加入显式选择。
 - 归档事件本 ID 保留，继续参与筛选语义。
-- 如果预设里保存的某个事件本 ID 已不存在，加载时会从 `selectedNotebookIDs` 移除，并通过 `updateSettings(_:)` 写回预设。
+- 如果预设里保存的某个显式事件本 ID 已不存在，加载时会从 `notebookSelection` 移除，并通过 `updateSettings(_:)` 写回预设。
 
 标签：
 
+- `.all` 会恢复成运行时 `.all`，新增标签会自动加入。
 - 标签不按 ID 保存，而是按名称保存。
 - 名称匹配规则是 trim + lowercase。
 - 已删除的标签名不会从预设中删除。
@@ -142,7 +145,7 @@ Header 中的预设 badge 只展示当前 `selectedPresetID` 能解析到的预�
 
 ## settingsVersion
 
-`FocusPresetSettings.currentVersion` 当前为 `1`。
+`FocusPresetSettings.currentVersion` 当前为 `2`。
 
 创建或更新 `FocusPreset` 时：
 
@@ -150,13 +153,21 @@ Header 中的预设 badge 只展示当前 `selectedPresetID` 能解析到的预�
 settingsVersion = FocusPresetSettings.currentVersion
 ```
 
-当前读取流程还没有使用 `settingsVersion` 做迁移判断：
+`FocusPresetSettings` 目前通过自定义 `Codable` 兼容 v1 字段：
+
+```swift
+selectedNotebookIDs -> notebookSelection.selectedIDs / .none
+```
+
+v1 已经把 `.all` 展开成当时的 ID 或名称集合，无法无损判断它原本是否来自 `.all`，所以旧数据会按显式选择恢复。只有 v2 之后新写入的数据保证 `.all` 是动态全选。
+
+`FocusPreset.decodedSettings()` 仍直接解码 `FocusPresetSettings`：
 
 ```swift
 try decoder.decode(FocusPresetSettings.self, from: settingsData)
 ```
 
-因此当前版本适合新增向后兼容字段，但还没有实现跨版本结构迁移。后续如果发生不兼容变更，应改造 `decodedSettings()`，按 `settingsVersion` 分支解码旧结构并转换成当前 `FocusPresetSettings`。
+后续如果发生更复杂的不兼容变更，应再改造 `decodedSettings()`，按 `settingsVersion` 分支解码旧结构并转换成当前 `FocusPresetSettings`。
 
 推荐迁移形态：
 
@@ -198,14 +209,14 @@ var hidesCompletedEvents: Bool = false
 - Set 或 Array 适合多选，但要明确是否需要保持顺序。
 - 如果依赖业务对象，优先保存稳定身份或稳定语义，而不是 UI 临时状态。
 
-新增字段应提供默认值或自定义解码 fallback，保证旧 `settingsData` 能继续解码。当前 `FocusPresetSettings` 使用合成 Codable，直接新增无默认解码处理的字段可能会让旧数据解码失败。需要兼容旧数据时，应改成自定义 `init(from:)`。
+新增字段应提供默认值或自定义解码 fallback，保证旧 `settingsData` 能继续解码。当前 `FocusPresetSettings` 已使用自定义 Codable，需要继续维护旧数据兼容路径。
 
 ### 3. 更新 snapshot 和 resolved
 
 任何新增字段都必须考虑两个方向：
 
-- `snapshot(from:notebooks:tags:)`: 当前运行时状态如何保存成快照。
-- `resolved(notebooks:tags:)`: 持久化快照如何恢复成运行时状态。
+- `snapshot(from:notebooks:tags:)`: 当前运行时状态如何保存成持久化配置。
+- `resolved(notebooks:tags:)`: 持久化配置如何恢复成运行时状态。
 
 如果字段依赖会变化的外部实体，还要定义协调规则。例如：
 
@@ -234,30 +245,38 @@ var hidesCompletedEvents: Bool = false
 - 默认值改变会影响旧预设解释结果。
 - 旧数据需要一次性转换。
 
-## 未来：上次 Focus 状态持久化
+## 上次 Focus 状态持久化
 
-“上次 Focus 状态”不应该复用 `FocusPreset` 本身，因为它不需要用户名称、颜色、列表展示和重名规则。
+“上次 Focus 状态”不复用 `FocusPreset` 本身，因为它不需要用户名称、颜色、列表展示和重名规则。
 
-推荐做法是复用 `FocusPresetSettings` 作为无名临时配置载体：
+当前使用 `LastFocusStateStore` 存入 `UserDefaults`，key 为 `Focus.lastState`。payload 包含：
 
-- 新增一个独立存储位置，例如 App settings model 或轻量 key-value 存储。
-- 保存内容仍然是 `FocusPresetSettings` 编码数据。
-- 加载时仍然走 `resolved(notebooks:tags:)`。
-- UI 不设置 `selectedPresetID`，因此不会显示为选中某个预设。
+- `settingsVersion`
+- `settings: FocusPresetSettings`
+- `selectedPresetID: UUID?`
 
-这样可以让预设和临时状态共享同一套快照、协调和迁移规则，同时避免把临时状态污染到用户可见预设列表。
+恢复规则：
+
+- App 启动后 `HomeView` 首次出现时读取 payload。
+- 如果 `selectedPresetID` 存在且对应预设仍存在，优先用该预设当前 settings 恢复，并恢复 header badge / 菜单 checkmark。
+- 如果预设不存在或预设恢复失败，fallback 到 payload 内的 `settings`，并清空选中预设身份。
+- 手动调整 Focus 设置、选择预设、保存预设、删除当前预设、恢复默认都会立即写回 payload。
+
+这样可以让预设和临时状态共享同一套配置、协调和迁移规则，同时避免把临时状态污染到用户可见预设列表。
 
 ## 测试建议
 
 新增或修改 Focus 持久化语义时，至少覆盖：
 
-- `.all` 保存为快照后，新增事件本或标签不会进入旧预设。
+- `.all` 保存后，新增事件本或标签会进入旧预设或上次状态。
+- 显式选择保存后，新增事件本或标签不会进入该显式选择。
 - 删除事件本后加载预设会 prune ID 并写回。
 - 删除标签后加载预设不会删除标签名。
 - 同设置不同名允许保存。
 - trim + lowercase 后同名不允许保存。
 - 设置项实际变化会清空 `selectedPresetID`。
 - 选择或保存预设会设置 `selectedPresetID`。
+- App 重启后能恢复上次 Focus 状态；上次来自现存预设时能恢复预设 badge/checkmark。
 
 验证方式保持轻量：
 

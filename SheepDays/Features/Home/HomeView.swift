@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var dateRestoreToken = 0
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     @State private var focusState = HomeFocusState()
+    @State private var selectedFocusPresetID: UUID?
+    @State private var hasRestoredLastFocusState = false
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
@@ -55,6 +57,7 @@ struct HomeView: View {
                 }
                 .onAppear {
                     isBottomSheetPresented = true
+                    restoreLastFocusStateIfNeeded()
                 }
                 .onDisappear {
                     cancelDateRestore()
@@ -186,6 +189,75 @@ private extension HomeView {
             return (sections, targetDatesByEventID)
         } catch {
             return ([], [:])
+        }
+    }
+
+    func restoreLastFocusStateIfNeeded() {
+        guard !hasRestoredLastFocusState else {
+            return
+        }
+
+        hasRestoredLastFocusState = true
+
+        guard let payload = LastFocusStateStore.shared.load() else {
+            return
+        }
+
+        do {
+            let notebooks = try modelContext.fetch(FetchDescriptor<Notebook>())
+            let tags = try modelContext.fetch(FetchDescriptor<Tag>())
+
+            if let presetID = payload.selectedPresetID,
+               restoreLastFocusState(fromPresetID: presetID, notebooks: notebooks, tags: tags) {
+                return
+            }
+
+            let resolution = payload.settings.resolved(notebooks: notebooks, tags: tags)
+            focusState = resolution.focusState
+            selectedFocusPresetID = nil
+            LastFocusStateStore.shared.save(
+                settings: resolution.prunedSettings,
+                selectedPresetID: nil
+            )
+        } catch {
+            assertionFailure("Failed to restore last focus state: \(error.localizedDescription)")
+        }
+    }
+
+    func restoreLastFocusState(
+        fromPresetID presetID: UUID,
+        notebooks: [Notebook],
+        tags: [Tag]
+    ) -> Bool {
+        do {
+            let predicate = #Predicate<FocusPreset> { preset in
+                preset.id == presetID
+            }
+            var descriptor = FetchDescriptor<FocusPreset>(predicate: predicate)
+            descriptor.fetchLimit = 1
+
+            guard let preset = try modelContext.fetch(descriptor).first else {
+                return false
+            }
+
+            let settings = try preset.decodedSettings()
+            let resolution = settings.resolved(notebooks: notebooks, tags: tags)
+
+            if resolution.prunedSettings != settings {
+                try preset.updateSettings(resolution.prunedSettings)
+                try modelContext.save()
+            }
+
+            focusState = resolution.focusState
+            selectedFocusPresetID = preset.id
+            LastFocusStateStore.shared.save(
+                settings: resolution.prunedSettings,
+                selectedPresetID: preset.id
+            )
+            return true
+        } catch {
+            assertionFailure("Failed to restore focus preset: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -491,6 +563,7 @@ private extension HomeView {
         case .focus:
             FocusSheetView(
                 focusState: $focusState,
+                selectedPresetID: $selectedFocusPresetID,
                 onBack: {
                     haptics.play(.openDetailTap)
                     showHomeSheet()
@@ -719,5 +792,5 @@ private enum HomeSheetRoute {
 #Preview {
     HomeView()
         .environment(\.appOverlayCoordinator, AppOverlayCoordinator())
-        .modelContainer(for: [Event.self, Notebook.self, Tag.self], inMemory: true)
+        .modelContainer(ModelContainerProvider.makePreviewContainer())
 }

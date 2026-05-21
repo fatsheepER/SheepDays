@@ -11,6 +11,7 @@ import SwiftData
 struct FocusSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var focusState: HomeFocusState
+    @Binding var selectedPresetID: UUID?
 
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
@@ -46,7 +47,6 @@ struct FocusSheetView: View {
 
     @State private var notebookShakeTrigger = 0
     @State private var tagShakeTrigger = 0
-    @State private var selectedPresetID: UUID?
     @State private var isPresetNameAlertPresented = false
     @State private var presetNameDraft = ""
     @State private var presetNameError: String?
@@ -554,11 +554,15 @@ private extension FocusSheetView {
             return
         }
 
+        var nextState = focusState
+        nextState.notebookSourceFilter = nextFilter
+
         withAnimation(.easeInOut(duration: 0.26)) {
             selectedPresetID = nil
-            focusState.notebookSourceFilter = nextFilter
+            focusState = nextState
             notebookShakeTrigger += 1
         }
+        persistLastFocusState(nextState, selectedPresetID: nil)
     }
 
     func toggleTagSelection(_ tag: Tag) {
@@ -576,11 +580,15 @@ private extension FocusSheetView {
             return
         }
 
+        var nextState = focusState
+        nextState.tagSourceFilter = nextFilter
+
         withAnimation(.easeInOut(duration: 0.26)) {
             selectedPresetID = nil
-            focusState.tagSourceFilter = nextFilter
+            focusState = nextState
             tagShakeTrigger += 1
         }
+        persistLastFocusState(nextState, selectedPresetID: nil)
     }
 
     func selectTimeRange(_ range: HomeFocusTimeRange) {
@@ -677,6 +685,7 @@ private extension FocusSheetView {
             selectedPresetID = nil
             focusState = nextState
         }
+        persistLastFocusState(nextState, selectedPresetID: nil)
     }
 
     func selectPreset(_ preset: FocusPreset) {
@@ -693,6 +702,7 @@ private extension FocusSheetView {
                 selectedPresetID = preset.id
                 focusState = resolution.focusState
             }
+            persistLastFocusState(resolution.focusState, selectedPresetID: preset.id)
         } catch {
             showPresetActionError(error)
         }
@@ -734,6 +744,7 @@ private extension FocusSheetView {
             withAnimation(.snappy(duration: 0.18)) {
                 selectedPresetID = preset.id
             }
+            persistLastFocusState(focusState, selectedPresetID: preset.id)
             presetNameDraft = ""
             presetNameError = nil
         } catch {
@@ -757,6 +768,7 @@ private extension FocusSheetView {
             withAnimation(.snappy(duration: 0.18)) {
                 selectedPresetID = nil
             }
+            persistLastFocusState(focusState, selectedPresetID: nil)
         } catch {
             showPresetActionError(error)
         }
@@ -769,6 +781,7 @@ private extension FocusSheetView {
             withAnimation(.snappy(duration: 0.18)) {
                 selectedPresetID = nil
             }
+            persistLastFocusState(defaultState, selectedPresetID: nil)
             return
         }
 
@@ -776,11 +789,21 @@ private extension FocusSheetView {
             selectedPresetID = nil
             focusState = defaultState
         }
+        persistLastFocusState(defaultState, selectedPresetID: nil)
     }
 
     func showPresetActionError(_ error: Error) {
         presetActionError = error.localizedDescription
         isPresetActionErrorPresented = true
+    }
+
+    func persistLastFocusState(_ focusState: HomeFocusState, selectedPresetID: UUID?) {
+        let settings = FocusPresetSettings.snapshot(
+            from: focusState,
+            notebooks: allNotebooks,
+            tags: tags
+        )
+        LastFocusStateStore.shared.save(settings: settings, selectedPresetID: selectedPresetID)
     }
 }
 
@@ -833,9 +856,11 @@ private extension HomeGroupingMode {
 // MARK: - Preview
 #Preview {
     @Previewable @State var focusState = HomeFocusState()
+    @Previewable @State var selectedPresetID: UUID?
 
     FocusSheetView(
         focusState: $focusState,
+        selectedPresetID: $selectedPresetID,
         onBack: {}
     )
     .modelContainer(focusSheetPreviewContainer)

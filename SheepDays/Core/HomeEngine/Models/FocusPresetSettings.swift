@@ -8,32 +8,65 @@
 import Foundation
 
 nonisolated struct FocusPresetSettings: Codable, Equatable {
-    static let currentVersion = 1
+    static let currentVersion = 2
 
-    var selectedNotebookIDs: Set<UUID>
+    var notebookSelection: NotebookSelection
     var tagSelection: TagSelection
     var timeRange: HomeFocusTimeRange
     var sortMode: HomeSortMode
     var groupingMode: HomeGroupingMode
 
     init(
-        selectedNotebookIDs: Set<UUID>,
+        notebookSelection: NotebookSelection,
         tagSelection: TagSelection,
         timeRange: HomeFocusTimeRange,
         sortMode: HomeSortMode,
         groupingMode: HomeGroupingMode
     ) {
-        self.selectedNotebookIDs = selectedNotebookIDs
+        self.notebookSelection = notebookSelection
         self.tagSelection = tagSelection
         self.timeRange = timeRange
         self.sortMode = sortMode
         self.groupingMode = groupingMode
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let notebookSelection = try container.decodeIfPresent(NotebookSelection.self, forKey: .notebookSelection) {
+            self.notebookSelection = notebookSelection
+        } else {
+            let legacyNotebookIDs = try container.decode(Set<UUID>.self, forKey: .selectedNotebookIDs)
+            self.notebookSelection = .explicitSnapshotSelection(legacyNotebookIDs)
+        }
+
+        tagSelection = try container.decode(TagSelection.self, forKey: .tagSelection)
+        timeRange = try container.decode(HomeFocusTimeRange.self, forKey: .timeRange)
+        sortMode = try container.decode(HomeSortMode.self, forKey: .sortMode)
+        groupingMode = try container.decode(HomeGroupingMode.self, forKey: .groupingMode)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(notebookSelection, forKey: .notebookSelection)
+        try container.encode(tagSelection, forKey: .tagSelection)
+        try container.encode(timeRange, forKey: .timeRange)
+        try container.encode(sortMode, forKey: .sortMode)
+        try container.encode(groupingMode, forKey: .groupingMode)
+    }
 }
 
 extension FocusPresetSettings {
+    nonisolated enum NotebookSelection: Codable, Equatable {
+        case all
+        case selectedIDs(Set<UUID>)
+        case none
+    }
+
     nonisolated enum TagSelection: Codable, Equatable {
+        case all
         case selectedNames([String])
+        case none
         case untaggedOnly
     }
 
@@ -48,7 +81,7 @@ extension FocusPresetSettings {
         tags: [Tag]
     ) -> FocusPresetSettings {
         FocusPresetSettings(
-            selectedNotebookIDs: notebookIDsSnapshot(
+            notebookSelection: notebookSelectionSnapshot(
                 from: focusState.notebookSourceFilter,
                 notebooks: notebooks
             ),
@@ -64,10 +97,10 @@ extension FocusPresetSettings {
 
     func resolved(notebooks: [Notebook], tags: [Tag]) -> Resolution {
         let existingNotebookIDs = Set(notebooks.map(\.id))
-        let prunedNotebookIDs = selectedNotebookIDs.intersection(existingNotebookIDs)
+        let resolvedNotebookSelection = notebookSelection.pruned(existingNotebookIDs: existingNotebookIDs)
 
         let focusState = HomeFocusState(
-            notebookSourceFilter: .explicitSnapshotSelection(prunedNotebookIDs),
+            notebookSourceFilter: resolvedNotebookSelection.sourceFilter,
             tagSourceFilter: resolvedTagSourceFilter(tags: tags),
             timeRange: timeRange,
             sortMode: sortMode,
@@ -75,7 +108,7 @@ extension FocusPresetSettings {
         )
 
         let prunedSettings = FocusPresetSettings(
-            selectedNotebookIDs: prunedNotebookIDs,
+            notebookSelection: resolvedNotebookSelection,
             tagSelection: tagSelection,
             timeRange: timeRange,
             sortMode: sortMode,
@@ -91,17 +124,28 @@ extension FocusPresetSettings {
 }
 
 private extension FocusPresetSettings {
-    static func notebookIDsSnapshot(
+    enum CodingKeys: String, CodingKey {
+        case notebookSelection
+        case selectedNotebookIDs
+        case tagSelection
+        case timeRange
+        case sortMode
+        case groupingMode
+    }
+}
+
+private extension FocusPresetSettings {
+    static func notebookSelectionSnapshot(
         from filter: HomeNotebookSourceFilter,
         notebooks: [Notebook]
-    ) -> Set<UUID> {
+    ) -> NotebookSelection {
         switch filter {
         case .all:
-            return Set(notebooks.map(\.id))
+            return .all
         case let .selected(ids):
-            return ids
+            return .selectedIDs(ids.intersection(Set(notebooks.map(\.id))))
         case .none:
-            return []
+            return .none
         }
     }
 
@@ -111,12 +155,12 @@ private extension FocusPresetSettings {
     ) -> TagSelection {
         switch filter {
         case .all:
-            return .selectedNames(normalizedUniqueTagNames(from: tags))
+            return .all
         case let .selected(ids):
             let selectedTags = tags.filter { ids.contains($0.id) }
             return .selectedNames(normalizedUniqueTagNames(from: selectedTags))
         case .none:
-            return .selectedNames([])
+            return .none
         case .untaggedOnly:
             return .untaggedOnly
         }
@@ -142,6 +186,10 @@ private extension FocusPresetSettings {
 
     func resolvedTagSourceFilter(tags: [Tag]) -> HomeTagSourceFilter {
         switch tagSelection {
+        case .all:
+            return .all
+        case .none:
+            return .none
         case .untaggedOnly:
             return .untaggedOnly
         case let .selectedNames(names):
@@ -156,6 +204,32 @@ private extension FocusPresetSettings {
                     .map(\.id)
             )
             return .explicitSnapshotSelection(selectedTagIDs)
+        }
+    }
+}
+
+private extension FocusPresetSettings.NotebookSelection {
+    static func explicitSnapshotSelection(_ ids: Set<UUID>) -> FocusPresetSettings.NotebookSelection {
+        ids.isEmpty ? .none : .selectedIDs(ids)
+    }
+
+    var sourceFilter: HomeNotebookSourceFilter {
+        switch self {
+        case .all:
+            return .all
+        case let .selectedIDs(ids):
+            return .explicitSnapshotSelection(ids)
+        case .none:
+            return .none
+        }
+    }
+
+    func pruned(existingNotebookIDs: Set<UUID>) -> FocusPresetSettings.NotebookSelection {
+        switch self {
+        case .all, .none:
+            return self
+        case let .selectedIDs(ids):
+            return .explicitSnapshotSelection(ids.intersection(existingNotebookIDs))
         }
     }
 }
