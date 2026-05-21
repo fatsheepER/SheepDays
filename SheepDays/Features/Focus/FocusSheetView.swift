@@ -8,61 +8,8 @@
 import SwiftUI
 import SwiftData
 
-private enum FocusSortField: CaseIterable {
-    case importance
-    case targetDate
-    case createdAt
-    case updatedAt
-
-    var title: String {
-        switch self {
-        case .importance:
-            return "按重要程度"
-        case .targetDate:
-            return "按日期"
-        case .createdAt:
-            return "按创建时间"
-        case .updatedAt:
-            return "按编辑时间"
-        }
-    }
-
-    static var longestTitle: String {
-        allCases
-            .map(\.title)
-            .max(by: { $0.count < $1.count }) ?? ""
-    }
-}
-
-private enum FocusSortDirection: CaseIterable {
-    case descending
-    case ascending
-
-    var title: String {
-        switch self {
-        case .descending:
-            return "降序"
-        case .ascending:
-            return "升序"
-        }
-    }
-
-    static var longestTitle: String {
-        allCases
-            .map(\.title)
-            .max(by: { $0.count < $1.count }) ?? ""
-    }
-}
-
-private extension HomeGroupingMode {
-    static var longestTitle: String {
-        allCases
-            .map(\.title)
-            .max(by: { $0.count < $1.count }) ?? ""
-    }
-}
-
 struct FocusSheetView: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var focusState: HomeFocusState
 
     @Query(
@@ -76,14 +23,35 @@ struct FocusSheetView: View {
 
     @Query(
         sort: [
+            SortDescriptor(\Notebook.updatedAt, order: .reverse),
+            SortDescriptor(\Notebook.createdAt, order: .reverse)
+        ]
+    )
+    private var allNotebooks: [Notebook]
+
+    @Query(
+        sort: [
             SortDescriptor(\Tag.name),
             SortDescriptor(\Tag.createdAt)
         ]
     )
     private var tags: [Tag]
 
+    @Query(
+        sort: [
+            SortDescriptor(\FocusPreset.createdAt, order: .reverse)
+        ]
+    )
+    private var presets: [FocusPreset]
+
     @State private var notebookShakeTrigger = 0
     @State private var tagShakeTrigger = 0
+    @State private var selectedPresetID: UUID?
+    @State private var isPresetNameAlertPresented = false
+    @State private var presetNameDraft = ""
+    @State private var presetNameError: String?
+    @State private var presetActionError: String?
+    @State private var isPresetActionErrorPresented = false
 
     let onBack: () -> Void
 
@@ -118,6 +86,25 @@ struct FocusSheetView: View {
             controls
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .alert(presetNameAlertTitle, isPresented: $isPresetNameAlertPresented) {
+            TextField("预设名称", text: $presetNameDraft)
+
+            Button("取消", role: .cancel) {
+                presetNameError = nil
+            }
+
+            Button("保存", action: savePresetFromDraft)
+                .disabled(trimmedPresetNameDraft.isEmpty)
+        } message: {
+            if let presetNameError {
+                Text(presetNameError)
+            }
+        }
+        .alert("预设操作失败", isPresented: $isPresetActionErrorPresented) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(presetActionError ?? "")
+        }
     }
 }
 
@@ -129,6 +116,12 @@ private extension FocusSheetView {
 
             Spacer()
 
+            if let selectedPresetBadgeContent {
+                FocusPresetBadge(content: selectedPresetBadgeContent)
+                    .id(selectedPresetBadgeContent.id)
+                    .transition(.move(edge: .bottom).combined(with: .blurReplace))
+            }
+
             Text(summaryText)
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(.secondaryLabel))
@@ -139,6 +132,7 @@ private extension FocusSheetView {
                         .foregroundStyle(Color(.secondarySystemBackground))
                 )
         }
+        .animation(.snappy(duration: 0.18), value: selectedPresetID)
     }
 
     var sourceRange: some View {
@@ -384,7 +378,9 @@ private extension FocusSheetView {
             }
             .buttonStyle(.plain)
 
-            Button(action: restorePreset) {
+            Menu {
+                presetMenuContent
+            } label: {
                 SDSheetActionButton(
                     iconSystemName: "slider.horizontal.3",
                     title: "预设",
@@ -396,9 +392,85 @@ private extension FocusSheetView {
         }
     }
 
+    @ViewBuilder
+    var presetMenuContent: some View {
+        // 4. Restore to default
+        Button {
+            restoreDefaultFocus()
+        } label: {
+            Label("恢复默认", systemImage: "arrow.counterclockwise")
+        }
+        
+        // 3. Delete preset
+        if let selectedPreset {
+            Button(role: .destructive) {
+                deletePreset(selectedPreset)
+            } label: {
+                Label("删除预设", systemImage: "trash")
+            }
+        }
+        
+        // 2. Save as preset
+        Button {
+            presentPresetNameAlert()
+        } label: {
+            Label("保存当前为预设", systemImage: "plus")
+        }
+
+        
+        // 1. Presets
+        Menu {
+            if presets.isEmpty {
+                Button("暂无预设") {}
+                    .disabled(true)
+            } else {
+                ForEach(presets) { preset in
+                    Button {
+                        selectPreset(preset)
+                    } label: {
+                        selectionMenuLabel(
+                            title: preset.name,
+                            isSelected: preset.id == selectedPresetID
+                        )
+                    }
+                }
+            }
+        } label: {
+            Label("选择预设...", systemImage: "list.bullet")
+        }
+    }
+
     // MARK: - Computed variables
     var summaryText: String {
         "\(activeFilterCount) 项"
+    }
+
+    var selectedPreset: FocusPreset? {
+        guard let selectedPresetID else {
+            return nil
+        }
+
+        return presets.first { $0.id == selectedPresetID }
+    }
+
+    var selectedPresetBadgeContent: FocusPresetBadge.Content? {
+        guard let selectedPreset else {
+            return nil
+        }
+
+        return FocusPresetBadge.Content(
+            id: selectedPreset.id,
+            title: selectedPreset.name,
+            colorHex: selectedPreset.colorHex
+        )
+    }
+
+    var trimmedPresetNameDraft: String {
+        presetNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var presetNameAlertTitle: String {
+        presetNameError == nil ? "保存预设" : "预设名称不可用"
     }
 
     var activeFilterCount: Int {
@@ -468,12 +540,12 @@ private extension FocusSheetView {
     }
 
     func toggleNotebookSelection(_ notebook: Notebook) {
-        withAnimation(.snappy(duration: 0.18)) {
-            focusState.notebookSourceFilter = focusState.notebookSourceFilter.toggleSingle(
-                id: notebook.id,
-                allIDs: allNotebookIDs
-            )
-        }
+        var nextState = focusState
+        nextState.notebookSourceFilter = focusState.notebookSourceFilter.toggleSingle(
+            id: notebook.id,
+            allIDs: allNotebookIDs
+        )
+        applyFocusStateChange(nextState)
     }
 
     func toggleAllNotebooks() {
@@ -483,18 +555,19 @@ private extension FocusSheetView {
         }
 
         withAnimation(.easeInOut(duration: 0.26)) {
+            selectedPresetID = nil
             focusState.notebookSourceFilter = nextFilter
             notebookShakeTrigger += 1
         }
     }
 
     func toggleTagSelection(_ tag: Tag) {
-        withAnimation(.snappy(duration: 0.18)) {
-            focusState.tagSourceFilter = focusState.tagSourceFilter.toggleSingle(
-                id: tag.id,
-                allIDs: allTagIDs
-            )
-        }
+        var nextState = focusState
+        nextState.tagSourceFilter = focusState.tagSourceFilter.toggleSingle(
+            id: tag.id,
+            allIDs: allTagIDs
+        )
+        applyFocusStateChange(nextState)
     }
 
     func toggleAllTags() {
@@ -504,6 +577,7 @@ private extension FocusSheetView {
         }
 
         withAnimation(.easeInOut(duration: 0.26)) {
+            selectedPresetID = nil
             focusState.tagSourceFilter = nextFilter
             tagShakeTrigger += 1
         }
@@ -514,9 +588,9 @@ private extension FocusSheetView {
             return
         }
 
-        withAnimation(.snappy(duration: 0.18)) {
-            focusState.timeRange = range
-        }
+        var nextState = focusState
+        nextState.timeRange = range
+        applyFocusStateChange(nextState)
     }
 
     @ViewBuilder
@@ -555,9 +629,9 @@ private extension FocusSheetView {
             return
         }
 
-        withAnimation(.snappy(duration: 0.18)) {
-            focusState.groupingMode = mode
-        }
+        var nextState = focusState
+        nextState.groupingMode = mode
+        applyFocusStateChange(nextState)
     }
 
     func updateSortMode(field: FocusSortField, direction: FocusSortDirection) {
@@ -586,20 +660,147 @@ private extension FocusSheetView {
             return
         }
 
-        withAnimation(.snappy(duration: 0.18)) {
-            focusState.sortMode = nextMode
+        var nextState = focusState
+        nextState.sortMode = nextMode
+        applyFocusStateChange(nextState)
+    }
+
+    func applyFocusStateChange(
+        _ nextState: HomeFocusState,
+        animation: Animation = .snappy(duration: 0.18)
+    ) {
+        guard focusState != nextState else {
+            return
+        }
+
+        withAnimation(animation) {
+            selectedPresetID = nil
+            focusState = nextState
         }
     }
 
-    func restorePreset() {
-        // Preset restore will be implemented with the future preset feature.
+    func selectPreset(_ preset: FocusPreset) {
+        do {
+            let settings = try preset.decodedSettings()
+            let resolution = settings.resolved(notebooks: allNotebooks, tags: tags)
+
+            if resolution.prunedSettings != settings {
+                try preset.updateSettings(resolution.prunedSettings)
+                try modelContext.save()
+            }
+
+            withAnimation(.snappy(duration: 0.18)) {
+                selectedPresetID = preset.id
+                focusState = resolution.focusState
+            }
+        } catch {
+            showPresetActionError(error)
+        }
+    }
+
+    func presentPresetNameAlert() {
+        presetNameError = nil
+        isPresetNameAlertPresented = true
+    }
+
+    func savePresetFromDraft() {
+        let trimmedName = trimmedPresetNameDraft
+        guard !trimmedName.isEmpty else {
+            showPresetNameError("请输入预设名称")
+            return
+        }
+
+        let normalizedName = FocusPresetSettings.normalizedName(trimmedName)
+        guard presets.contains(where: { $0.normalizedName == normalizedName }) == false else {
+            showPresetNameError("已存在同名预设")
+            return
+        }
+
+        let settings = FocusPresetSettings.snapshot(
+            from: focusState,
+            notebooks: allNotebooks,
+            tags: tags
+        )
+        let preset = FocusPreset(
+            name: trimmedName,
+            colorHex: randomPresetColorHex,
+            settings: settings
+        )
+
+        modelContext.insert(preset)
+
+        do {
+            try modelContext.save()
+            withAnimation(.snappy(duration: 0.18)) {
+                selectedPresetID = preset.id
+            }
+            presetNameDraft = ""
+            presetNameError = nil
+        } catch {
+            modelContext.delete(preset)
+            showPresetNameError(error.localizedDescription)
+        }
+    }
+
+    func showPresetNameError(_ message: String) {
+        presetNameError = message
+        Task { @MainActor in
+            isPresetNameAlertPresented = true
+        }
+    }
+
+    func deletePreset(_ preset: FocusPreset) {
+        modelContext.delete(preset)
+
+        do {
+            try modelContext.save()
+            withAnimation(.snappy(duration: 0.18)) {
+                selectedPresetID = nil
+            }
+        } catch {
+            showPresetActionError(error)
+        }
+    }
+
+    func restoreDefaultFocus() {
+        let defaultState = HomeFocusState()
+
+        guard focusState != defaultState else {
+            withAnimation(.snappy(duration: 0.18)) {
+                selectedPresetID = nil
+            }
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            selectedPresetID = nil
+            focusState = defaultState
+        }
+    }
+
+    func showPresetActionError(_ error: Error) {
+        presetActionError = error.localizedDescription
+        isPresetActionErrorPresented = true
     }
 }
 
 // MARK: - Style constants
 private extension FocusSheetView {
+    static let presetColorHexes = [
+        "FF8A65",
+        "5C6BC0",
+        "26A69A",
+        "30A2F3",
+        "DA4646",
+        "7E57C2"
+    ]
+
     var sectionBackgroundColor: Color {
         Color(.quaternarySystemFill)
+    }
+
+    var randomPresetColorHex: String {
+        Self.presetColorHexes.randomElement() ?? "5C6BC0"
     }
 }
 
@@ -620,6 +821,16 @@ private struct FocusBadgeShakeModifier: GeometryEffect {
     }
 }
 
+// MARK: - Private extensions
+private extension HomeGroupingMode {
+    static var longestTitle: String {
+        allCases
+            .map(\.title)
+            .max(by: { $0.count < $1.count }) ?? ""
+    }
+}
+
+// MARK: - Preview
 #Preview {
     @Previewable @State var focusState = HomeFocusState()
 

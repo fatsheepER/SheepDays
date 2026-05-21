@@ -73,6 +73,7 @@ enum HomeNotebookSourceFilter: Equatable {
 enum HomeTagSourceFilter: Equatable {
     case all
     case selected(Set<UUID>)
+    case none
     case untaggedOnly
 
     var isDefault: Bool {
@@ -85,7 +86,7 @@ enum HomeTagSourceFilter: Equatable {
             return true
         case let .selected(ids):
             return ids.contains(id)
-        case .untaggedOnly:
+        case .none, .untaggedOnly:
             return false
         }
     }
@@ -102,7 +103,7 @@ enum HomeTagSourceFilter: Equatable {
             }
 
             return normalizedSelection(ids.union([id]), allIDs: allIDs)
-        case .untaggedOnly:
+        case .none, .untaggedOnly:
             return normalizedSelection([id], allIDs: allIDs)
         }
     }
@@ -115,7 +116,7 @@ enum HomeTagSourceFilter: Equatable {
         switch self {
         case .all:
             return .untaggedOnly
-        case .selected, .untaggedOnly:
+        case .selected, .none, .untaggedOnly:
             return normalizedSelection(allIDs, allIDs: allIDs)
         }
     }
@@ -133,11 +134,11 @@ enum HomeTagSourceFilter: Equatable {
     }
 }
 
-enum HomeFocusTimeRange: CaseIterable, Equatable {
-    case sevenDays
-    case oneMonth
-    case sixMonths
-    case all
+enum HomeFocusTimeRange: String, CaseIterable, Codable {
+    case sevenDays = "sevenDays"
+    case oneMonth = "oneMonth"
+    case sixMonths = "sixMonths"
+    case all = "all"
 
     var title: String {
         switch self {
@@ -233,15 +234,15 @@ enum HomeTimeRangeBucket: String, CaseIterable {
     }
 }
 
-enum HomeSortMode: CaseIterable, Equatable {
-    case importanceDescending
-    case importanceAscending
-    case targetDateDescending
-    case targetDateAscending
-    case createdAtDescending
-    case createdAtAscending
-    case updatedAtDescending
-    case updatedAtAscending
+enum HomeSortMode: String, CaseIterable, Codable {
+    case importanceDescending = "importanceDescending"
+    case importanceAscending = "importanceAscending"
+    case targetDateDescending = "targetDateDescending"
+    case targetDateAscending = "targetDateAscending"
+    case createdAtDescending = "createdAtDescending"
+    case createdAtAscending = "createdAtAscending"
+    case updatedAtDescending = "updatedAtDescending"
+    case updatedAtAscending = "updatedAtAscending"
 
     var title: String {
         switch self {
@@ -265,11 +266,11 @@ enum HomeSortMode: CaseIterable, Equatable {
     }
 }
 
-enum HomeGroupingMode: CaseIterable, Equatable {
-    case none
-    case notebook
-    case timeRange
-    case importance
+enum HomeGroupingMode: String, CaseIterable, Codable {
+    case none = "none"
+    case notebook = "notebook"
+    case timeRange = "timeRange"
+    case importance = "importance"
 
     var title: String {
         switch self {

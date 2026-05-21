@@ -20,6 +20,7 @@ private extension ModelContainerProvider {
     static func makeModelContainer(isStoredInMemoryOnly: Bool) -> ModelContainer {
         let schema = Schema([
             Event.self,
+            FocusPreset.self,
             Notebook.self,
             Tag.self
         ])

@@ -93,6 +93,8 @@ private extension HomeBuilder {
             guard tagIDs.isSubset(of: ids) else {
                 return false
             }
+        case .none:
+            return false
         case .untaggedOnly:
             guard event.tags.isEmpty else {
                 return false
