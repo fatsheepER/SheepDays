@@ -46,6 +46,7 @@ final class Event {
 
     @Relationship(inverse: \Notebook.events) var notebook: Notebook?
     @Relationship(inverse: \Tag.events) var tags: [Tag]
+    @Relationship(deleteRule: .cascade, inverse: \ChecklistItem.event) var checklistItems: [ChecklistItem]
 
     var reminderPresets: [EventReminderPreset] {
         get {
@@ -82,6 +83,7 @@ final class Event {
         self.updatedAt = now
         self.notebook = notebook
         self.tags = []
+        self.checklistItems = []
     }
 
     init(
@@ -103,7 +105,8 @@ final class Event {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         notebook: Notebook? = nil,
-        tags: [Tag] = []
+        tags: [Tag] = [],
+        checklistItems: [ChecklistItem] = []
     ) {
         self.id = id
         self.title = title
@@ -124,9 +127,26 @@ final class Event {
         self.updatedAt = updatedAt
         self.notebook = notebook
         self.tags = tags
+        self.checklistItems = checklistItems
     }
 
     var tintColor: Color {
         notebook?.tintColor ?? .accentColor
+    }
+
+    var hasChecklistItems: Bool {
+        !checklistItems.isEmpty
+    }
+
+    var hasIncompleteChecklistItems: Bool {
+        checklistItems.contains { !$0.isCompleted }
+    }
+
+    var checklistItemCount: Int {
+        checklistItems.count
+    }
+
+    var completedChecklistItemCount: Int {
+        checklistItems.filter(\.isCompleted).count
     }
 }

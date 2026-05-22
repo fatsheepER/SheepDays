@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
+import UniformTypeIdentifiers
 
 struct EventDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -32,12 +34,15 @@ struct EventDetailView: View {
 
     @State private var errorMessage: String?
     @State private var pendingManagementAction: PendingManagementAction?
+    @State private var newChecklistItemTitle: String = ""
+    @State private var draggedChecklistItemID: UUID?
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
     var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
     var onRequestTagList: (TagListPresentation) -> Void = { _ in }
 
+    // MARK: - Body
     var body: some View {
         VStack(spacing: 10) {
             ScrollView(showsIndicators: false) {
@@ -49,6 +54,9 @@ struct EventDetailView: View {
                     showOnHomeSection
                     pinToTopSection
                     importanceLevelSection
+                    checklistSection
+
+                    Color.clear.frame(height: 50)
                 }
                 .padding(.top, 24)
                 .padding(.horizontal, 5)
@@ -58,11 +66,11 @@ struct EventDetailView: View {
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .foregroundStyle(Color(.quaternarySystemFill))
             )
-            
+
             controls
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        
+
         .alert(
             "操作失败",
             isPresented: Binding(
@@ -111,20 +119,20 @@ private extension EventDetailView {
                 }
                 .buttonStyle(.plain)
                 .frame(height: 50)
-                
+
                 Spacer()
-                
+
                 Text(remainingDaysText)
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                     .foregroundStyle(eventAccentColor)
             }
-            
+
             TextField("请输入事件名称", text: titleBinding)
                 .textFieldStyle(.plain)
                 .font(.system(size: 25, weight: .semibold, design: .rounded))
         }
     }
-    
+
     var notebookAndTagsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -178,7 +186,7 @@ private extension EventDetailView {
             }
         }
     }
-    
+
     var noteSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("备注", "note.text")
@@ -197,7 +205,7 @@ private extension EventDetailView {
     var dateSection: some View {
         HStack {
             sectionTitle("日期", "calendar")
-            
+
             Spacer()
 
             DatePicker(
@@ -209,42 +217,42 @@ private extension EventDetailView {
             .labelsHidden()
         }
     }
-    
+
     var showOnHomeSection: some View {
         HStack {
             sectionTitle("显示在首页", "star")
-            
+
             Spacer()
 
             Toggle("", isOn: showOnHomeBinding)
                 .tint(.accent)
         }
     }
-    
+
     var pinToTopSection: some View {
         HStack {
             sectionTitle("置顶", "pin")
-            
+
             Spacer()
 
             Toggle("", isOn: pinToTopBinding)
                 .tint(.accent)
         }
     }
-    
+
     var importanceLevelSection: some View {
         VStack {
             // title
             HStack {
                 sectionTitle("重要性", "flag")
-                
+
                 Spacer()
-                
+
                 Text(importanceLevelText)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
-            
+
             // indicator
             HStack {
                 ForEach(1...5, id: \.self) { level in
@@ -267,6 +275,126 @@ private extension EventDetailView {
         }
     }
 
+    var checklistSection: some View {
+        VStack {
+            HStack {
+                sectionTitle("检查清单", "checklist")
+
+                Spacer()
+
+                if event.hasChecklistItems {
+                    Text("\(event.completedChecklistItemCount)/\(event.checklistItemCount)")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+            }
+
+            VStack(spacing: 3) {
+                checklistCreateRow
+
+                ForEach(sortedChecklistItems) { item in
+                    checklistItemRow(for: item)
+                }
+
+                if sortedChecklistItems.count > 1 {
+                    checklistBottomDropTarget
+                }
+            }
+            .font(.system(size: 18, weight: .medium))
+            .foregroundStyle(Color(.secondaryLabel))
+        }
+    }
+
+    var checklistCreateRow: some View {
+        HStack {
+            Button {
+                createChecklistItem()
+            } label: {
+                Image(systemName: "circle.dashed")
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .fontDesign(.rounded)
+                    .contentTransition(.symbolEffect)
+            }
+            .buttonStyle(.plain)
+
+            TextField("新的检查事项", text: $newChecklistItemTitle)
+                .textFieldStyle(.plain)
+                .submitLabel(.done)
+                .onSubmit(createChecklistItem)
+
+            Spacer()
+
+            Image(systemName: "line.3.horizontal")
+                .fontDesign(.rounded)
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .foregroundStyle(Color(.tertiarySystemFill))
+        )
+    }
+
+    func checklistItemRow(for item: ChecklistItem) -> some View {
+        HStack {
+            Button {
+                toggleChecklistItem(item)
+            } label: {
+                Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(.accent)
+                    .fontDesign(.rounded)
+                    .contentTransition(.symbolEffect)
+            }
+            .buttonStyle(.plain)
+
+            ChecklistTitleTextField(
+                text: checklistTitleBinding(for: item),
+                placeholder: "检查事项",
+                onEmptyBackspace: {
+                    deleteChecklistItem(item)
+                }
+            )
+            .frame(minHeight: 24)
+
+            Spacer()
+
+            Image(systemName: "line.3.horizontal")
+                .fontDesign(.rounded)
+                .foregroundStyle(Color(.tertiaryLabel))
+                .contentShape(Rectangle())
+                .onDrag {
+                    draggedChecklistItemID = item.id
+                    return NSItemProvider(object: item.id.uuidString as NSString)
+                }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 7)
+        .onDrop(
+            of: [UTType.text],
+            delegate: ChecklistItemDropDelegate(
+                itemID: item.id,
+                draggedItemID: $draggedChecklistItemID,
+                moveItem: moveChecklistItem,
+                finalize: finalizeChecklistReorder
+            )
+        )
+    }
+
+    var checklistBottomDropTarget: some View {
+        Color.clear
+            .frame(height: 10)
+            .onDrop(of: [UTType.text], isTargeted: nil) { _ in
+                guard let draggedChecklistItemID else {
+                    return false
+                }
+
+                moveChecklistItemToBottom(draggedChecklistItemID)
+                finalizeChecklistReorder()
+                return true
+            }
+    }
+
     var controls: some View {
         HStack(spacing: 10) {
             // back
@@ -276,7 +404,7 @@ private extension EventDetailView {
                 SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .secondary)
             }
             .buttonStyle(.plain)
-            
+
             Menu {
                 Button {
                     pendingManagementAction = .archive
@@ -295,7 +423,7 @@ private extension EventDetailView {
             .buttonStyle(.plain)
         }
     }
-    
+
     // MARK: - Computed variables
     var eventAccentColor: Color {
         if let colorHex = event.notebook?.colorHex,
@@ -332,6 +460,16 @@ private extension EventDetailView {
         "\(event.importanceLevel)/5"
     }
 
+    var sortedChecklistItems: [ChecklistItem] {
+        event.checklistItems.sorted {
+            if $0.sortIndex != $1.sortIndex {
+                return $0.sortIndex > $1.sortIndex
+            }
+
+            return $0.createdAt > $1.createdAt
+        }
+    }
+
     var pendingManagementActionIsPresented: Binding<Bool> {
         Binding(
             get: { pendingManagementAction != nil },
@@ -342,7 +480,7 @@ private extension EventDetailView {
             }
         )
     }
-    
+
     private enum PendingManagementAction: String, Identifiable {
         case archive
         case delete
@@ -439,12 +577,21 @@ private extension EventDetailView {
         )
     }
 
+    func checklistTitleBinding(for item: ChecklistItem) -> Binding<String> {
+        Binding(
+            get: { item.title },
+            set: { newValue in
+                updateChecklistItemTitle(item, title: newValue)
+            }
+        )
+    }
+
     @ViewBuilder
     func sectionTitle(_ title: String, _ imageName: String) -> some View {
         HStack(alignment: .firstTextBaseline,spacing: 5) {
             Image(systemName: imageName)
                 .font(.system(size: 18, weight: .medium))
-            
+
             Text(title)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Color(.secondaryLabel))
@@ -511,6 +658,93 @@ private extension EventDetailView {
         persistChanges()
     }
 
+    func createChecklistItem() {
+        let title = newChecklistItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else {
+            return
+        }
+
+        let item = ChecklistItem(
+            title: title,
+            sortIndex: (sortedChecklistItems.map(\.sortIndex).max() ?? 0) + 1
+        )
+
+        modelContext.insert(item)
+        event.checklistItems.append(item)
+        newChecklistItemTitle = ""
+        persistChanges()
+    }
+
+    func toggleChecklistItem(_ item: ChecklistItem) {
+        item.isCompleted.toggle()
+        item.updatedAt = .now
+        persistChanges()
+    }
+
+    func updateChecklistItemTitle(_ item: ChecklistItem, title: String) {
+        guard item.title != title else {
+            return
+        }
+
+        item.title = title
+        item.updatedAt = .now
+        persistChanges()
+    }
+
+    func deleteChecklistItem(_ item: ChecklistItem) {
+        event.checklistItems.removeAll { $0.id == item.id }
+        modelContext.delete(item)
+        normalizeChecklistOrder(sortedChecklistItems)
+        persistChanges()
+    }
+
+    func moveChecklistItem(_ draggedID: UUID, _ targetID: UUID) {
+        guard draggedID != targetID else {
+            return
+        }
+
+        var items = sortedChecklistItems
+        guard let sourceIndex = items.firstIndex(where: { $0.id == draggedID }),
+              let targetIndex = items.firstIndex(where: { $0.id == targetID }) else {
+            return
+        }
+
+        let movedItem = items.remove(at: sourceIndex)
+        let insertionIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
+        items.insert(movedItem, at: insertionIndex)
+        normalizeChecklistOrder(items)
+    }
+
+    func moveChecklistItemToBottom(_ draggedID: UUID) {
+        var items = sortedChecklistItems
+        guard let sourceIndex = items.firstIndex(where: { $0.id == draggedID }),
+              sourceIndex != items.count - 1 else {
+            return
+        }
+
+        let movedItem = items.remove(at: sourceIndex)
+        items.append(movedItem)
+        normalizeChecklistOrder(items)
+    }
+
+    func finalizeChecklistReorder() {
+        draggedChecklistItemID = nil
+        persistChanges()
+    }
+
+    func normalizeChecklistOrder(_ items: [ChecklistItem]) {
+        let count = items.count
+
+        for (offset, item) in items.enumerated() {
+            let newSortIndex = count - offset
+
+            if item.sortIndex != newSortIndex {
+                item.sortIndex = newSortIndex
+                item.updatedAt = .now
+            }
+        }
+    }
+
     private func performManagementAction(_ action: PendingManagementAction) {
         switch action {
         case .archive:
@@ -565,6 +799,104 @@ private extension EventDetailView {
         } catch {
             errorMessage = error.localizedDescription
             return false
+        }
+    }
+}
+
+private struct ChecklistItemDropDelegate: DropDelegate {
+    let itemID: UUID
+    @Binding var draggedItemID: UUID?
+    let moveItem: (UUID, UUID) -> Void
+    let finalize: () -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItemID, draggedItemID != itemID else {
+            return
+        }
+
+        moveItem(draggedItemID, itemID)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        finalize()
+        return true
+    }
+}
+
+private struct ChecklistTitleTextField: UIViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onEmptyBackspace: () -> Void
+
+    func makeUIView(context: Context) -> EmptyBackspaceTextField {
+        let textField = EmptyBackspaceTextField()
+        textField.borderStyle = .none
+        textField.backgroundColor = .clear
+        textField.font = .systemFont(ofSize: 18, weight: .medium)
+        textField.textColor = .secondaryLabel
+        textField.placeholder = placeholder
+        textField.returnKeyType = .done
+        textField.onEmptyBackspace = context.coordinator.handleEmptyBackspace
+        textField.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.textDidChange(_:)),
+            for: .editingChanged
+        )
+        textField.delegate = context.coordinator
+        return textField
+    }
+
+    func updateUIView(_ uiView: EmptyBackspaceTextField, context: Context) {
+        context.coordinator.parent = self
+
+        if uiView.text != text {
+            uiView.text = text
+        }
+
+        uiView.placeholder = placeholder
+        uiView.onEmptyBackspace = context.coordinator.handleEmptyBackspace
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: ChecklistTitleTextField
+
+        init(parent: ChecklistTitleTextField) {
+            self.parent = parent
+        }
+
+        @objc func textDidChange(_ textField: UITextField) {
+            parent.text = textField.text ?? ""
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            textField.resignFirstResponder()
+            return true
+        }
+
+        func handleEmptyBackspace() {
+            DispatchQueue.main.async {
+                self.parent.onEmptyBackspace()
+            }
+        }
+    }
+
+    final class EmptyBackspaceTextField: UITextField {
+        var onEmptyBackspace: (() -> Void)?
+
+        override func deleteBackward() {
+            if text?.isEmpty ?? true {
+                onEmptyBackspace?()
+            } else {
+                super.deleteBackward()
+            }
         }
     }
 }
@@ -684,6 +1016,15 @@ private let eventDetailPreviewContainer: ModelContainer = {
     )
 
     context.insert(event)
+
+    [
+        ChecklistItem(title: "还没做好的事情", isCompleted: false, sortIndex: 3),
+        ChecklistItem(title: "还没做好的事情", isCompleted: true, sortIndex: 2),
+        ChecklistItem(title: "空标题后再退格会删除", isCompleted: false, sortIndex: 1)
+    ].forEach { item in
+        context.insert(item)
+        event.checklistItems.append(item)
+    }
 
     return container
 }()

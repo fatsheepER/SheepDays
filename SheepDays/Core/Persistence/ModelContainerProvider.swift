@@ -19,6 +19,7 @@ enum ModelContainerProvider {
 private extension ModelContainerProvider {
     static func makeModelContainer(isStoredInMemoryOnly: Bool) -> ModelContainer {
         let schema = Schema([
+            ChecklistItem.self,
             Event.self,
             FocusPreset.self,
             Notebook.self,
