@@ -8,7 +8,6 @@
 import SwiftUI
 import SwiftData
 import UIKit
-import UniformTypeIdentifiers
 
 struct EventDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -36,6 +35,13 @@ struct EventDetailView: View {
     @State private var pendingManagementAction: PendingManagementAction?
     @State private var newChecklistItemTitle: String = ""
     @State private var draggedChecklistItemID: UUID?
+    @State private var dragTranslationY: CGFloat = 0
+    @State private var dragStartFrame: CGRect?
+    @State private var dragOrderIDs: [UUID] = []
+    @State private var checklistRowFrames: [UUID: CGRect] = [:]
+    @State private var checklistScrollFrame: CGRect = .zero
+    @State private var focusedChecklistItemID: UUID?
+    @FocusState private var isNewChecklistItemFieldFocused: Bool
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
@@ -45,29 +51,48 @@ struct EventDetailView: View {
     // MARK: - Body
     var body: some View {
         VStack(spacing: 10) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 15) {
-                    titleSection
-                    notebookAndTagsSection
-                    noteSection
-                    dateSection
-                    showOnHomeSection
-                    pinToTopSection
-                    importanceLevelSection
-                    checklistSection
+            ScrollViewReader { scrollProxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 15) {
+                        titleSection
+                        notebookAndTagsSection
+                        noteSection
+                        dateSection
+                        showOnHomeSection
+                        pinToTopSection
+                        importanceLevelSection
+                        checklistSection(scrollProxy: scrollProxy)
 
-                    Color.clear.frame(height: 50)
+                        Color.clear.frame(height: bottomContentSpacerHeight)
+                    }
+                    .padding(.top, 24)
+                    .padding(.horizontal, 5)
                 }
-                .padding(.top, 24)
-                .padding(.horizontal, 5)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .foregroundStyle(Color(.quaternarySystemFill))
+                )
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: isNewChecklistItemFieldFocused) { _, isFocused in
+                    if isFocused {
+                        focusedChecklistItemID = nil
+                        scrollToChecklistInput(.newItem, with: scrollProxy)
+                    }
+                }
+                .onChange(of: focusedChecklistItemID) { _, itemID in
+                    if let itemID {
+                        isNewChecklistItemFieldFocused = false
+                        scrollToChecklistInput(.item(itemID), with: scrollProxy)
+                    }
+                }
             }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .foregroundStyle(Color(.quaternarySystemFill))
-            )
 
             controls
+
+            if isChecklistInputFocused {
+                Spacer(minLength: 0)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
@@ -275,7 +300,7 @@ private extension EventDetailView {
         }
     }
 
-    var checklistSection: some View {
+    func checklistSection(scrollProxy: ScrollViewProxy) -> some View {
         VStack {
             HStack {
                 sectionTitle("检查清单", "checklist")
@@ -289,16 +314,26 @@ private extension EventDetailView {
                 }
             }
 
-            VStack(spacing: 3) {
-                checklistCreateRow
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 3) {
+                    checklistCreateRow
 
-                ForEach(sortedChecklistItems) { item in
-                    checklistItemRow(for: item)
+                    ForEach(orderedChecklistItems) { item in
+                        checklistItemRow(for: item, scrollProxy: scrollProxy)
+                    }
                 }
+                .background(checklistScrollFrameReader)
 
-                if sortedChecklistItems.count > 1 {
-                    checklistBottomDropTarget
+                if let draggedItem {
+                    checklistFloatingRow(for: draggedItem)
                 }
+            }
+            .coordinateSpace(name: ChecklistCoordinateSpace.name)
+            .onPreferenceChange(ChecklistRowFramePreferenceKey.self) { frames in
+                checklistRowFrames = frames
+            }
+            .onPreferenceChange(ChecklistScrollFramePreferenceKey.self) { frame in
+                checklistScrollFrame = frame
             }
             .font(.system(size: 18, weight: .medium))
             .foregroundStyle(Color(.secondaryLabel))
@@ -320,79 +355,147 @@ private extension EventDetailView {
             TextField("新的检查事项", text: $newChecklistItemTitle)
                 .textFieldStyle(.plain)
                 .submitLabel(.done)
+                .focused($isNewChecklistItemFieldFocused)
                 .onSubmit(createChecklistItem)
 
             Spacer()
-
-            Image(systemName: "line.3.horizontal")
-                .fontDesign(.rounded)
-                .foregroundStyle(Color(.tertiaryLabel))
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 7)
         .background(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .foregroundStyle(Color(.tertiarySystemFill))
+            checklistRowBackground
         )
+        .id(ChecklistScrollTarget.newItem)
     }
 
-    func checklistItemRow(for item: ChecklistItem) -> some View {
+    func checklistItemRow(for item: ChecklistItem, scrollProxy: ScrollViewProxy) -> some View {
+        let isDragging = draggedChecklistItemID == item.id
+
+        return ZStack {
+            checklistItemRowContent(for: item, mode: .normal, scrollProxy: scrollProxy)
+                .opacity(isDragging ? 0 : 1)
+
+            if isDragging {
+                checklistPlaceholderRow
+                    .allowsHitTesting(false)
+            }
+        }
+        .id(ChecklistScrollTarget.item(item.id))
+        .background(checklistRowFrameReader(for: item.id))
+    }
+
+    func checklistItemRowContent(
+        for item: ChecklistItem,
+        mode: ChecklistRowMode,
+        scrollProxy: ScrollViewProxy? = nil
+    ) -> some View {
         HStack {
             Button {
                 toggleChecklistItem(item)
             } label: {
-                Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(.accent)
-                    .fontDesign(.rounded)
-                    .contentTransition(.symbolEffect)
+                checklistStatusIcon(for: item)
             }
             .buttonStyle(.plain)
+            .disabled(mode != .normal)
 
-            ChecklistTitleTextField(
-                text: checklistTitleBinding(for: item),
-                placeholder: "检查事项",
-                onEmptyBackspace: {
-                    deleteChecklistItem(item)
-                }
-            )
-            .frame(minHeight: 24)
+            if mode == .normal {
+                ChecklistTitleTextField(
+                    text: checklistTitleBinding(for: item),
+                    placeholder: "检查事项",
+                    onEmptyBackspace: {
+                        deleteChecklistItem(item)
+                    },
+                    onBeginEditing: {
+                        focusedChecklistItemID = item.id
+                    },
+                    onEndEditing: {
+                        if focusedChecklistItemID == item.id {
+                            focusedChecklistItemID = nil
+                        }
+                    }
+                )
+                .frame(minHeight: 24)
+            } else {
+                Text(item.title.isEmpty ? "检查事项" : item.title)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             Spacer()
 
             Image(systemName: "line.3.horizontal")
                 .fontDesign(.rounded)
                 .foregroundStyle(Color(.tertiaryLabel))
+                .frame(width: 40, height: 32)
                 .contentShape(Rectangle())
-                .onDrag {
-                    draggedChecklistItemID = item.id
-                    return NSItemProvider(object: item.id.uuidString as NSString)
-                }
+                .gesture(checklistDragGesture(for: item, scrollProxy: scrollProxy))
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 7)
-        .onDrop(
-            of: [UTType.text],
-            delegate: ChecklistItemDropDelegate(
-                itemID: item.id,
-                draggedItemID: $draggedChecklistItemID,
-                moveItem: moveChecklistItem,
-                finalize: finalizeChecklistReorder
+    }
+
+    var checklistPlaceholderRow: some View {
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
+            .foregroundStyle(Color(.tertiarySystemFill))
+            .frame(height: checklistRowHeight)
+    }
+
+    func checklistFloatingRow(for item: ChecklistItem) -> some View {
+        checklistItemRowContent(for: item, mode: .floating)
+            .frame(width: checklistFloatingRowFrame(for: item).width)
+            .background(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .foregroundStyle(eventAccentColor.opacity(0.22))
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .strokeBorder(eventAccentColor.opacity(0.35), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.14), radius: 10, y: 5)
+            .offset(
+                x: checklistFloatingRowFrame(for: item).minX + 10,
+                y: checklistFloatingRowFrame(for: item).minY + dragTranslationY
+            )
+            .zIndex(10)
+            .allowsHitTesting(false)
+    }
+
+    func checklistStatusIcon(for item: ChecklistItem) -> some View {
+        Image(systemName: item.isCompleted ? "checkmark.circle" : "circle")
+            .foregroundStyle(.accent)
+            .fontDesign(.rounded)
+    }
+
+    var checklistRowBackground: some View {
+        RoundedRectangle(cornerRadius: 15, style: .continuous)
+            .foregroundStyle(Color(.tertiarySystemFill))
+    }
+
+    func checklistFloatingRowFrame(for item: ChecklistItem) -> CGRect {
+        dragStartFrame ?? checklistRowFrames[item.id] ?? CGRect(
+            x: 0,
+            y: 0,
+            width: max(checklistScrollFrame.width, 260),
+            height: checklistRowHeight
         )
     }
 
-    var checklistBottomDropTarget: some View {
-        Color.clear
-            .frame(height: 10)
-            .onDrop(of: [UTType.text], isTargeted: nil) { _ in
-                guard let draggedChecklistItemID else {
-                    return false
-                }
+    var checklistScrollFrameReader: some View {
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: ChecklistScrollFramePreferenceKey.self,
+                value: proxy.frame(in: .named(ChecklistCoordinateSpace.name))
+            )
+        }
+    }
 
-                moveChecklistItemToBottom(draggedChecklistItemID)
-                finalizeChecklistReorder()
-                return true
-            }
+    func checklistRowFrameReader(for itemID: UUID) -> some View {
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: ChecklistRowFramePreferenceKey.self,
+                value: [itemID: proxy.frame(in: .named(ChecklistCoordinateSpace.name))]
+            )
+        }
     }
 
     var controls: some View {
@@ -460,6 +563,30 @@ private extension EventDetailView {
         "\(event.importanceLevel)/5"
     }
 
+    var isChecklistInputFocused: Bool {
+        isNewChecklistItemFieldFocused || focusedChecklistItemID != nil
+    }
+
+    var bottomContentSpacerHeight: CGFloat {
+        isChecklistInputFocused ? 320 : 50
+    }
+
+    var orderedChecklistItems: [ChecklistItem] {
+        let sortedItems = sortedChecklistItems
+        let itemsByID = Dictionary(uniqueKeysWithValues: sortedItems.map { ($0.id, $0) })
+        let orderedItems = dragOrderIDs.compactMap { itemsByID[$0] }
+        let missingItems = sortedItems.filter { !dragOrderIDs.contains($0.id) }
+        return dragOrderIDs.isEmpty ? sortedItems : orderedItems + missingItems
+    }
+
+    var draggedItem: ChecklistItem? {
+        guard let draggedChecklistItemID else {
+            return nil
+        }
+
+        return sortedChecklistItems.first { $0.id == draggedChecklistItemID }
+    }
+
     var sortedChecklistItems: [ChecklistItem] {
         event.checklistItems.sorted {
             if $0.sortIndex != $1.sortIndex {
@@ -468,6 +595,10 @@ private extension EventDetailView {
 
             return $0.createdAt > $1.createdAt
         }
+    }
+
+    var checklistRowHeight: CGFloat {
+        48
     }
 
     var pendingManagementActionIsPresented: Binding<Bool> {
@@ -658,6 +789,132 @@ private extension EventDetailView {
         persistChanges()
     }
 
+    func checklistDragGesture(for item: ChecklistItem, scrollProxy: ScrollViewProxy?) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(ChecklistCoordinateSpace.name)))
+            .onChanged { value in
+                switch value {
+                case .second(true, let dragValue):
+                    if draggedChecklistItemID != item.id {
+                        beginChecklistDrag(for: item)
+                    }
+
+                    guard let dragValue else {
+                        return
+                    }
+
+                    dragTranslationY = dragValue.translation.height
+                    updateChecklistDragOrder(for: item.id, scrollProxy: scrollProxy)
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                endChecklistDrag()
+            }
+    }
+
+    func beginChecklistDrag(for item: ChecklistItem) {
+        guard draggedChecklistItemID != item.id else {
+            return
+        }
+
+        endChecklistEditing()
+        draggedChecklistItemID = item.id
+        dragTranslationY = 0
+        dragStartFrame = checklistRowFrames[item.id]
+        dragOrderIDs = orderedChecklistItems.map(\.id)
+        haptics.play(.selectionStep)
+    }
+
+    func updateChecklistDragOrder(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
+        let currentOrder = dragOrderIDs.isEmpty ? sortedChecklistItems.map(\.id) : dragOrderIDs
+        guard let draggedFrame = dragStartFrame ?? checklistRowFrames[draggedID] else {
+            return
+        }
+
+        let floatingMidY = draggedFrame.midY + dragTranslationY
+        var nextOrder = currentOrder.filter { $0 != draggedID }
+        let targetIndex = nextOrder.filter { id in
+            guard let frame = checklistRowFrames[id] else {
+                return false
+            }
+
+            return frame.midY < floatingMidY
+        }.count
+
+        nextOrder.insert(draggedID, at: min(targetIndex, nextOrder.count))
+
+        guard nextOrder != currentOrder else {
+            autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            dragOrderIDs = nextOrder
+        }
+        haptics.play(.selectionStep)
+        autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
+    }
+
+    func autoScrollChecklistIfNeeded(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
+        guard let scrollProxy,
+              let currentIndex = dragOrderIDs.firstIndex(of: draggedID) else {
+            return
+        }
+
+        if dragTranslationY < -90, currentIndex > 0 {
+            let targetID = dragOrderIDs[currentIndex - 1]
+            withAnimation(.linear(duration: 0.18)) {
+                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .top)
+            }
+        } else if dragTranslationY > 90, currentIndex < dragOrderIDs.count - 1 {
+            let targetID = dragOrderIDs[currentIndex + 1]
+            withAnimation(.linear(duration: 0.18)) {
+                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .bottom)
+            }
+        }
+    }
+
+    func endChecklistDrag() {
+        defer {
+            draggedChecklistItemID = nil
+            dragTranslationY = 0
+            dragStartFrame = nil
+            dragOrderIDs = []
+        }
+
+        let originalOrderIDs = sortedChecklistItems.map(\.id)
+        guard !dragOrderIDs.isEmpty,
+              dragOrderIDs != originalOrderIDs else {
+            return
+        }
+
+        let itemsByID = Dictionary(uniqueKeysWithValues: sortedChecklistItems.map { ($0.id, $0) })
+        let orderedItems = dragOrderIDs.compactMap { itemsByID[$0] }
+        normalizeChecklistOrder(orderedItems)
+        persistChanges()
+    }
+
+    func endChecklistEditing() {
+        isNewChecklistItemFieldFocused = false
+        focusedChecklistItemID = nil
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+    }
+
+    func scrollToChecklistInput(_ target: ChecklistScrollTarget, with proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            withAnimation(.snappy(duration: 0.25)) {
+                proxy.scrollTo(target, anchor: .center)
+            }
+        }
+    }
+
     func createChecklistItem() {
         let title = newChecklistItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
@@ -672,7 +929,14 @@ private extension EventDetailView {
         modelContext.insert(item)
         event.checklistItems.append(item)
         newChecklistItemTitle = ""
+        keepNewChecklistItemFieldFocused()
         persistChanges()
+    }
+
+    func keepNewChecklistItemFieldFocused() {
+        DispatchQueue.main.async {
+            isNewChecklistItemFieldFocused = true
+        }
     }
 
     func toggleChecklistItem(_ item: ChecklistItem) {
@@ -695,40 +959,6 @@ private extension EventDetailView {
         event.checklistItems.removeAll { $0.id == item.id }
         modelContext.delete(item)
         normalizeChecklistOrder(sortedChecklistItems)
-        persistChanges()
-    }
-
-    func moveChecklistItem(_ draggedID: UUID, _ targetID: UUID) {
-        guard draggedID != targetID else {
-            return
-        }
-
-        var items = sortedChecklistItems
-        guard let sourceIndex = items.firstIndex(where: { $0.id == draggedID }),
-              let targetIndex = items.firstIndex(where: { $0.id == targetID }) else {
-            return
-        }
-
-        let movedItem = items.remove(at: sourceIndex)
-        let insertionIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
-        items.insert(movedItem, at: insertionIndex)
-        normalizeChecklistOrder(items)
-    }
-
-    func moveChecklistItemToBottom(_ draggedID: UUID) {
-        var items = sortedChecklistItems
-        guard let sourceIndex = items.firstIndex(where: { $0.id == draggedID }),
-              sourceIndex != items.count - 1 else {
-            return
-        }
-
-        let movedItem = items.remove(at: sourceIndex)
-        items.append(movedItem)
-        normalizeChecklistOrder(items)
-    }
-
-    func finalizeChecklistReorder() {
-        draggedChecklistItemID = nil
         persistChanges()
     }
 
@@ -803,27 +1033,33 @@ private extension EventDetailView {
     }
 }
 
-private struct ChecklistItemDropDelegate: DropDelegate {
-    let itemID: UUID
-    @Binding var draggedItemID: UUID?
-    let moveItem: (UUID, UUID) -> Void
-    let finalize: () -> Void
+private enum ChecklistScrollTarget: Hashable {
+    case newItem
+    case item(UUID)
+}
 
-    func dropEntered(info: DropInfo) {
-        guard let draggedItemID, draggedItemID != itemID else {
-            return
-        }
+private enum ChecklistRowMode: Equatable {
+    case normal
+    case floating
+}
 
-        moveItem(draggedItemID, itemID)
+private enum ChecklistCoordinateSpace {
+    static let name = "event-detail-checklist"
+}
+
+private struct ChecklistRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, newValue in newValue })
     }
+}
 
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
+private struct ChecklistScrollFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
 
-    func performDrop(info: DropInfo) -> Bool {
-        finalize()
-        return true
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
 
@@ -831,6 +1067,8 @@ private struct ChecklistTitleTextField: UIViewRepresentable {
     @Binding var text: String
     let placeholder: String
     let onEmptyBackspace: () -> Void
+    let onBeginEditing: () -> Void
+    let onEndEditing: () -> Void
 
     func makeUIView(context: Context) -> EmptyBackspaceTextField {
         let textField = EmptyBackspaceTextField()
@@ -879,6 +1117,14 @@ private struct ChecklistTitleTextField: UIViewRepresentable {
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
             textField.resignFirstResponder()
             return true
+        }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            parent.onBeginEditing()
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            parent.onEndEditing()
         }
 
         func handleEmptyBackspace() {
