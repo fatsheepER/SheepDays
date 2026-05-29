@@ -28,7 +28,7 @@ struct HomeSheetView: View {
                     .transition(.move(edge: .bottom).combined(with: .blurReplace))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .animation(.snappy(duration: 0.2), value: isCompact)
     }
 }
