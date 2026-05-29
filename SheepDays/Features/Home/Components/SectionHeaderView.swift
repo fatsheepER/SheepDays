@@ -13,8 +13,8 @@ struct SectionHeaderView: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(.tertiaryLabel))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color(.secondaryLabel))
 
             Spacer(minLength: 0)
         }

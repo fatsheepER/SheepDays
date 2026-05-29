@@ -159,6 +159,7 @@ private extension HomeView {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // 单个 section 的显示内容
     func homeSection(
         _ section: HomeSection,
         targetDatesByEventID: [UUID: Date]
@@ -166,6 +167,7 @@ private extension HomeView {
         VStack(alignment: .leading, spacing: 10) {
             if let title = section.title, !title.isEmpty {
                 SectionHeaderView(title: title)
+                    .padding(.horizontal)
             }
 
             VStack(spacing: 0) {
