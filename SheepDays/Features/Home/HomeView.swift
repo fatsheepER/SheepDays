@@ -209,7 +209,7 @@ private extension HomeView {
                     .transition(.blurReplace.combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 15)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(homeSectionBackground)
