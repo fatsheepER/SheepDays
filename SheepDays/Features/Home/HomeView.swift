@@ -72,7 +72,18 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
+    // 让 HomeDateView 向上与 Toolbar 重叠
     static let homeContentToolbarOverlap: CGFloat = 40
+    // 控制顶部柔化层效果
+    static let floatingDateScrollInset: CGFloat = 106
+    static let floatingDateFadeHeight: CGFloat = 200
+    static let floatingDateFadeOffset: CGFloat = -42
+    // 控制底部柔化层效果
+    static let bottomScrollFadeHeight: CGFloat = 172
+    static let bottomScrollFadeOffset: CGFloat = 64
+    static let bottomSheetInsetHeight: CGFloat = 200
+    static let edgeFadeHorizontalBleed: CGFloat = 42
+    // 分步回到 today 动画
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
@@ -92,11 +103,13 @@ private extension HomeView {
         ZStack {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
-            VStack(spacing: 10) {
-                HomeDateView(referenceDate: referenceDate)
-                
+
+            ZStack(alignment: .top) {
                 homeSectionsArea
+
+                floatingDateHeader
+                    .allowsHitTesting(false)
+                    .zIndex(1)
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
@@ -114,26 +127,37 @@ private extension HomeView {
                 emptyHomePlaceholder
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        sectionList(
-                            sections: sections,
-                            targetDatesByEventID: targetDatesByEventID
-                        )
-                    }
-                    .safeAreaInset(edge: .bottom) {
-                        if isBottomSheetPresented {
-                            VStack {
-                                Text("Sheep Days")
-                                    .font(.system(size: 20, weight: .semibold, design: .serif))
-                                    .foregroundStyle(Color(.tertiaryLabel))
-                                
-                                Text("Made with LOVE since Apr 15, 2026")
-                                    .font(.system(size: 10, weight: .regular, design: .serif))
-                                    .foregroundStyle(Color(.tertiaryLabel))
-                            }
-                            .frame(height: 200)
+                ZStack(alignment: .bottom) {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            sectionList(
+                                sections: sections,
+                                targetDatesByEventID: targetDatesByEventID
+                            )
                         }
+                        .safeAreaInset(edge: .bottom) {
+                            if isBottomSheetPresented {
+                                VStack {
+                                    Text("Sheep Days")
+                                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                                        .foregroundStyle(Color(.tertiaryLabel))
+
+                                    Text("Made with LOVE since Apr 15, 2026")
+                                        .font(.system(size: 10, weight: .regular, design: .serif))
+                                        .foregroundStyle(Color(.tertiaryLabel))
+                                }
+                                .frame(height: Self.bottomSheetInsetHeight)
+                            }
+                        }
+                    }
+
+                    if isBottomSheetPresented {
+                        scrollEdgeFade(edge: .bottom)
+                            .frame(height: Self.bottomScrollFadeHeight)
+                            .padding(.horizontal, -Self.edgeFadeHorizontalBleed)
+                            .offset(y: Self.bottomScrollFadeOffset)
+                            .allowsHitTesting(false)
+                            .zIndex(1)
                     }
                 }
             }
@@ -146,7 +170,7 @@ private extension HomeView {
         targetDatesByEventID: [UUID: Date]
     ) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Color.clear.frame(height: 5)
+            Color.clear.frame(height: Self.floatingDateScrollInset)
 
             ForEach(sections) { section in
                 homeSection(
@@ -201,6 +225,67 @@ private extension HomeView {
     var homeSectionBackground: some View {
         RoundedRectangle(cornerRadius: 35, style: .continuous)
             .foregroundStyle(Color(.systemBackground))
+    }
+
+    var floatingDateHeader: some View {
+        ZStack(alignment: .topLeading) {
+            scrollEdgeFade(edge: .top)
+                .frame(height: Self.floatingDateFadeHeight)
+                .padding(.horizontal, -Self.edgeFadeHorizontalBleed)
+                .offset(y: Self.floatingDateFadeOffset)
+
+            HomeDateView(referenceDate: referenceDate)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    func scrollEdgeFade(edge: VerticalEdge) -> some View {
+        ZStack {
+            Rectangle()
+                .fill(.thickMaterial)
+
+            Rectangle()
+                .fill(Color(.systemGroupedBackground).opacity(0.78))
+        }
+        .compositingGroup()
+        .mask(scrollEdgeFadeMask(edge: edge))
+        .ignoresSafeArea(.container, edges: scrollEdgeIgnoredEdges(for: edge))
+    }
+
+    func scrollEdgeFadeMask(edge: VerticalEdge) -> LinearGradient {
+        let stops: [Gradient.Stop]
+
+        switch edge {
+        case .top:
+            stops = [
+                .init(color: .black.opacity(1.00), location: 0.0),
+                .init(color: .black.opacity(0.82), location: 0.68),
+                .init(color: .black.opacity(0.28), location: 0.88),
+                .init(color: .clear, location: 1.0)
+            ]
+        case .bottom:
+            stops = [
+                .init(color: .clear, location: 0.0),
+                .init(color: .black.opacity(0.24), location: 0.24),
+                .init(color: .black.opacity(0.76), location: 0.66),
+                .init(color: .black.opacity(0.96), location: 1.0)
+            ]
+        }
+
+        return LinearGradient(
+            gradient: Gradient(stops: stops),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    func scrollEdgeIgnoredEdges(for edge: VerticalEdge) -> Edge.Set {
+        switch edge {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        }
     }
 
     // MARK: - Debug Functions
