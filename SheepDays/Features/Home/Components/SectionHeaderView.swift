@@ -11,20 +11,13 @@ struct SectionHeaderView: View {
     let title: String
 
     var body: some View {
-        VStack {
-            HStack {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(.tertiaryLabel))
+        HStack {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(.tertiaryLabel))
 
-                Spacer(minLength: 0)
-            }
-            
-            Capsule(style: .continuous)
-                .frame(height: 1.5)
-                .foregroundStyle(Color(.separator))
+            Spacer(minLength: 0)
         }
-        
     }
 }
 

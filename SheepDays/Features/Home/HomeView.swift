@@ -96,75 +96,107 @@ private extension HomeView {
             VStack(spacing: 20) {
                 HomeDateView(referenceDate: referenceDate)
                 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        sectionList
-                    }
-                    .padding(.horizontal)
-                    .safeAreaInset(edge: .bottom) {
-                        if isBottomSheetPresented {
-                            Color.clear
-                                .frame(height: 180)
+                GeometryReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            sectionList(minHeight: proxy.size.height)
+                        }
+                        .safeAreaInset(edge: .bottom) {
+                            if isBottomSheetPresented {
+                                Color.clear
+                                    .frame(height: 200)
+                            }
                         }
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 35, style: .continuous)
-                        .foregroundStyle(Color(.systemBackground))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 35, style: .continuous)
-                                .inset(by: -2) // 外边框
-                                .stroke(lineWidth: 2)
-                                .foregroundStyle(.separator.secondary)
-                        }
-                )
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
         }
     }
 
-    var sectionList: some View {
+    func sectionList(minHeight: CGFloat) -> some View {
         let _ = contentRefreshToken
         let snapshot = loadHomeSnapshot()
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        // spacing for section header and content
-        return VStack(alignment: .leading, spacing: 10) {
-            Color.clear.frame(height: 5)
-            
-            ForEach(sections) { section in
-                // spacing between sections
-                VStack(alignment: .leading, spacing: 10) {
-                    if let title = section.title, !title.isEmpty {
-                        SectionHeaderView(title: title)
-                    }
-                    else if sections.count > 1 {
-                        Color.clear.frame(height: 5)
-                    }
+        return Group {
+            if sections.isEmpty {
+                emptyHomePlaceholder
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: minHeight, alignment: .center)
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    Color.clear.frame(height: 5)
 
-                    // spacing between items
-                    VStack(spacing: 0) {
-                        ForEach(section.items) { item in
-                            HomeDisplayItemRow(
-                                item: item,
-                                badgeDisplayMode: itemBadgeDisplayMode,
-                                badgeDate: targetDatesByEventID[item.sourceEventId],
-                                openDetail: { openEventDetail(for: item.sourceEventId) },
-                                jumpToEventDate: {
-                                    jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
-                                }
-                            )
-                            .id(item.id)
-                            .transition(.blurReplace.combined(with: .opacity))
-                        }
+                    ForEach(sections) { section in
+                        homeSection(
+                            section,
+                            targetDatesByEventID: targetDatesByEventID
+                        )
+                        .transition(.scale.combined(with: .blurReplace))
                     }
                 }
-                .transition(.scale.combined(with: .blurReplace))
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    func homeSection(
+        _ section: HomeSection,
+        targetDatesByEventID: [UUID: Date]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let title = section.title, !title.isEmpty {
+                SectionHeaderView(title: title)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(section.items) { item in
+                    HomeDisplayItemRow(
+                        item: item,
+                        badgeDisplayMode: itemBadgeDisplayMode,
+                        badgeDate: targetDatesByEventID[item.sourceEventId],
+                        openDetail: { openEventDetail(for: item.sourceEventId) },
+                        jumpToEventDate: {
+                            jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
+                        }
+                    )
+                    .id(item.id)
+                    .transition(.blurReplace.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(homeSectionBackground)
+        }
+    }
+
+    var emptyHomePlaceholder: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(.tertiaryLabel))
+                .accessibilityHidden(true)
+
+            Text("无事件")
+                .font(.system(size: 17, weight: .medium, design: .rounded))
+                .foregroundStyle(Color(.tertiaryLabel))
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    var homeSectionBackground: some View {
+        RoundedRectangle(cornerRadius: 35, style: .continuous)
+            .foregroundStyle(Color(.systemBackground))
+//            .overlay {
+//                RoundedRectangle(cornerRadius: 35, style: .continuous)
+//                    .inset(by: -2)
+//                    .stroke(lineWidth: 2)
+//                    .foregroundStyle(.separator.secondary)
+//            }
     }
 
     // MARK: - Debug Functions
