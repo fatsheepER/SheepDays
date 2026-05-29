@@ -93,54 +93,70 @@ private extension HomeView {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            VStack(spacing: 20) {
+            VStack(spacing: 10) {
                 HomeDateView(referenceDate: referenceDate)
                 
-                GeometryReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            sectionList(minHeight: proxy.size.height)
-                        }
-                        .safeAreaInset(edge: .bottom) {
-                            if isBottomSheetPresented {
-                                Color.clear
-                                    .frame(height: 200)
-                            }
-                        }
-                    }
-                }
+                homeSectionsArea
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
         }
     }
 
-    func sectionList(minHeight: CGFloat) -> some View {
+    var homeSectionsArea: some View {
         let _ = contentRefreshToken
-        let snapshot = loadHomeSnapshot()
+        let snapshot = loadHomeSnapshot() // 读取快照 判断是否需要显示 Placeholder
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        return Group {
+        return ZStack {
             if sections.isEmpty {
                 emptyHomePlaceholder
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: minHeight, alignment: .center)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: 16) {
-                    Color.clear.frame(height: 5)
-
-                    ForEach(sections) { section in
-                        homeSection(
-                            section,
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        sectionList(
+                            sections: sections,
                             targetDatesByEventID: targetDatesByEventID
                         )
-                        .transition(.scale.combined(with: .blurReplace))
+                    }
+                    .safeAreaInset(edge: .bottom) {
+                        if isBottomSheetPresented {
+                            VStack {
+                                Text("Sheep Days")
+                                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                                    .foregroundStyle(Color(.tertiaryLabel))
+                                
+                                Text("Made with LOVE since Apr 15, 2026")
+                                    .font(.system(size: 10, weight: .regular, design: .serif))
+                                    .foregroundStyle(Color(.tertiaryLabel))
+                            }
+                            .frame(height: 200)
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    func sectionList(
+        sections: [HomeSection],
+        targetDatesByEventID: [UUID: Date]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Color.clear.frame(height: 5)
+
+            ForEach(sections) { section in
+                homeSection(
+                    section,
+                    targetDatesByEventID: targetDatesByEventID
+                )
+                .transition(.scale.combined(with: .blurReplace))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     func homeSection(
@@ -176,27 +192,13 @@ private extension HomeView {
 
     var emptyHomePlaceholder: some View {
         VStack(spacing: 10) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(.tertiaryLabel))
-                .accessibilityHidden(true)
-
-            Text("无事件")
-                .font(.system(size: 17, weight: .medium, design: .rounded))
-                .foregroundStyle(Color(.tertiaryLabel))
+            ContentUnavailableView("没有可显示的事件", systemImage: "tray", description: Text("点击创建新事件，或调整你的聚焦配置"))
         }
-        .accessibilityElement(children: .combine)
     }
 
     var homeSectionBackground: some View {
         RoundedRectangle(cornerRadius: 35, style: .continuous)
             .foregroundStyle(Color(.systemBackground))
-//            .overlay {
-//                RoundedRectangle(cornerRadius: 35, style: .continuous)
-//                    .inset(by: -2)
-//                    .stroke(lineWidth: 2)
-//                    .foregroundStyle(.separator.secondary)
-//            }
     }
 
     // MARK: - Debug Functions
