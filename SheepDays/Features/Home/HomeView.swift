@@ -72,7 +72,7 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
-    static let homeContentToolbarOverlap: CGFloat = 28
+    static let homeContentToolbarOverlap: CGFloat = 40
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
@@ -109,14 +109,15 @@ private extension HomeView {
                     }
                 }
                 .background(
-                    SDRoundedBackground(topLeading: 25, topTrailing: 25, bottomLeading: 35, bottomTrailing: 35, cornerStyle: .continuous, color: Color(.secondarySystemGroupedBackground))
+                    RoundedRectangle(cornerRadius: 35, style: .continuous)
+                        .foregroundStyle(Color(.systemBackground))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                            RoundedRectangle(cornerRadius: 35, style: .continuous)
+                                .inset(by: -2) // 外边框
                                 .stroke(lineWidth: 2)
                                 .foregroundStyle(.separator.secondary)
                         }
                 )
-                .padding(.bottom)
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)

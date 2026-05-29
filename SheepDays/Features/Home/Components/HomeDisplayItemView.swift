@@ -124,7 +124,7 @@ private extension HomeDisplayItemView {
             )
             .contentTransition(.numericText())
             .padding(.horizontal, 10)
-            .frame(minHeight: 31)
+            .frame(minHeight: 30)
             .background(
                 Capsule()
                     .fill(item.isToday ? iconColor.opacity(0.2) : Color(.tertiarySystemFill))

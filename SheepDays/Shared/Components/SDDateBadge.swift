@@ -20,7 +20,7 @@ struct SDDateBadge: View {
         .font(.system(size: 15, weight: .semibold, design: .rounded))
         .foregroundStyle(Color(.tertiaryLabel))
         .padding(.horizontal, 10)
-        .frame(minHeight: 31)
+        .frame(minHeight: 30)
         .background(
             Capsule()
                 .fill(Color(.tertiarySystemFill))
