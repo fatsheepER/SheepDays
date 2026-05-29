@@ -24,8 +24,8 @@ struct HomeView: View {
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
-    @State private var availableSheetDetents: Set<PresentationDetent> = [.height(190)]
-    @State private var selectedSheetDetent: PresentationDetent = .height(190)
+    @State private var availableSheetDetents = HomeSheetDetents.home
+    @State private var selectedSheetDetent = HomeSheetDetents.regular
     @State private var detentTransitionToken = 0
     @State private var contentRefreshToken = 0
     @State private var shouldFocusQuickAddTitle = false
@@ -72,7 +72,18 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
-    static let homeContentToolbarOverlap: CGFloat = 28
+    // 让 HomeDateView 向上与 Toolbar 重叠
+    static let homeContentToolbarOverlap: CGFloat = 40
+    // 控制顶部柔化层效果
+    static let floatingDateScrollInset: CGFloat = 106
+    static let floatingDateFadeHeight: CGFloat = 200
+    static let floatingDateFadeOffset: CGFloat = -42
+    // 控制底部柔化层效果
+    static let bottomScrollFadeHeight: CGFloat = 172
+    static let bottomScrollFadeOffset: CGFloat = 64
+    static let bottomSheetInsetHeight: CGFloat = 200
+    static let edgeFadeHorizontalBleed: CGFloat = 42
+    // 分步回到 today 动画
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
@@ -92,78 +103,189 @@ private extension HomeView {
         ZStack {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                HomeDateView(referenceDate: referenceDate)
-                
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 16) {
-                        sectionList
-                    }
-                    .padding(.horizontal)
-                    .safeAreaInset(edge: .bottom) {
-                        if isBottomSheetPresented {
-                            Color.clear
-                                .frame(height: 180)
-                        }
-                    }
-                }
-                .background(
-                    SDRoundedBackground(topLeading: 25, topTrailing: 25, bottomLeading: 35, bottomTrailing: 35, cornerStyle: .continuous, color: Color(.secondarySystemGroupedBackground))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 25, style: .continuous)
-                                .stroke(lineWidth: 2)
-                                .foregroundStyle(.separator.secondary)
-                        }
-                )
-                .padding(.bottom)
+
+            ZStack(alignment: .top) {
+                homeSectionsArea
+
+                floatingDateHeader
+                    .allowsHitTesting(false)
+                    .zIndex(1)
             }
             .padding(.horizontal)
             .padding(.top, -Self.homeContentToolbarOverlap)
         }
     }
 
-    var sectionList: some View {
+    var homeSectionsArea: some View {
         let _ = contentRefreshToken
-        let snapshot = loadHomeSnapshot()
+        let snapshot = loadHomeSnapshot() // 读取快照 判断是否需要显示 Placeholder
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        // spacing for section header and content
-        return VStack(alignment: .leading, spacing: 10) {
-            Color.clear.frame(height: 5)
-            
-            ForEach(sections) { section in
-                // spacing between sections
-                VStack(alignment: .leading, spacing: 10) {
-                    if let title = section.title, !title.isEmpty {
-                        SectionHeaderView(title: title)
-                    }
-                    else if sections.count > 1 {
-                        Color.clear.frame(height: 5)
-                    }
-
-                    // spacing between items
-                    VStack(spacing: 0) {
-                        ForEach(section.items) { item in
-                            HomeDisplayItemRow(
-                                item: item,
-                                badgeDisplayMode: itemBadgeDisplayMode,
-                                badgeDate: targetDatesByEventID[item.sourceEventId],
-                                openDetail: { openEventDetail(for: item.sourceEventId) },
-                                jumpToEventDate: {
-                                    jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
-                                }
+        return ZStack {
+            if sections.isEmpty {
+                emptyHomePlaceholder
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ZStack(alignment: .bottom) {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            sectionList(
+                                sections: sections,
+                                targetDatesByEventID: targetDatesByEventID
                             )
-                            .id(item.id)
-                            .transition(.blurReplace.combined(with: .opacity))
+                        }
+                        .safeAreaInset(edge: .bottom) {
+                            if isBottomSheetPresented {
+                                VStack {
+                                    Text("Sheep Days")
+                                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                                        .foregroundStyle(Color(.tertiaryLabel))
+
+                                    Text("Made with LOVE since Apr 15, 2026")
+                                        .font(.system(size: 10, weight: .regular, design: .serif))
+                                        .foregroundStyle(Color(.tertiaryLabel))
+                                }
+                                .frame(height: Self.bottomSheetInsetHeight)
+                            }
                         }
                     }
+
+                    if isBottomSheetPresented {
+                        scrollEdgeFade(edge: .bottom)
+                            .frame(height: Self.bottomScrollFadeHeight)
+                            .padding(.horizontal, -Self.edgeFadeHorizontalBleed)
+                            .offset(y: Self.bottomScrollFadeOffset)
+                            .allowsHitTesting(false)
+                            .zIndex(1)
+                    }
                 }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    func sectionList(
+        sections: [HomeSection],
+        targetDatesByEventID: [UUID: Date]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Color.clear.frame(height: Self.floatingDateScrollInset)
+
+            ForEach(sections) { section in
+                homeSection(
+                    section,
+                    targetDatesByEventID: targetDatesByEventID
+                )
                 .transition(.scale.combined(with: .blurReplace))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // 单个 section 的显示内容
+    func homeSection(
+        _ section: HomeSection,
+        targetDatesByEventID: [UUID: Date]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let title = section.title, !title.isEmpty {
+                SectionHeaderView(title: title)
+                    .padding(.horizontal)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(section.items) { item in
+                    HomeDisplayItemRow(
+                        item: item,
+                        badgeDisplayMode: itemBadgeDisplayMode,
+                        badgeDate: targetDatesByEventID[item.sourceEventId],
+                        openDetail: { openEventDetail(for: item.sourceEventId) },
+                        jumpToEventDate: {
+                            jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
+                        }
+                    )
+                    .id(item.id)
+                    .transition(.blurReplace.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 15)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(homeSectionBackground)
+        }
+    }
+
+    var emptyHomePlaceholder: some View {
+        VStack(spacing: 10) {
+            ContentUnavailableView("没有可显示的事件", systemImage: "tray", description: Text("点击创建新事件，或调整你的聚焦配置"))
+        }
+    }
+
+    var homeSectionBackground: some View {
+        RoundedRectangle(cornerRadius: 35, style: .continuous)
+            .foregroundStyle(Color(.systemBackground))
+    }
+
+    var floatingDateHeader: some View {
+        ZStack(alignment: .topLeading) {
+            scrollEdgeFade(edge: .top)
+                .frame(height: Self.floatingDateFadeHeight)
+                .padding(.horizontal, -Self.edgeFadeHorizontalBleed)
+                .offset(y: Self.floatingDateFadeOffset)
+
+            HomeDateView(referenceDate: referenceDate)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    func scrollEdgeFade(edge: VerticalEdge) -> some View {
+        ZStack {
+            Rectangle()
+                .fill(.thickMaterial)
+
+            Rectangle()
+                .fill(Color(.systemGroupedBackground).opacity(0.78))
+        }
+        .compositingGroup()
+        .mask(scrollEdgeFadeMask(edge: edge))
+        .ignoresSafeArea(.container, edges: scrollEdgeIgnoredEdges(for: edge))
+    }
+
+    func scrollEdgeFadeMask(edge: VerticalEdge) -> LinearGradient {
+        let stops: [Gradient.Stop]
+
+        switch edge {
+        case .top:
+            stops = [
+                .init(color: .black.opacity(1.00), location: 0.0),
+                .init(color: .black.opacity(0.82), location: 0.68),
+                .init(color: .black.opacity(0.28), location: 0.88),
+                .init(color: .clear, location: 1.0)
+            ]
+        case .bottom:
+            stops = [
+                .init(color: .clear, location: 0.0),
+                .init(color: .black.opacity(0.24), location: 0.24),
+                .init(color: .black.opacity(0.76), location: 0.66),
+                .init(color: .black.opacity(0.96), location: 1.0)
+            ]
+        }
+
+        return LinearGradient(
+            gradient: Gradient(stops: stops),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    func scrollEdgeIgnoredEdges(for edge: VerticalEdge) -> Edge.Set {
+        switch edge {
+        case .top:
+            return .top
+        case .bottom:
+            return .bottom
+        }
     }
 
     // MARK: - Debug Functions
@@ -544,6 +666,7 @@ private extension HomeView {
             HomeSheetView(
                 referenceDate: interactiveReferenceDate,
                 badgeDisplayMode: itemBadgeDisplayMode,
+                isCompact: selectedSheetDetent == HomeSheetDetents.compact,
                 onTapFocus: { showFocus() },
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
@@ -649,7 +772,7 @@ private extension HomeView {
     func changeDetent(for route: HomeSheetRoute) -> PresentationDetent {
         switch route {
         case .home:
-            return .height(190)
+            return HomeSheetDetents.regular
         case .focus:
             return .fraction(0.65)
         case .settings:
@@ -666,7 +789,12 @@ private extension HomeView {
     }
 
     func detents(for route: HomeSheetRoute) -> Set<PresentationDetent> {
-        [changeDetent(for: route)]
+        switch route {
+        case .home:
+            return HomeSheetDetents.home
+        default:
+            return [changeDetent(for: route)]
+        }
     }
 
     func transitionDetent(to route: HomeSheetRoute) {
@@ -694,10 +822,16 @@ private extension HomeView {
                     return
                 }
 
-                availableSheetDetents = [nextDetent]
+                availableSheetDetents = detents(for: route)
             }
         }
     }
+}
+
+private enum HomeSheetDetents {
+    static let compact: PresentationDetent = .height(70)
+    static let regular: PresentationDetent = .height(190)
+    static let home: Set<PresentationDetent> = [compact, regular]
 }
 
 private extension HomeItemBadgeDisplayMode {

@@ -10,6 +10,7 @@ import SwiftUI
 struct HomeSheetView: View {
     @Binding var referenceDate: Date
     let badgeDisplayMode: HomeItemBadgeDisplayMode
+    let isCompact: Bool
 
     var onTapFocus: () -> Void = {}
     var onTapQuickAdd: () -> Void = {}
@@ -22,10 +23,13 @@ struct HomeSheetView: View {
         VStack(spacing: 10) {
             topBar
                 .padding(.horizontal, 10)
-            actionRow
+            if !isCompact {
+                actionRow
+                    .transition(.move(edge: .bottom).combined(with: .blurReplace))
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-//        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .animation(.snappy(duration: 0.2), value: isCompact)
     }
 }
 
@@ -111,7 +115,11 @@ private extension HomeSheetView {
 #Preview {
     @Previewable @State var referenceDate = Calendar.current.startOfDay(for: .now)
 
-    HomeSheetView(referenceDate: $referenceDate, badgeDisplayMode: .relativeText)
+    HomeSheetView(
+        referenceDate: $referenceDate,
+        badgeDisplayMode: .relativeText,
+        isCompact: false
+    )
         .padding()
         .background(Color(.systemGroupedBackground))
 }
