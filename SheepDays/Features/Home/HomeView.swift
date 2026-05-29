@@ -24,8 +24,8 @@ struct HomeView: View {
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
-    @State private var availableSheetDetents: Set<PresentationDetent> = [.height(190)]
-    @State private var selectedSheetDetent: PresentationDetent = .height(190)
+    @State private var availableSheetDetents = HomeSheetDetents.home
+    @State private var selectedSheetDetent = HomeSheetDetents.regular
     @State private var detentTransitionToken = 0
     @State private var contentRefreshToken = 0
     @State private var shouldFocusQuickAddTitle = false
@@ -544,6 +544,7 @@ private extension HomeView {
             HomeSheetView(
                 referenceDate: interactiveReferenceDate,
                 badgeDisplayMode: itemBadgeDisplayMode,
+                isCompact: selectedSheetDetent == HomeSheetDetents.compact,
                 onTapFocus: { showFocus() },
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
@@ -649,7 +650,7 @@ private extension HomeView {
     func changeDetent(for route: HomeSheetRoute) -> PresentationDetent {
         switch route {
         case .home:
-            return .height(190)
+            return HomeSheetDetents.regular
         case .focus:
             return .fraction(0.65)
         case .settings:
@@ -666,7 +667,12 @@ private extension HomeView {
     }
 
     func detents(for route: HomeSheetRoute) -> Set<PresentationDetent> {
-        [changeDetent(for: route)]
+        switch route {
+        case .home:
+            return HomeSheetDetents.home
+        default:
+            return [changeDetent(for: route)]
+        }
     }
 
     func transitionDetent(to route: HomeSheetRoute) {
@@ -694,10 +700,16 @@ private extension HomeView {
                     return
                 }
 
-                availableSheetDetents = [nextDetent]
+                availableSheetDetents = detents(for: route)
             }
         }
     }
+}
+
+private enum HomeSheetDetents {
+    static let compact: PresentationDetent = .height(70)
+    static let regular: PresentationDetent = .height(190)
+    static let home: Set<PresentationDetent> = [compact, regular]
 }
 
 private extension HomeItemBadgeDisplayMode {
