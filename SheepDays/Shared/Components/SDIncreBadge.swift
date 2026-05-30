@@ -15,11 +15,16 @@ struct SDIncreBadge: View {
             .font(.system(size: 20, weight: .semibold, design: .rounded))
             .contentTransition(.numericText())
             .foregroundStyle(.accent)
-            .padding(.horizontal, 13)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
             .background(
-                Capsule()
-                    .fill(.accent.opacity(0.1))
+                ZStack {
+                    Capsule()
+                        .foregroundStyle(Color(.systemGroupedBackground))
+                    Capsule()
+                        .fill(.accent.opacity(0.2))
+                }
+                
             )
     }
 }
