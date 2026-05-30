@@ -47,7 +47,7 @@ struct SDSheetActionButton: View {
 
             Text(title)
         }
-        .font(.system(size: 20, weight: .semibold, design: .rounded))
+        .font(.system(size: 18, weight: .semibold, design: .rounded))
         .foregroundStyle(foregroundColor)
         .frame(maxWidth: .infinity, maxHeight: 50)
         .background(

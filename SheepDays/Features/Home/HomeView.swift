@@ -224,7 +224,7 @@ private extension HomeView {
 
     var homeSectionBackground: some View {
         RoundedRectangle(cornerRadius: 35, style: .continuous)
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(Color(.secondarySystemGroupedBackground))
     }
 
     var floatingDateHeader: some View {

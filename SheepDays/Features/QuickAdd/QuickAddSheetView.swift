@@ -67,7 +67,7 @@ struct QuickAddSheetView: View {
                     .frame(height: 40)
             }
             .padding(10)
-            .padding(.horizontal, 5)
+//            .padding(.horizontal, 5)
             .background(
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .fill(Color(.quaternarySystemFill))
@@ -153,19 +153,20 @@ private extension QuickAddSheetView {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(Color(.secondaryLabel))
                 .contentTransition(.numericText())
+                .padding(.horizontal, 10)
 
         }
     }
     
     var basicInfo: some View {
-        HStack(alignment: .center, spacing: 15) {
+        HStack(alignment: .center, spacing: 5) {
             Button {
                 presentSymbolPicker()
             } label: {
                 Image(systemName: displayedIconSystemName)
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundStyle(selectedNotebookTintColor)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 50)
             }
             .buttonStyle(.plain)
 
@@ -174,17 +175,13 @@ private extension QuickAddSheetView {
                 .frame(maxWidth: .infinity)
                 .focused($isTitleFieldFocused)
 
-            Button {
-                isDatePickerPresented = true
-            } label: {
-                SDDateBadge(date: date)
-            }
-            .buttonStyle(.plain)
+            
         }
     }
     
     var advancedInfo: some View {
-        HStack {
+        HStack(spacing: 10) {
+            // notebook
             Menu {
                 if notebooks.isEmpty {
                     Text("暂无事件本")
@@ -218,27 +215,38 @@ private extension QuickAddSheetView {
 
             Spacer()
 
+            // tag
             Button(action: presentTagList) {
                 tagSelectionIcon
             }
             .buttonStyle(.plain)
-            .padding(.leading, 10)
+            .frame(width: 30)
 
+            // show on home
             Image(systemName: showOnHome ? "star.fill" : "star")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .onTapGesture {
                     showOnHome.toggle()
                 }
                 .foregroundStyle(.yellow)
-                .padding(.leading, 10)
+                .frame(width: 30)
 
+            // pin to top
             Image(systemName: pinToTop ? "pin.fill" : "pin")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .onTapGesture {
                     pinToTop.toggle()
                 }
                 .foregroundStyle(Color(.secondaryLabel))
-                .padding(.leading, 10)
+                .frame(width: 30)
+            
+            // date
+            Button {
+                isDatePickerPresented = true
+            } label: {
+                SDDateBadge(date: date)
+            }
+            .buttonStyle(.plain)
         }
     }
     
@@ -274,7 +282,6 @@ private extension QuickAddSheetView {
             Image(systemName: selectedTagIDs.isEmpty ? "tag" : "tag.fill")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .foregroundStyle(selectedTagIDs.isEmpty ? Color(.secondaryLabel) : Color.accentColor)
-                .frame(width: 18, height: 18)
 
             if !selectedTagIDs.isEmpty {
                 Text("\(selectedTagIDs.count)")

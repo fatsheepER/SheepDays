@@ -62,22 +62,20 @@ struct FocusSheetView: View {
 
             VStack(spacing: 10) {
                 sourceRange
-//                    .layoutPriority(1.5)
 
                 timeRange
-//                    .layoutPriority(1.5)
 
                 HStack(spacing: 10) {
                     sortMode
 
                     groupingMode
                 }
-//                .layoutPriority(1.2)
                 
                 Button {
                     // open advanced settings
                 } label: {
                     advanced
+                        .frame(height: 50)
                 }
 //                .layoutPriority(1.0)
             }
@@ -260,7 +258,7 @@ private extension FocusSheetView {
         VStack(spacing: 10) {
             FocusAreaTitleView(iconSystemName: "arrow.up.arrow.down", title: "排序方式")
             
-            HStack {
+            HStack(spacing: 5) {
                 Menu {
                     ForEach(FocusSortField.allCases, id: \.self) { field in
                         Button {

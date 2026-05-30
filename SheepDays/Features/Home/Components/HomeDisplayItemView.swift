@@ -120,7 +120,7 @@ private extension HomeDisplayItemView {
         Text(text)
             .font(.system(size: 15, weight: .semibold, design: .rounded))
             .foregroundStyle(
-                item.isToday ? iconColor : Color(.tertiaryLabel)
+                item.isToday ? iconColor : Color(.secondaryLabel)
             )
             .contentTransition(.numericText())
             .padding(.horizontal, 10)

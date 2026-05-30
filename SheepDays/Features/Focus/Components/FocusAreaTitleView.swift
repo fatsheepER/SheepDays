@@ -17,7 +17,7 @@ struct FocusAreaTitleView: View {
             Text(title)
         }
         .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(Color(.tertiaryLabel))
+        .foregroundStyle(Color(.secondaryLabel.withAlphaComponent(0.5)))
     }
 }
 
