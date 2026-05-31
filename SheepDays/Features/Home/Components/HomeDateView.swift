@@ -25,10 +25,8 @@ struct HomeDateView: View {
                 .contentTransition(.numericText())
                 .font(.system(size:75, weight: .bold, design: .serif))
                 .foregroundStyle(.accent)
+                .modifier(DayTextLifeEffect())
                 .frame(width: 100)
-//                .alignmentGuide(.homeDateTextBottom) { context in
-//                    context[.lastTextBaseline]
-//                }
 
             VStack(alignment: .leading, spacing: 5) {
                 // year - only when not this year
@@ -53,9 +51,6 @@ struct HomeDateView: View {
                         text: content.weekdayAbbreviationText,
                         date: content.referenceDate
                     )
-//                        .alignmentGuide(.homeDateTextBottom) { context in
-//                            context[.bottom]
-//                        }
                     
                     // incre badge
                     if content.dayOffsetFromToday != 0 {
@@ -69,6 +64,47 @@ struct HomeDateView: View {
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct DayTextLifeEffect: ViewModifier {
+    @State private var floatOffset = CGSize.zero
+    @State private var motionTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: .accent.opacity(0.38), radius: 10, x: 0, y: 3)
+            .shadow(color: .accent.opacity(0.22), radius: 22, x: 0, y: 7)
+            .offset(floatOffset)
+            .onAppear {
+                startMotion()
+            }
+            .onDisappear {
+                motionTask?.cancel()
+                motionTask = nil
+            }
+    }
+
+    private func startMotion() {
+        guard motionTask == nil else {
+            return
+        }
+
+        motionTask = Task { @MainActor in
+            while !Task.isCancelled {
+                let duration = Double.random(in: 1.4...2.2)
+                let nextOffset = CGSize(
+                    width: CGFloat.random(in: -1.8...1.8),
+                    height: CGFloat.random(in: -1.4...1.4)
+                )
+
+                withAnimation(.smooth(duration: duration)) {
+                    floatOffset = nextOffset
+                }
+
+                try? await Task.sleep(for: .milliseconds(Int(duration * 1_000)))
+            }
+        }
     }
 }
 
