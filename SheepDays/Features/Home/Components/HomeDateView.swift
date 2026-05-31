@@ -33,7 +33,7 @@ struct HomeDateView: View {
             // day
             Text(content.dayText)
                 .contentTransition(.numericText())
-                .font(.system(size: 80, weight: .bold, design: .serif))
+                .font(.system(size:75, weight: .bold, design: .serif))
                 .foregroundStyle(.accent)
                 .alignmentGuide(.homeDateTextBottom) { context in
                     context[.lastTextBaseline]
@@ -55,25 +55,55 @@ struct HomeDateView: View {
                 .font(.system(size: 35, weight: .semibold, design: .serif))
 
                 HStack(spacing: 10) {
+                    // weekday
+                    WeekdayIndicatorView(text: content.weekdayAbbreviationText)
+                        .alignmentGuide(.homeDateTextBottom) { context in
+                            context[.bottom]
+                        }
+                    
                     // incre badge
                     if content.dayOffsetFromToday != 0 {
                         SDIncreBadge(text: content.badgeText)
                             .padding(.leading, 5)
                             .transition(.scale.combined(with: .opacity))
                     }
-
-                    Text(content.dayOfWeekText)
-                        .contentTransition(.opacity)
-                        .font(.system(size: 25, weight: .medium, design: .serif))
-                        .alignmentGuide(.homeDateTextBottom) { context in
-                            context[.lastTextBaseline]
-                        }
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct WeekdayIndicatorView: View {
+    let text: String
+
+    var body: some View {
+        ZStack {
+            Text(text)
+                .id(text)
+                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                .tracking(3)
+                .foregroundStyle(.secondary)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .bottom),
+                        removal: .move(edge: .top)
+                    )
+                )
+        }
+        .frame(width: 68, height: 35)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.background)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color(.separator), lineWidth: 2)
+        }
+        .animation(.smooth(duration: 0.25), value: text)
     }
 }
 

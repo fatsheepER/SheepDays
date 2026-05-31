@@ -13,7 +13,7 @@ struct HomeDateDisplayContent {
     let monthText: String
     let separatorText: String
     let dayText: String
-    let dayOfWeekText: String
+    let weekdayAbbreviationText: String
     let dayOffsetFromToday: Int
     let badgeText: String
 
@@ -22,7 +22,7 @@ struct HomeDateDisplayContent {
         let normalizedToday = calendar.startOfDay(for: today)
         let monthFormatter = DateFormatter()
         let yearFormatter = DateFormatter()
-        let dayOfWeekFormatter = DateFormatter()
+        let weekdayFormatter = DateFormatter()
         let dayOffsetFromToday = calendar.dateComponents([.day], from: normalizedToday, to: normalizedReferenceDate).day ?? 0
 
         monthFormatter.calendar = calendar
@@ -35,10 +35,10 @@ struct HomeDateDisplayContent {
         yearFormatter.timeZone = calendar.timeZone
         yearFormatter.setLocalizedDateFormatFromTemplate("yyyy")
 
-        dayOfWeekFormatter.calendar = calendar
-        dayOfWeekFormatter.locale = locale
-        dayOfWeekFormatter.timeZone = calendar.timeZone
-        dayOfWeekFormatter.setLocalizedDateFormatFromTemplate("EEEE")
+        weekdayFormatter.calendar = calendar
+        weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        weekdayFormatter.timeZone = calendar.timeZone
+        weekdayFormatter.dateFormat = "EEE"
 
         self.referenceDate = normalizedReferenceDate
         self.yearText = Self.shouldShowYear(referenceDate: normalizedReferenceDate, today: normalizedToday, calendar: calendar)
@@ -47,7 +47,7 @@ struct HomeDateDisplayContent {
         self.monthText = monthFormatter.string(from: normalizedReferenceDate)
         self.separatorText = ","
         self.dayText = String(calendar.component(.day, from: normalizedReferenceDate))
-        self.dayOfWeekText = dayOfWeekFormatter.string(from: normalizedReferenceDate)
+        self.weekdayAbbreviationText = weekdayFormatter.string(from: normalizedReferenceDate).uppercased()
         self.dayOffsetFromToday = dayOffsetFromToday
         self.badgeText = Self.makeBadgeText(for: dayOffsetFromToday)
     }
