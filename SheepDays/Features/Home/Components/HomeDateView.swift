@@ -7,16 +7,6 @@
 
 import SwiftUI
 
-private extension VerticalAlignment {
-    enum HomeDateTextBottomAlignment: AlignmentID {
-        static func defaultValue(in context: ViewDimensions) -> CGFloat {
-            context[.bottom]
-        }
-    }
-
-    static let homeDateTextBottom = VerticalAlignment(HomeDateTextBottomAlignment.self)
-}
-
 struct HomeDateView: View {
     private let content: HomeDateDisplayContent
 
@@ -29,37 +19,43 @@ struct HomeDateView: View {
     }
 
     var body: some View {
-        HStack(alignment: .homeDateTextBottom, spacing: 15) {
+        HStack(alignment: .center, spacing: 15) {
             // day
             Text(content.dayText)
                 .contentTransition(.numericText())
                 .font(.system(size:75, weight: .bold, design: .serif))
                 .foregroundStyle(.accent)
-                .alignmentGuide(.homeDateTextBottom) { context in
-                    context[.lastTextBaseline]
-                }
+                .frame(width: 100)
+//                .alignmentGuide(.homeDateTextBottom) { context in
+//                    context[.lastTextBaseline]
+//                }
 
             VStack(alignment: .leading, spacing: 5) {
+                // year - only when not this year
+                if let yearText = content.yearText {
+                    Text(yearText)
+                        .contentTransition(.numericText())
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .foregroundStyle(.secondary)
+                }
+                
                 HStack(spacing: 5) {
                     // month
                     Text(content.monthText)
                         .contentTransition(.numericText())
-
-                    // year - only when not this year
-                    if let yearText = content.yearText {
-                        Text(yearText)
-                            .contentTransition(.numericText())
-                            .foregroundStyle(.secondary)
-                    }
+                        .font(.system(size: 35, weight: .semibold, design: .serif))
                 }
-                .font(.system(size: 35, weight: .semibold, design: .serif))
+                
 
                 HStack(spacing: 10) {
                     // weekday
-                    WeekdayIndicatorView(text: content.weekdayAbbreviationText)
-                        .alignmentGuide(.homeDateTextBottom) { context in
-                            context[.bottom]
-                        }
+                    WeekdayIndicatorView(
+                        text: content.weekdayAbbreviationText,
+                        date: content.referenceDate
+                    )
+//                        .alignmentGuide(.homeDateTextBottom) { context in
+//                            context[.bottom]
+//                        }
                     
                     // incre badge
                     if content.dayOffsetFromToday != 0 {
@@ -76,22 +72,69 @@ struct HomeDateView: View {
     }
 }
 
+private enum WeekdayRollDirection {
+    case forward
+    case backward
+
+    var insertionEdge: Edge {
+        switch self {
+        case .forward:
+            return .bottom
+        case .backward:
+            return .top
+        }
+    }
+
+    var removalEdge: Edge {
+        switch self {
+        case .forward:
+            return .top
+        case .backward:
+            return .bottom
+        }
+    }
+
+    var scrubRotationStep: Double {
+        switch self {
+        case .forward:
+            return -180
+        case .backward:
+            return 180
+        }
+    }
+}
+
 private struct WeekdayIndicatorView: View {
     let text: String
+    let date: Date
+
+    @State private var displayedText: String
+    @State private var pendingText: String
+    @State private var pendingDate: Date
+    @State private var isScrubbing = false
+    @State private var direction: WeekdayRollDirection = .forward
+    @State private var scrubRotation = 0.0
+    @State private var settleTask: Task<Void, Never>?
+
+    init(text: String, date: Date) {
+        self.text = text
+        self.date = date
+        _displayedText = State(initialValue: text)
+        _pendingText = State(initialValue: text)
+        _pendingDate = State(initialValue: date)
+    }
 
     var body: some View {
         ZStack {
-            Text(text)
-                .id(text)
-                .font(.system(size: 21, weight: .semibold, design: .rounded))
-                .tracking(3)
-                .foregroundStyle(.secondary)
-                .transition(
-                    .asymmetric(
-                        insertion: .move(edge: .bottom),
-                        removal: .move(edge: .top)
-                    )
-                )
+            if isScrubbing {
+                scrubContent
+                    .id("scrub-\(pendingDate.timeIntervalSinceReferenceDate)")
+                    .transition(rollTransition)
+            } else {
+                weekdayText(displayedText)
+                    .id(displayedText)
+                    .transition(rollTransition)
+            }
         }
         .frame(width: 68, height: 35)
         .background(
@@ -103,7 +146,75 @@ private struct WeekdayIndicatorView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(Color(.separator), lineWidth: 2)
         }
-        .animation(.smooth(duration: 0.25), value: text)
+        .onChange(of: date) { oldDate, newDate in
+            beginTransition(from: oldDate, to: newDate, text: text)
+        }
+        .onDisappear {
+            settleTask?.cancel()
+        }
+    }
+
+    private var scrubContent: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { _ in
+//                Capsule()
+//                    .fill(.secondary.opacity(0.36))
+//                    .frame(width: 9, height: 4)
+                
+                RoundedRectangle(cornerRadius: 100, style: .continuous)
+                    .fill(.secondary.opacity(0.5))
+                    .frame(width: 4, height: 20)
+                    .frame(width: 15)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .blur(radius: 0.7)
+        .opacity(0.8)
+        .rotation3DEffect(
+            .degrees(scrubRotation),
+            axis: (x: 1, y: 0, z: 0),
+            perspective: 0.65
+        )
+    }
+
+    private var rollTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: direction.insertionEdge).combined(with: .opacity),
+            removal: .move(edge: direction.removalEdge).combined(with: .opacity)
+        )
+    }
+
+    private func weekdayText(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 21, weight: .semibold, design: .rounded))
+            .tracking(3)
+            .foregroundStyle(.secondary)
+    }
+
+    private func beginTransition(from oldDate: Date, to newDate: Date, text newText: String) {
+        let newDirection: WeekdayRollDirection = newDate >= oldDate ? .forward : .backward
+
+        direction = newDirection
+        pendingText = newText
+        pendingDate = newDate
+        settleTask?.cancel()
+
+        withAnimation(.easeInOut(duration: 0.11)) {
+            isScrubbing = true
+            scrubRotation += newDirection.scrubRotationStep
+        }
+
+        settleTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled else {
+                return
+            }
+
+            withAnimation(.smooth(duration: 0.26)) {
+                displayedText = pendingText
+                isScrubbing = false
+            }
+        }
     }
 }
 
