@@ -302,7 +302,7 @@ private extension EventDetailView {
             }
 
             ZStack(alignment: .topLeading) {
-                VStack(spacing: 3) {
+                VStack(spacing: 0) {
                     checklistCreateRow
 
                     ForEach(orderedChecklistItems) { item in
@@ -936,6 +936,8 @@ private extension EventDetailView {
     }
 
     func toggleChecklistItem(_ item: ChecklistItem) {
+        haptics.play(.openDetailTap)
+        
         item.isCompleted.toggle()
         item.updatedAt = .now
 
