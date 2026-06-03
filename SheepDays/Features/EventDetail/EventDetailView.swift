@@ -88,10 +88,6 @@ struct EventDetailView: View {
             }
 
             controls
-
-            if isChecklistInputFocused {
-                Spacer(minLength: 0)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .alert(
@@ -389,7 +385,7 @@ private extension EventDetailView {
             .buttonStyle(.plain)
             .disabled(mode != .normal)
 
-            if mode == .normal {
+            if mode == .normal && !item.isCompleted {
                 ChecklistTitleTextField(
                     text: checklistTitleBinding(for: item),
                     placeholder: "检查事项",
@@ -407,9 +403,7 @@ private extension EventDetailView {
                 )
                 .frame(minHeight: 24)
             } else {
-                Text(item.title.isEmpty ? "检查事项" : item.title)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                checklistItemTitleText(for: item)
             }
 
             Spacer()
@@ -423,6 +417,14 @@ private extension EventDetailView {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 7)
+        .opacity(item.isCompleted ? 0.6 : 1)
+    }
+
+    func checklistItemTitleText(for item: ChecklistItem) -> some View {
+        Text(item.title.isEmpty ? "检查事项" : item.title)
+            .lineLimit(1)
+            .strikethrough(item.isCompleted, color: Color(.tertiaryLabel))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     var checklistPlaceholderRow: some View {
@@ -937,6 +939,11 @@ private extension EventDetailView {
     func toggleChecklistItem(_ item: ChecklistItem) {
         item.isCompleted.toggle()
         item.updatedAt = .now
+
+        if item.isCompleted, focusedChecklistItemID == item.id {
+            focusedChecklistItemID = nil
+        }
+
         persistChanges()
     }
 
