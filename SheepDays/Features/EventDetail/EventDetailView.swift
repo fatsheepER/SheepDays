@@ -226,13 +226,7 @@ private extension EventDetailView {
 
             Spacer()
 
-            DatePicker(
-                "事件日期",
-                selection: dateBinding,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
+            SDDatePicker(date: dateBinding, range: eventDateRange)
         }
     }
 
@@ -560,6 +554,10 @@ private extension EventDetailView {
 
     var importanceLevelText: String {
         "\(event.importanceLevel)/5"
+    }
+
+    var eventDateRange: ClosedRange<Date> {
+        Date.distantPast...Date.distantFuture
     }
 
     var isChecklistInputFocused: Bool {
