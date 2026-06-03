@@ -16,6 +16,7 @@ struct HomeDisplayItemView: View {
     let item: HomeDisplayItem
     var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
+    var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
     var primaryAction: (() -> Void)?
     var badgeAction: (() -> Void)?
 
@@ -33,19 +34,24 @@ struct HomeDisplayItemView: View {
             primaryContent
 
             Spacer()
+
+            stateIndicatorsView
+                .transition(.opacity.combined(with: .blurReplace))
             
             badgeView
                 .transition(.move(edge: .bottom).combined(with: .blurReplace))
         }
         .padding(.vertical, 12.5)
-//        .background(
-//            RoundedRectangle(cornerRadius: 20, style: .continuous)
-//                .fill(Color(.secondarySystemBackground))
-//        )
     }
 }
 
 private extension HomeDisplayItemView {
+    var displayedStateIndicators: [HomeDisplayItemStateIndicator] {
+        HomeDisplayItemStateIndicator.allCases.filter {
+            item.stateIndicators.contains($0) && visibleStateIndicators.contains($0)
+        }
+    }
+
     @ViewBuilder
     var primaryContent: some View {
         if let primaryAction {
@@ -75,6 +81,26 @@ private extension HomeDisplayItemView {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    var stateIndicatorsView: some View {
+        if !displayedStateIndicators.isEmpty {
+            HStack(spacing: 5) {
+                ForEach(displayedStateIndicators) { indicator in
+                    stateIndicatorIcon(indicator)
+                }
+            }
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    func stateIndicatorIcon(_ indicator: HomeDisplayItemStateIndicator) -> some View {
+        Image(systemName: indicator.systemName)
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color(.tertiaryLabel))
+            .frame(width: 20)
+            .accessibilityLabel(Text(indicator.accessibilityLabel))
     }
 
     @ViewBuilder
@@ -153,6 +179,7 @@ private extension HomeDisplayItemView {
                 tintHex: "#FF7A7A",
                 badgeText: "+3",
                 isToday: false,
+                stateIndicators: [.checklist, .showOnHome, .pinned],
                 sortKey: 0,
                 groupKey: nil
             )
@@ -167,9 +194,11 @@ private extension HomeDisplayItemView {
                 tintHex: "#7EC8E3",
                 badgeText: "Today",
                 isToday: true,
+                stateIndicators: [.checklist, .reminder, .showOnHome],
                 sortKey: 0,
                 groupKey: nil
-            )
+            ),
+            visibleStateIndicators: .notebookDetail
         )
 
         HomeDisplayItemView(

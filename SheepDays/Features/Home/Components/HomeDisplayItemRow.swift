@@ -13,6 +13,7 @@ struct HomeDisplayItemRow: View {
     let item: HomeDisplayItem
     var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
+    var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
     var openDetail: () -> Void = {}
     var jumpToEventDate: () -> Void = {}
 
@@ -28,6 +29,7 @@ struct HomeDisplayItemRow: View {
             item: item,
             badgeDisplayMode: badgeDisplayMode,
             badgeDate: badgeDate,
+            visibleStateIndicators: visibleStateIndicators,
             primaryAction: primaryAction,
             badgeAction: badgeAction
         )
@@ -78,6 +80,7 @@ private extension HomeDisplayItemRow {
                 tintHex: "#FF7A7A",
                 badgeText: "+3",
                 isToday: false,
+                stateIndicators: [.checklist, .showOnHome],
                 sortKey: 0,
                 groupKey: nil
             ),
@@ -93,10 +96,12 @@ private extension HomeDisplayItemRow {
                 tintHex: "#7EC8E3",
                 badgeText: "Today",
                 isToday: true,
+                stateIndicators: [.checklist, .reminder, .showOnHome],
                 sortKey: 0,
                 groupKey: nil
             ),
-            badgeDate: .now
+            badgeDate: .now,
+            visibleStateIndicators: .notebookDetail
         )
     }
     .padding()

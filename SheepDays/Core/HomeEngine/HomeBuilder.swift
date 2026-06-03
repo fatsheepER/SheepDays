@@ -119,8 +119,31 @@ private extension HomeBuilder {
             tintHex: event.notebook?.colorHex,
             badgeText: dateDisplay.badgeText,
             isToday: dateDisplay.dayOffsetFromToday == 0,
+            stateIndicators: makeStateIndicators(from: event),
             sortKey: Double(dateDisplay.dayOffsetFromToday),
             groupKey: nil
         )
+    }
+
+    static func makeStateIndicators(from event: Event) -> Set<HomeDisplayItemStateIndicator> {
+        var indicators: Set<HomeDisplayItemStateIndicator> = []
+
+        if event.hasChecklistItems {
+            indicators.insert(.checklist)
+        }
+
+        if !event.reminderPresets.isEmpty {
+            indicators.insert(.reminder)
+        }
+
+        if event.showOnHome {
+            indicators.insert(.showOnHome)
+        }
+
+        if event.pinToTop {
+            indicators.insert(.pinned)
+        }
+
+        return indicators
     }
 }
