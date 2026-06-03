@@ -302,7 +302,7 @@ private extension NotebooksSheetView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .plain
+                    appearance: .plain
                 )
             }
             .buttonStyle(.plain)
@@ -312,7 +312,7 @@ private extension NotebooksSheetView {
                     iconSystemName: "plus",
                     title: "新建",
                     placement: .right,
-                    style: .prominent
+                    appearance: .prominent
                 )
             }
             .buttonStyle(.plain)

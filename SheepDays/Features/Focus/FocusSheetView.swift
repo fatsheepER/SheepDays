@@ -371,7 +371,7 @@ private extension FocusSheetView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .plain
+                    appearance: .plain
                 )
             }
             .buttonStyle(.plain)
@@ -383,7 +383,7 @@ private extension FocusSheetView {
                     iconSystemName: "slider.horizontal.3",
                     title: "预设",
                     placement: .right,
-                    style: .prominent
+                    appearance: .prominent
                 )
             }
             .buttonStyle(.plain)

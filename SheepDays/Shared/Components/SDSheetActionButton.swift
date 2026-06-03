@@ -13,42 +13,102 @@ enum SDSheetActionButtonPlacement {
     case right
 }
 
-enum SDSheetActionButtonStyle {
-    case plain
-    case secondary
-    case prominent
-    case destructive
-    case lightTransparent
+struct SDSheetActionButtonAppearance {
+    let backgroundColor: Color
+    let titleForegroundColor: Color
+    let iconForegroundColor: Color
+
+    init(
+        backgroundColor: Color,
+        titleForegroundColor: Color,
+        iconForegroundColor: Color? = nil
+    ) {
+        self.backgroundColor = backgroundColor
+        self.titleForegroundColor = titleForegroundColor
+        self.iconForegroundColor = iconForegroundColor ?? titleForegroundColor
+    }
+}
+
+extension SDSheetActionButtonAppearance {
+    static let plain = SDSheetActionButtonAppearance(
+        backgroundColor: Color(.quaternarySystemFill),
+        titleForegroundColor: Color(.secondaryLabel)
+    )
+
+    static let secondary = SDSheetActionButtonAppearance(
+        backgroundColor: Color(.quaternarySystemFill),
+        titleForegroundColor: Color(.secondaryLabel)
+    )
+
+    static let prominent = SDSheetActionButtonAppearance(
+        backgroundColor: .accent.opacity(0.1),
+        titleForegroundColor: .accentColor
+    )
+
+    static let destructive = SDSheetActionButtonAppearance(
+        backgroundColor: Color.red.opacity(0.1),
+        titleForegroundColor: .red
+    )
+
+    static let lightTransparent = SDSheetActionButtonAppearance(
+        backgroundColor: .white.opacity(0.2),
+        titleForegroundColor: .white
+    )
 }
 
 struct SDSheetActionButton: View {
+    private static let defaultFont = Font.system(size: 18, weight: .semibold, design: .rounded)
+
+    @Environment(\.font) private var environmentFont
+
     let iconSystemName: String?
     let title: String
     let placement: SDSheetActionButtonPlacement
-    let style: SDSheetActionButtonStyle
+    let backgroundColor: Color
+    let titleForegroundColor: Color
+    let iconForegroundColor: Color
 
     init(
         iconSystemName: String? = nil,
         title: String,
         placement: SDSheetActionButtonPlacement,
-        style: SDSheetActionButtonStyle
+        appearance: SDSheetActionButtonAppearance = .plain
     ) {
         self.iconSystemName = iconSystemName
         self.title = title
         self.placement = placement
-        self.style = style
+        self.backgroundColor = appearance.backgroundColor
+        self.titleForegroundColor = appearance.titleForegroundColor
+        self.iconForegroundColor = appearance.iconForegroundColor
+    }
+
+    init(
+        iconSystemName: String? = nil,
+        title: String,
+        placement: SDSheetActionButtonPlacement,
+        backgroundColor: Color,
+        titleForegroundColor: Color,
+        iconForegroundColor: Color? = nil
+    ) {
+        self.iconSystemName = iconSystemName
+        self.title = title
+        self.placement = placement
+        self.backgroundColor = backgroundColor
+        self.titleForegroundColor = titleForegroundColor
+        self.iconForegroundColor = iconForegroundColor ?? titleForegroundColor
     }
 
     var body: some View {
         HStack(spacing: 6) {
             if let iconSystemName {
                 Image(systemName: iconSystemName)
+                    .foregroundStyle(iconForegroundColor)
             }
 
             Text(title)
+                .foregroundStyle(titleForegroundColor)
         }
-        .font(.system(size: 18, weight: .semibold, design: .rounded))
-        .foregroundStyle(foregroundColor)
+        .font(environmentFont ?? Self.defaultFont)
         .frame(maxWidth: .infinity, maxHeight: 50)
         .background(
             SDRoundedBackground(
@@ -81,34 +141,6 @@ private extension SDSheetActionButton {
             return 10
         }
     }
-
-    var foregroundColor: Color {
-        switch style {
-        case .plain, .secondary:
-            return Color(.secondaryLabel)
-        case .prominent:
-            return .accentColor
-        case .destructive:
-            return .red
-        case .lightTransparent:
-            return .white
-        }
-    }
-
-    var backgroundColor: Color {
-        switch style {
-        case .plain:
-            return Color(.quaternarySystemFill)
-        case .secondary:
-            return Color(.quaternarySystemFill)
-        case .prominent:
-            return .accent.opacity(0.1)
-        case .destructive:
-            return Color.red.opacity(0.1)
-        case .lightTransparent:
-            return .white.opacity(0.2)
-        }
-    }
 }
 
 #Preview {
@@ -117,22 +149,25 @@ private extension SDSheetActionButton {
             iconSystemName: "arrow.left",
             title: "返回",
             placement: .left,
-            style: .plain
+            appearance: .plain
         )
 
         SDSheetActionButton(
             iconSystemName: "tray",
             title: "存草稿",
             placement: .middle,
-            style: .destructive
+            appearance: .destructive
         )
 
         SDSheetActionButton(
             iconSystemName: "checkmark",
             title: "保存",
             placement: .right,
-            style: .prominent
+            backgroundColor: .accent.opacity(0.12),
+            titleForegroundColor: .accentColor,
+            iconForegroundColor: .green
         )
+        .font(.system(size: 16, weight: .semibold, design: .rounded))
     }
     .padding()
     .background(Color(.secondarySystemBackground).ignoresSafeArea())

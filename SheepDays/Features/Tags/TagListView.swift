@@ -184,7 +184,7 @@ private extension TagListView {
                     iconSystemName: isEditing ? "checkmark" : "pencil",
                     title: isEditing ? "完成" : "编辑",
                     placement: .left,
-                    style: .lightTransparent
+                    appearance: .lightTransparent
                 )
             }
             .buttonStyle(.plain)
@@ -197,7 +197,7 @@ private extension TagListView {
                     iconSystemName: "plus",
                     title: "新建",
                     placement: .right,
-                    style: .prominent
+                    appearance: .prominent
                 )
             }
             .buttonStyle(.plain)

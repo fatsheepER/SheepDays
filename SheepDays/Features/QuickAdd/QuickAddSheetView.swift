@@ -257,7 +257,7 @@ private extension QuickAddSheetView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .plain
+                    appearance: .plain
                 )
             }
             .buttonStyle(.plain)
@@ -268,7 +268,7 @@ private extension QuickAddSheetView {
                     iconSystemName: "checkmark",
                     title: "保存",
                     placement: .right,
-                    style: .prominent
+                    appearance: .prominent
                 )
             }
             .buttonStyle(.plain)

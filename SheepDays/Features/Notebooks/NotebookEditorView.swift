@@ -170,7 +170,7 @@ private extension NotebookEditorView {
                     iconSystemName: "arrow.left",
                     title: "返回",
                     placement: .left,
-                    style: .secondary
+                    appearance: .secondary
                 )
             }
             .buttonStyle(.plain)
@@ -180,7 +180,7 @@ private extension NotebookEditorView {
                     iconSystemName: primaryActionIconSystemName,
                     title: primaryActionTitle,
                     placement: .right,
-                    style: .prominent
+                    appearance: .prominent
                 )
             }
             .buttonStyle(.plain)

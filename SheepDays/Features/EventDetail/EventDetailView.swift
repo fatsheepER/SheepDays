@@ -497,7 +497,7 @@ private extension EventDetailView {
             Button {
                 onClose()
             } label: {
-                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, style: .secondary)
+                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, appearance: .secondary)
             }
             .buttonStyle(.plain)
 
@@ -514,7 +514,7 @@ private extension EventDetailView {
                     Label("删除", systemImage: "trash")
                 }
             } label: {
-                SDSheetActionButton(iconSystemName: "tray", title: "管理", placement: .right, style: .destructive)
+                SDSheetActionButton(iconSystemName: "tray", title: "管理", placement: .right, appearance: .destructive)
             }
             .buttonStyle(.plain)
         }
