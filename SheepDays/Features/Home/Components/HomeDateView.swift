@@ -10,11 +10,12 @@ import SwiftUI
 struct HomeDateView: View {
     private let content: HomeDateDisplayContent
 
-    init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current) {
+    init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
         self.content = HomeDateDisplayContent(
             referenceDate: referenceDate,
             today: today,
-            calendar: calendar
+            calendar: calendar,
+            locale: locale
         )
     }
 
@@ -41,7 +42,7 @@ struct HomeDateView: View {
                     // month
                     Text(content.monthText)
                         .contentTransition(.numericText())
-                        .font(.system(size: 35, weight: .semibold, design: .serif))
+                        .font(monthTextFont)
                 }
                 
 
@@ -63,6 +64,20 @@ struct HomeDateView: View {
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var monthTextFont: Font {
+        if content.locale.isChineseLanguage {
+            return .sourceHanSerifSC(size: 35, weight: .bold)
+        }
+
+        return .system(size: 35, weight: .semibold, design: .serif)
+    }
+}
+
+private extension Locale {
+    var isChineseLanguage: Bool {
+        language.languageCode?.identifier == "zh"
     }
 }
 
