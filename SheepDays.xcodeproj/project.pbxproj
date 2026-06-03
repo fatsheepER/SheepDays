@@ -17,9 +17,22 @@
 		02446F7F2F90B69A0023B5CD /* sheep-days-icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "sheep-days-icon.icon"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		020F87622FD0587800CA1CFC /* Exceptions for "SheepDays" folder in "SheepDays" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 020E7EB92F7D124700B742F9 /* SheepDays */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		020E7EBC2F7D124700B742F9 /* SheepDays */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				020F87622FD0587800CA1CFC /* Exceptions for "SheepDays" folder in "SheepDays" target */,
+			);
 			path = SheepDays;
 			sourceTree = "<group>";
 		};
@@ -270,6 +283,7 @@
 				DEVELOPMENT_TEAM = 742H4PN2MH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SheepDays/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sheep Days";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -304,6 +318,7 @@
 				DEVELOPMENT_TEAM = 742H4PN2MH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SheepDays/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Sheep Days";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
