@@ -53,10 +53,6 @@ struct HomeView: View {
 
 // MARK: - Main Content
 private extension HomeView {
-    static let floatingToolbarButtonSize: CGFloat = 42
-    static let floatingToolbarSpacing: CGFloat = 8
-    static let floatingToolbarTopPadding: CGFloat = 8
-    static let floatingToolbarTrailingPadding: CGFloat = 16
     // 控制顶部柔化层效果
     static let floatingDateScrollInset: CGFloat = 106
     static let floatingDateFadeHeight: CGFloat = 200
@@ -97,91 +93,47 @@ private extension HomeView {
             .padding(.horizontal)
 
             floatingToolbar
-                .padding(.top, Self.floatingToolbarTopPadding)
-                .padding(.trailing, Self.floatingToolbarTrailingPadding)
+                .padding(.top)
+                .padding(.trailing)
                 .zIndex(2)
         }
     }
 
-    @ViewBuilder
     var floatingToolbar: some View {
-        if #available(iOS 26, *) {
-            GlassEffectContainer(spacing: Self.floatingToolbarSpacing) {
-                floatingToolbarButtons(useLiquidGlass: true)
-            }
-            .floatingToolbarShadow()
-        } else {
-            floatingToolbarButtons(useLiquidGlass: false)
-                .floatingToolbarShadow()
+        HStack(spacing: 10) {
+            previewActionsMenu
+            settingsToolbarButton
         }
     }
 
-    func floatingToolbarButtons(useLiquidGlass: Bool) -> some View {
-        HStack(spacing: Self.floatingToolbarSpacing) {
-            previewActionsMenu(useLiquidGlass: useLiquidGlass)
-            settingsToolbarButton(useLiquidGlass: useLiquidGlass)
-        }
-    }
-
-    func previewActionsMenu(useLiquidGlass: Bool) -> some View {
+    var previewActionsMenu: some View {
         Menu {
             Section("Testing") {
                 Button("Add Preview Events", action: insertPreviewEvents)
                 Button("Clear Preview Events", role: .destructive, action: removePreviewEvents)
             }
         } label: {
-            floatingToolbarButtonSurface(useLiquidGlass: useLiquidGlass) {
-                floatingToolbarIcon(systemName: "ellipsis")
-            }
+            floatingToolbarIcon(systemName: "ellipsis")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
         .accessibilityLabel("Preview actions")
     }
 
-    func settingsToolbarButton(useLiquidGlass: Bool) -> some View {
+    var settingsToolbarButton: some View {
         Button {
             showSettings()
         } label: {
-            floatingToolbarButtonSurface(useLiquidGlass: useLiquidGlass) {
-                floatingToolbarIcon(systemName: "gearshape")
-            }
+            floatingToolbarIcon(systemName: "gearshape")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
         .accessibilityLabel("Settings")
     }
 
     func floatingToolbarIcon(systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 17, weight: .semibold, design: .rounded))
-            .foregroundStyle(Color(.secondaryLabel))
-            .frame(
-                width: Self.floatingToolbarButtonSize,
-                height: Self.floatingToolbarButtonSize
-            )
-            .contentShape(Circle())
-    }
-
-    @ViewBuilder
-    func floatingToolbarButtonSurface<Content: View>(
-        useLiquidGlass: Bool,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        if #available(iOS 26, *), useLiquidGlass {
-            content()
-                .glassEffect(
-                    .regular
-                        .tint(Color(.secondarySystemGroupedBackground).opacity(0.38))
-                        .interactive(),
-                    in: Circle()
-                )
-        } else {
-            content()
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(Color(.separator).opacity(0.35), lineWidth: 0.7)
-                }
-        }
+            .font(.system(size: 20, weight: .medium, design: .rounded))
+            .foregroundStyle(.primary)
+            .frame(width: 30, height: 40)
     }
 
     var homeSectionsArea: some View {
@@ -991,13 +943,6 @@ private enum HomeSheetRoute {
     case notebookEditor
     case settings
     case eventDetail
-}
-
-private extension View {
-    func floatingToolbarShadow() -> some View {
-        shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 8)
-            .shadow(color: Color.accentColor.opacity(0.08), radius: 20, x: 0, y: 4)
-    }
 }
 
 #Preview {
