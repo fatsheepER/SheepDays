@@ -784,7 +784,8 @@ private extension HomeView {
         case .quickAdd:
             return .height(240)
         case .eventDetail:
-            return .fraction(0.82)
+            return .large
+//            return .fraction(0.82)
         }
     }
 

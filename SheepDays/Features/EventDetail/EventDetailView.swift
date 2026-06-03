@@ -69,7 +69,7 @@ struct EventDetailView: View {
                     .padding(.vertical, 20)
                 }
                 .background(
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    RoundedRectangle(cornerRadius: 35, style: .continuous)
                         .foregroundStyle(Color(.quaternarySystemFill))
                 )
                 .scrollDismissesKeyboard(.interactively)
@@ -127,13 +127,13 @@ struct EventDetailView: View {
 private extension EventDetailView {
     // MARK: - Subviews
     var titleSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack {
                 Button {
                     presentSymbolPicker()
                 } label: {
                     Image(systemName: event.iconSystemName ?? "calendar")
-                        .font(.system(size: 40, weight: .semibold, design: .rounded))
+                        .font(.system(size: 40, weight: .medium, design: .rounded))
                         .foregroundStyle(eventAccentColor)
                 }
                 .buttonStyle(.plain)
@@ -145,6 +145,7 @@ private extension EventDetailView {
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                     .foregroundStyle(eventAccentColor)
             }
+            .padding(.horizontal, 5)
 
             TextField("请输入事件名称", text: titleBinding)
                 .textFieldStyle(.plain)
@@ -1159,7 +1160,7 @@ private struct EventDetailSheetPreviewHost: View {
     @Environment(\.haptics) private var haptics
     @StateObject private var overlayCoordinator = AppOverlayCoordinator()
     @State private var isBottomSheetPresented = true
-    @State private var selectedSheetDetent: PresentationDetent = .fraction(0.82)
+    @State private var selectedSheetDetent: PresentationDetent = .large
 
     let event: Event
 
@@ -1207,7 +1208,7 @@ private struct EventDetailSheetPreviewHost: View {
             )
             .transition(.opacity)
         }
-        .presentationDetents([.fraction(0.82)], selection: $selectedSheetDetent)
+        .presentationDetents([.large], selection: $selectedSheetDetent)
         .presentationDragIndicator(.hidden)
         .presentationBackground(.clear)
         .presentationBackgroundInteraction(.enabled)
