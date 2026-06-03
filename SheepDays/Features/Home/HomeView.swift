@@ -31,23 +31,24 @@ struct HomeView: View {
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
+    @State private var activeHomeContentPage: HomeContentPage? = .upcoming
+    @State private var suppressHomeRowActions = false
+    @State private var rowActionSuppressionTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
-            homeContent
-                .toolbar(.hidden, for: .navigationBar)
-                .onAppear {
-                    isBottomSheetPresented = true
-                    restoreLastFocusStateIfNeeded()
-                }
-                .onDisappear {
-                    cancelDateRestore()
-                }
-                .sheet(isPresented: $isBottomSheetPresented) {
-                    sheetContainer
-                        .ignoresSafeArea()
-                }
-        }
+        homeContent
+            .onAppear {
+                isBottomSheetPresented = true
+                restoreLastFocusStateIfNeeded()
+            }
+            .onDisappear {
+                cancelDateRestore()
+                cancelHomeRowActionSuppression()
+            }
+            .sheet(isPresented: $isBottomSheetPresented) {
+                sheetContainer
+                    .ignoresSafeArea()
+            }
     }
 }
 
@@ -62,6 +63,9 @@ private extension HomeView {
     static let bottomScrollFadeOffset: CGFloat = 64
     static let bottomSheetInsetHeight: CGFloat = 200
     static let edgeFadeHorizontalBleed: CGFloat = 42
+    static let homePageDragSuppressionDistance: CGFloat = 8
+    static let homePageDragSuppressionDominance: CGFloat = 1.15
+    static let homePageDragSuppressionResetDelay: Duration = .milliseconds(180)
     // 分步回到 today 动画
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
@@ -84,7 +88,7 @@ private extension HomeView {
                 .ignoresSafeArea()
 
             ZStack(alignment: .top) {
-                homeSectionsArea
+                homePagesArea
 
                 floatingDateHeader
                     .allowsHitTesting(false)
@@ -96,6 +100,34 @@ private extension HomeView {
                 .padding(.top)
                 .padding(.trailing)
                 .zIndex(2)
+        }
+    }
+
+    var homePagesArea: some View {
+        GeometryReader { geometry in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    expiredMemorialSectionsArea
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .id(HomeContentPage.expiredMemorials)
+
+                    homeSectionsArea
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .id(HomeContentPage.upcoming)
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $activeHomeContentPage)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .simultaneousGesture(homePageDragGesture)
+            .onChange(of: activeHomeContentPage) { oldValue, newValue in
+                guard newValue != nil, oldValue != nil, oldValue != newValue else {
+                    return
+                }
+
+                haptics.play(.selectionStep)
+            }
         }
     }
 
@@ -142,9 +174,38 @@ private extension HomeView {
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        return ZStack {
-            if sections.isEmpty {
+        return homeSectionsContent(
+            sections: sections,
+            targetDatesByEventID: targetDatesByEventID,
+            emptyContent: {
                 emptyHomePlaceholder
+            }
+        )
+    }
+
+    var expiredMemorialSectionsArea: some View {
+        let _ = contentRefreshToken
+        let snapshot = loadExpiredMemorialSnapshot()
+        let sections = snapshot.sections
+        let targetDatesByEventID = snapshot.targetDatesByEventID
+
+        return homeSectionsContent(
+            sections: sections,
+            targetDatesByEventID: targetDatesByEventID,
+            emptyContent: {
+                emptyExpiredMemorialPlaceholder
+            }
+        )
+    }
+
+    func homeSectionsContent<EmptyContent: View>(
+        sections: [HomeSection],
+        targetDatesByEventID: [UUID: Date],
+        @ViewBuilder emptyContent: () -> EmptyContent
+    ) -> some View {
+        ZStack {
+            if sections.isEmpty {
+                emptyContent()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .bottom) {
@@ -220,9 +281,9 @@ private extension HomeView {
                         item: item,
                         badgeDisplayMode: itemBadgeDisplayMode,
                         badgeDate: targetDatesByEventID[item.sourceEventId],
-                        openDetail: { openEventDetail(for: item.sourceEventId) },
+                        openDetail: { openEventDetailFromHomeRow(for: item.sourceEventId) },
                         jumpToEventDate: {
-                            jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
+                            jumpHomeDateFromHomeRowIfPossible(targetDatesByEventID[item.sourceEventId])
                         }
                     )
                     .id(item.id)
@@ -239,6 +300,12 @@ private extension HomeView {
     var emptyHomePlaceholder: some View {
         VStack(spacing: 10) {
             ContentUnavailableView("没有可显示的事件", systemImage: "tray", description: Text("点击创建新事件，或调整你的聚焦配置"))
+        }
+    }
+
+    var emptyExpiredMemorialPlaceholder: some View {
+        VStack(spacing: 10) {
+            ContentUnavailableView("没有已过纪念日", systemImage: "calendar.badge.clock")
         }
     }
 
@@ -308,6 +375,58 @@ private extension HomeView {
         }
     }
 
+    var homePageDragGesture: some Gesture {
+        DragGesture(minimumDistance: Self.homePageDragSuppressionDistance, coordinateSpace: .local)
+            .onChanged { value in
+                updateHomeRowActionSuppression(for: value)
+            }
+            .onEnded { _ in
+                releaseHomeRowActionSuppressionAfterDelay()
+            }
+    }
+
+    func updateHomeRowActionSuppression(for value: DragGesture.Value) {
+        let horizontalDistance = abs(value.translation.width)
+        let verticalDistance = abs(value.translation.height)
+
+        guard horizontalDistance >= Self.homePageDragSuppressionDistance,
+              horizontalDistance > verticalDistance * Self.homePageDragSuppressionDominance else {
+            return
+        }
+
+        beginHomeRowActionSuppression()
+    }
+
+    func beginHomeRowActionSuppression() {
+        rowActionSuppressionTask?.cancel()
+
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        suppressHomeRowActions = true
+    }
+
+    func releaseHomeRowActionSuppressionAfterDelay() {
+        rowActionSuppressionTask?.cancel()
+        rowActionSuppressionTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.homePageDragSuppressionResetDelay)
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            suppressHomeRowActions = false
+            rowActionSuppressionTask = nil
+        }
+    }
+
+    func cancelHomeRowActionSuppression() {
+        rowActionSuppressionTask?.cancel()
+        rowActionSuppressionTask = nil
+        suppressHomeRowActions = false
+    }
+
     // MARK: - Debug Functions
     func loadHomeSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
         do {
@@ -332,6 +451,120 @@ private extension HomeView {
         } catch {
             return ([], [:])
         }
+    }
+
+    func loadExpiredMemorialSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
+        do {
+            let events = try modelContext.fetch(FetchDescriptor<Event>())
+            let calendar = Calendar.current
+            let normalizedReferenceDate = HomeReferenceDate.normalized(self.referenceDate, calendar: calendar)
+            let expiredMemorialEvents = events
+                .filter { event in
+                    let targetDate = calendar.startOfDay(for: event.targetDate)
+                    return !event.isArchived && event.isMemorial && targetDate < normalizedReferenceDate
+                }
+                .sorted(by: compareExpiredMemorialEvents)
+            let pinnedEvents = expiredMemorialEvents.filter(\.pinToTop)
+            let regularEvents = expiredMemorialEvents.filter { !$0.pinToTop }
+            var sections: [HomeSection] = []
+
+            if !pinnedEvents.isEmpty {
+                sections.append(
+                    HomeSection(
+                        id: "expired-memorials:pinned",
+                        title: "置顶",
+                        items: pinnedEvents.map {
+                            makeExpiredMemorialDisplayItem(from: $0, referenceDate: normalizedReferenceDate, calendar: calendar)
+                        }
+                    )
+                )
+            }
+
+            if !regularEvents.isEmpty {
+                sections.append(
+                    HomeSection(
+                        id: "expired-memorials",
+                        title: "已过纪念日",
+                        items: regularEvents.map {
+                            makeExpiredMemorialDisplayItem(from: $0, referenceDate: normalizedReferenceDate, calendar: calendar)
+                        }
+                    )
+                )
+            }
+
+            let targetDatesByEventID = Dictionary(
+                uniqueKeysWithValues: expiredMemorialEvents.map { ($0.id, $0.targetDate) }
+            )
+
+            return (sections, targetDatesByEventID)
+        } catch {
+            return ([], [:])
+        }
+    }
+
+    func compareExpiredMemorialEvents(lhs: Event, rhs: Event) -> Bool {
+        if lhs.pinToTop != rhs.pinToTop {
+            return lhs.pinToTop && !rhs.pinToTop
+        }
+
+        if lhs.targetDate != rhs.targetDate {
+            return lhs.targetDate > rhs.targetDate
+        }
+
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+
+        let titleComparison = lhs.title.localizedCompare(rhs.title)
+        if titleComparison != .orderedSame {
+            return titleComparison == .orderedAscending
+        }
+
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    func makeExpiredMemorialDisplayItem(
+        from event: Event,
+        referenceDate: Date,
+        calendar: Calendar = .current
+    ) -> HomeDisplayItem {
+        let targetDate = calendar.startOfDay(for: event.targetDate)
+        let elapsedDays = max(calendar.dateComponents([.day], from: targetDate, to: referenceDate).day ?? 0, 1)
+
+        return HomeDisplayItem(
+            id: event.id,
+            sourceEventId: event.id,
+            title: event.title,
+            iconSystemName: event.iconSystemName,
+            tintHex: event.notebook?.colorHex,
+            badgeText: "+\(elapsedDays)",
+            isToday: false,
+            stateIndicators: makeHomeStateIndicators(from: event),
+            sortKey: Double(elapsedDays),
+            groupKey: nil
+        )
+    }
+
+    func makeHomeStateIndicators(from event: Event) -> Set<HomeDisplayItemStateIndicator> {
+        var indicators: Set<HomeDisplayItemStateIndicator> = []
+
+        if event.hasChecklistItems {
+            indicators.insert(.checklist)
+        }
+
+        if !event.reminderPresets.isEmpty {
+            indicators.insert(.reminder)
+        }
+
+        if event.showOnHome {
+            indicators.insert(.showOnHome)
+        }
+
+        if event.pinToTop {
+            indicators.insert(.pinned)
+        }
+
+        return indicators
     }
 
     func restoreLastFocusStateIfNeeded() {
@@ -480,6 +713,14 @@ private extension HomeView {
     }
 
     // MARK: - Event Detail Functions
+    func openEventDetailFromHomeRow(for eventID: UUID) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        openEventDetail(for: eventID)
+    }
+
     func openEventDetail(for eventID: UUID) {
         haptics.play(.openDetailTap)
         withAnimation {
@@ -502,6 +743,14 @@ private extension HomeView {
         } catch {
             assertionFailure("Failed to load event detail: \(error.localizedDescription)")
         }
+    }
+
+    func jumpHomeDateFromHomeRowIfPossible(_ targetDate: Date?) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        jumpHomeDateIfPossible(targetDate)
     }
 
     func jumpHomeDateIfPossible(_ targetDate: Date?) {
@@ -943,6 +1192,11 @@ private enum HomeSheetRoute {
     case notebookEditor
     case settings
     case eventDetail
+}
+
+private enum HomeContentPage: Hashable {
+    case expiredMemorials
+    case upcoming
 }
 
 #Preview {
