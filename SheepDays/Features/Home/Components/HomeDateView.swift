@@ -55,7 +55,6 @@ struct HomeDateView: View {
                     // incre badge
                     if content.dayOffsetFromToday != 0 {
                         SDIncreBadge(text: content.badgeText)
-                            .padding(.leading, 5)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
@@ -175,7 +174,7 @@ private struct WeekdayIndicatorView: View {
         .frame(width: 68, height: 35)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.background)
+                .foregroundStyle(Color(.secondarySystemGroupedBackground))
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {

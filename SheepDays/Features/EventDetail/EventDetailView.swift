@@ -65,10 +65,9 @@ struct EventDetailView: View {
 
                         Color.clear.frame(height: bottomContentSpacerHeight)
                     }
-                    .padding(.top, 24)
-                    .padding(.horizontal, 5)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 20)
                 }
-                .padding(10)
                 .background(
                     RoundedRectangle(cornerRadius: 30, style: .continuous)
                         .foregroundStyle(Color(.quaternarySystemFill))
@@ -95,7 +94,6 @@ struct EventDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
         .alert(
             "操作失败",
             isPresented: Binding(
@@ -159,55 +157,53 @@ private extension EventDetailView {
     }
 
     var notebookAndTagsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    Menu {
-                        if notebooks.isEmpty {
-                            Text("暂无事件本")
-                        } else {
-                            Section("选择事件本") {
-                                ForEach(notebooks) { notebook in
-                                    Button {
-                                        moveToNotebook(notebook)
-                                    } label: {
-                                        notebookMenuLabel(
-                                            for: notebook,
-                                            isSelected: notebook.id == event.notebook?.id
-                                        )
-                                    }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                Menu {
+                    if notebooks.isEmpty {
+                        Text("暂无事件本")
+                    } else {
+                        Section("选择事件本") {
+                            ForEach(notebooks) { notebook in
+                                Button {
+                                    moveToNotebook(notebook)
+                                } label: {
+                                    notebookMenuLabel(
+                                        for: notebook,
+                                        isSelected: notebook.id == event.notebook?.id
+                                    )
                                 }
                             }
                         }
-                    } label: {
-                        SDNotebookBadge(notebook: event.notebook)
-                            .frame(height: 40)
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    SDNotebookBadge(notebook: event.notebook)
+                        .frame(height: 40)
+                }
+                .buttonStyle(.plain)
 
-                    ForEach(event.tags.sorted(by: { $0.name.localizedCompare($1.name) == .orderedAscending })) { tag in
-                        Button {
-                            presentTagList()
-                        } label: {
-                            SDTagBadge(tag: tag)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
+                ForEach(event.tags.sorted(by: { $0.name.localizedCompare($1.name) == .orderedAscending })) { tag in
                     Button {
                         presentTagList()
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color(.secondaryLabel))
-                            .padding(10)
-                            .background(
-                                Capsule()
-                                    .foregroundStyle(Color(.tertiarySystemFill))
-                            )
+                        SDTagBadge(tag: tag)
                     }
                     .buttonStyle(.plain)
                 }
+
+                Button {
+                    presentTagList()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .padding(10)
+                        .background(
+                            Capsule()
+                                .foregroundStyle(Color(.quaternarySystemFill))
+                        )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -250,7 +246,7 @@ private extension EventDetailView {
             Spacer()
 
             Toggle("", isOn: showOnHomeBinding)
-                .tint(.accent)
+                .tint(eventAccentColor)
         }
     }
 
@@ -261,7 +257,7 @@ private extension EventDetailView {
             Spacer()
 
             Toggle("", isOn: pinToTopBinding)
-                .tint(.accent)
+                .tint(eventAccentColor)
         }
     }
 
@@ -342,15 +338,10 @@ private extension EventDetailView {
 
     var checklistCreateRow: some View {
         HStack {
-            Button {
-                createChecklistItem()
-            } label: {
-                Image(systemName: "circle.dashed")
-                    .foregroundStyle(Color(.tertiaryLabel))
-                    .fontDesign(.rounded)
-                    .contentTransition(.symbolEffect)
-            }
-            .buttonStyle(.plain)
+            Image(systemName: "circle")
+                .foregroundStyle(Color(.tertiaryLabel))
+                .font(.system(size: 20, weight: .medium, design: .rounded))
+                .contentTransition(.symbolEffect)
 
             TextField("新的检查事项", text: $newChecklistItemTitle)
                 .textFieldStyle(.plain)
@@ -445,11 +436,16 @@ private extension EventDetailView {
             .frame(width: checklistFloatingRowFrame(for: item).width)
             .background(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .foregroundStyle(eventAccentColor.opacity(0.22))
+                    .fill(.white)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .foregroundStyle(eventAccentColor.opacity(0.2))
+                    }
+                    
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .strokeBorder(eventAccentColor.opacity(0.35), lineWidth: 1)
+                    .strokeBorder(eventAccentColor, lineWidth: 2)
             )
             .shadow(color: .black.opacity(0.14), radius: 10, y: 5)
             .offset(
@@ -462,8 +458,8 @@ private extension EventDetailView {
 
     func checklistStatusIcon(for item: ChecklistItem) -> some View {
         Image(systemName: item.isCompleted ? "checkmark.circle" : "circle")
-            .foregroundStyle(.accent)
-            .fontDesign(.rounded)
+            .foregroundStyle(eventAccentColor)
+            .font(.system(size: 20, weight: .medium, design: .rounded))
     }
 
     var checklistRowBackground: some View {
@@ -725,7 +721,6 @@ private extension EventDetailView {
 
             Text(title)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color(.secondaryLabel))
         }
         .frame(height: 35)
         .foregroundStyle(Color(.secondaryLabel))
