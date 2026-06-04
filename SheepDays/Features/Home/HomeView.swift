@@ -94,7 +94,7 @@ private extension HomeView {
                     .allowsHitTesting(false)
                     .zIndex(1)
             }
-            .padding(.horizontal)
+//            .padding(.horizontal)
 
             floatingToolbar
                 .padding(.top)
@@ -230,6 +230,7 @@ private extension HomeView {
                                 .frame(height: Self.bottomSheetInsetHeight)
                             }
                         }
+                        .padding(.horizontal)
                     }
 
                     if isBottomSheetPresented {
