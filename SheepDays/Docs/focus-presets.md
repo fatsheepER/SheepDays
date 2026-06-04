@@ -6,6 +6,8 @@
 
 Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `FocusSheetView` 中快速恢复来源、标签、时间范围、排序和分组设置。
 
+同一组预设是全局共享的：用户创建的 preset 不绑定具体页面，可以应用到 Home 首页，也可以应用到 Memorial 页面。页面差异只体现在当前运行时 Focus 状态和“上次聚焦状态”的持久化 scope 上。
+
 当前实现的核心约束是：
 
 - 预设保存的是配置语义；其中 `.all` 保持动态全选含义，不展开成创建时快照。
@@ -14,7 +16,7 @@ Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `
 - 允许创建内部设置完全相同的多个预设。
 - 不允许两个预设重名，重名判断使用 trim + lowercase。
 - 恢复默认不认为选中了任何预设。
-- 上次 Focus 状态会被单独持久化，下次启动恢复。
+- Home 和 Memorial 的上次 Focus 状态会分开持久化，下次启动分别恢复。
 
 ## 数据模型
 
@@ -43,7 +45,7 @@ Focus 预设用于保存一组 `HomeFocusState` 的快照，让用户可以在 `
 
 `FocusPresetSettings` 是 Codable 值类型，位于 `Core/HomeEngine/Models/FocusPresetSettings.swift`。
 
-它是预设、无名临时 Focus 配置、以及“上次聚焦状态”持久化的共同载体。
+它是预设、无名临时 Focus 配置、以及各页面“上次聚焦状态”持久化的共同载体。
 
 当前字段：
 
@@ -77,7 +79,7 @@ FocusPresetSettings.snapshot(from:notebooks:tags:)
 
 这样做是为了让用户选择“全部”时真正代表全部：后续新增事件本或标签后，旧预设和上次 Focus 状态也会自然包含它们。显式选择仍然保持快照语义。
 
-只有 `HomeFocusState()` 代表真正的动态默认状态：
+Home 首页的默认状态是 `HomeFocusState()`：
 
 ```swift
 HomeFocusState(
@@ -90,6 +92,14 @@ HomeFocusState(
 ```
 
 “恢复默认”使用这个状态，并清空 `selectedPresetID`。
+
+Memorial 页面的默认状态使用同一套结构体，只把排序默认值调整为日期降序：
+
+```swift
+HomeFocusState.memorialDefault
+```
+
+这让 Memorial 默认优先显示最近发生或当天发生的纪念日，同时仍能应用任意用户 preset。
 
 ## 加载与数据协调
 
@@ -125,7 +135,7 @@ settings.resolved(notebooks: allNotebooks, tags: tags)
 
 ## UI 行为
 
-`FocusSheetView` 底部的“预设”按钮是一个 `Menu`。
+`FocusSheetView` 底部的“预设”按钮是一个 `Menu`。它编辑当前打开页面的 Focus scope：在 Home 页打开时写入 Home 状态，在 Memorial 页打开时写入 Memorial 状态。
 
 当前菜单内容：
 
@@ -134,14 +144,14 @@ settings.resolved(notebooks: allNotebooks, tags: tags)
 - `保存当前为预设`: 弹出名称输入 alert。允许保存同设置不同名的预设，不允许重名。
 - `选择预设...`: 二级菜单，列出全部预设，并对当前选中预设显示 checkmark。
 
-当前选中预设状态由 `selectedPresetID` 表示。它只在两种情况下被设置：
+当前选中预设状态由页面自己的 `selectedPresetID` 表示。它只在两种情况下被设置：
 
 - 用户选择某个预设。
 - 用户成功保存当前状态为新预设。
 
-设置项变更统一通过 `applyFocusStateChange(_:)` 清空 `selectedPresetID`。如果用户重复点击当前已选中的值，状态没有实际变化，不会清空选中预设。
+设置项变更统一通过 `applyFocusStateChange(_:)` 清空当前页面的 `selectedPresetID`。如果用户重复点击当前已选中的值，状态没有实际变化，不会清空选中预设。
 
-Header 中的预设 badge 只展示当前 `selectedPresetID` 能解析到的预设。badge 展示预设 `name` 和 `colorHex`。
+Header 中的预设 badge 只展示当前页面 `selectedPresetID` 能解析到的预设。badge 展示预设 `name` 和 `colorHex`。
 
 ## settingsVersion
 
@@ -249,7 +259,12 @@ var hidesCompletedEvents: Bool = false
 
 “上次 Focus 状态”不复用 `FocusPreset` 本身，因为它不需要用户名称、颜色、列表展示和重名规则。
 
-当前使用 `LastFocusStateStore` 存入 `UserDefaults`，key 为 `Focus.lastState`。payload 包含：
+当前使用 `LastFocusStateStore` 按 scope 存入 `UserDefaults`：
+
+- Home: `Focus.lastState`
+- Memorial: `Focus.memorial.lastState`
+
+Home key 沿用旧值，因此已有用户的 Home 上次聚焦状态可以继续恢复。每个 payload 包含：
 
 - `settingsVersion`
 - `settings: FocusPresetSettings`
@@ -257,10 +272,11 @@ var hidesCompletedEvents: Bool = false
 
 恢复规则：
 
-- App 启动后 `HomeView` 首次出现时读取 payload。
+- App 启动后 `HomeView` 首次出现时分别读取 Home 和 Memorial payload。
 - 如果 `selectedPresetID` 存在且对应预设仍存在，优先用该预设当前 settings 恢复，并恢复 header badge / 菜单 checkmark。
 - 如果预设不存在或预设恢复失败，fallback 到 payload 内的 `settings`，并清空选中预设身份。
-- 手动调整 Focus 设置、选择预设、保存预设、删除当前预设、恢复默认都会立即写回 payload。
+- 手动调整 Focus 设置、选择预设、保存预设、删除当前预设、恢复默认都会立即写回当前页面 scope 的 payload。
+- 删除 preset 时会清理所有 scope 中指向该 preset 的 `selectedPresetID`，避免另一个页面残留已删除 preset 的 badge/checkmark。
 
 这样可以让预设和临时状态共享同一套配置、协调和迁移规则，同时避免把临时状态污染到用户可见预设列表。
 
@@ -277,6 +293,7 @@ var hidesCompletedEvents: Bool = false
 - 设置项实际变化会清空 `selectedPresetID`。
 - 选择或保存预设会设置 `selectedPresetID`。
 - App 重启后能恢复上次 Focus 状态；上次来自现存预设时能恢复预设 badge/checkmark。
+- Home 和 Memorial 的上次状态互不覆盖；同一个 preset 可以分别应用到两个页面。
 
 验证方式保持轻量：
 

@@ -7,7 +7,13 @@
 
 import Foundation
 
+enum HomeQueryScope: String {
+    case homeUpcoming
+    case memorialPast
+}
+
 struct HomeQuery {
+    let scope: HomeQueryScope
     let referenceDate: Date
     let notebookSourceFilter: HomeNotebookSourceFilter
     let tagSourceFilter: HomeTagSourceFilter

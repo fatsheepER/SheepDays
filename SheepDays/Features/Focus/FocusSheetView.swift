@@ -53,7 +53,26 @@ struct FocusSheetView: View {
     @State private var presetActionError: String?
     @State private var isPresetActionErrorPresented = false
 
+    let defaultFocusState: HomeFocusState
+    let lastFocusStateScope: LastFocusStateStore.Scope
+    let onPresetDeleted: (UUID) -> Void
     let onBack: () -> Void
+
+    init(
+        focusState: Binding<HomeFocusState>,
+        selectedPresetID: Binding<UUID?>,
+        defaultFocusState: HomeFocusState = HomeFocusState(),
+        lastFocusStateScope: LastFocusStateStore.Scope = .home,
+        onPresetDeleted: @escaping (UUID) -> Void = { _ in },
+        onBack: @escaping () -> Void
+    ) {
+        self._focusState = focusState
+        self._selectedPresetID = selectedPresetID
+        self.defaultFocusState = defaultFocusState
+        self.lastFocusStateScope = lastFocusStateScope
+        self.onPresetDeleted = onPresetDeleted
+        self.onBack = onBack
+    }
 
     // MARK: - Body
     var body: some View {
@@ -225,7 +244,7 @@ private extension FocusSheetView {
                         }
                         .foregroundStyle(
                             focusState.timeRange == range
-                            ? Color.accentColor
+                            ? .accent
                             : Color(.tertiaryLabel)
                         )
 
@@ -474,23 +493,23 @@ private extension FocusSheetView {
     var activeFilterCount: Int {
         var count = 0
 
-        if !focusState.notebookSourceFilter.isDefault {
+        if focusState.notebookSourceFilter != defaultFocusState.notebookSourceFilter {
             count += 1
         }
 
-        if !focusState.tagSourceFilter.isDefault {
+        if focusState.tagSourceFilter != defaultFocusState.tagSourceFilter {
             count += 1
         }
 
-        if focusState.timeRange != .all {
+        if focusState.timeRange != defaultFocusState.timeRange {
             count += 1
         }
 
-        if focusState.sortMode != .targetDateAscending {
+        if focusState.sortMode != defaultFocusState.sortMode {
             count += 1
         }
 
-        if focusState.groupingMode != .none {
+        if focusState.groupingMode != defaultFocusState.groupingMode {
             count += 1
         }
 
@@ -759,6 +778,7 @@ private extension FocusSheetView {
     }
 
     func deletePreset(_ preset: FocusPreset) {
+        let presetID = preset.id
         modelContext.delete(preset)
 
         do {
@@ -766,6 +786,8 @@ private extension FocusSheetView {
             withAnimation(.snappy(duration: 0.18)) {
                 selectedPresetID = nil
             }
+            LastFocusStateStore.shared.clearSelectedPresetID(presetID)
+            onPresetDeleted(presetID)
             persistLastFocusState(focusState, selectedPresetID: nil)
         } catch {
             showPresetActionError(error)
@@ -773,7 +795,7 @@ private extension FocusSheetView {
     }
 
     func restoreDefaultFocus() {
-        let defaultState = HomeFocusState()
+        let defaultState = defaultFocusState
 
         guard focusState != defaultState else {
             withAnimation(.snappy(duration: 0.18)) {
@@ -801,7 +823,11 @@ private extension FocusSheetView {
             notebooks: allNotebooks,
             tags: tags
         )
-        LastFocusStateStore.shared.save(settings: settings, selectedPresetID: selectedPresetID)
+        LastFocusStateStore.shared.save(
+            settings: settings,
+            selectedPresetID: selectedPresetID,
+            scope: lastFocusStateScope
+        )
     }
 }
 
@@ -859,6 +885,8 @@ private extension HomeGroupingMode {
     FocusSheetView(
         focusState: $focusState,
         selectedPresetID: $selectedPresetID,
+        defaultFocusState: HomeFocusState(),
+        lastFocusStateScope: .home,
         onBack: {}
     )
     .modelContainer(focusSheetPreviewContainer)

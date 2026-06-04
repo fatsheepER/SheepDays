@@ -18,9 +18,11 @@ struct HomeView: View {
     @State private var dateRestoreTask: Task<Void, Never>?
     @State private var dateRestoreToken = 0
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
-    @State private var focusState = HomeFocusState()
-    @State private var selectedFocusPresetID: UUID?
-    @State private var hasRestoredLastFocusState = false
+    @State private var homeFocusState = HomeFocusState()
+    @State private var homeSelectedFocusPresetID: UUID?
+    @State private var memorialFocusState = HomeFocusState.memorialDefault
+    @State private var memorialSelectedFocusPresetID: UUID?
+    @State private var hasRestoredLastFocusStates = false
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
@@ -41,7 +43,7 @@ struct HomeView: View {
             .sheepDaysTheme(activeHomeTheme)
             .onAppear {
                 isBottomSheetPresented = true
-                restoreLastFocusStateIfNeeded()
+                restoreLastFocusStatesIfNeeded()
             }
             .onDisappear {
                 cancelDateRestore()
@@ -112,11 +114,66 @@ private extension HomeView {
         activeHomeThemeKind.theme
     }
 
+    var activeFocusScope: LastFocusStateStore.Scope {
+        activeHomeContentPage == .expiredMemorials ? .memorial : .home
+    }
+
+    var activeFocusDefaultState: HomeFocusState {
+        switch activeFocusScope {
+        case .home:
+            return HomeFocusState()
+        case .memorial:
+            return .memorialDefault
+        }
+    }
+
+    var activeFocusStateBinding: Binding<HomeFocusState> {
+        Binding(
+            get: {
+                switch activeFocusScope {
+                case .home:
+                    return homeFocusState
+                case .memorial:
+                    return memorialFocusState
+                }
+            },
+            set: { newValue in
+                switch activeFocusScope {
+                case .home:
+                    homeFocusState = newValue
+                case .memorial:
+                    memorialFocusState = newValue
+                }
+            }
+        )
+    }
+
+    var activeSelectedFocusPresetIDBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                switch activeFocusScope {
+                case .home:
+                    return homeSelectedFocusPresetID
+                case .memorial:
+                    return memorialSelectedFocusPresetID
+                }
+            },
+            set: { newValue in
+                switch activeFocusScope {
+                case .home:
+                    homeSelectedFocusPresetID = newValue
+                case .memorial:
+                    memorialSelectedFocusPresetID = newValue
+                }
+            }
+        )
+    }
+
     var homePagesArea: some View {
         GeometryReader { geometry in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 0) {
-                    expiredMemorialSectionsArea
+                    memorialSectionsArea
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .id(HomeContentPage.expiredMemorials)
 
@@ -208,9 +265,9 @@ private extension HomeView {
         )
     }
 
-    var expiredMemorialSectionsArea: some View {
+    var memorialSectionsArea: some View {
         let _ = contentRefreshToken
-        let snapshot = loadExpiredMemorialSnapshot()
+        let snapshot = loadMemorialSnapshot()
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
@@ -218,7 +275,7 @@ private extension HomeView {
             sections: sections,
             targetDatesByEventID: targetDatesByEventID,
             emptyContent: {
-                emptyExpiredMemorialPlaceholder
+                emptyMemorialPlaceholder
             }
         )
     }
@@ -329,9 +386,9 @@ private extension HomeView {
         }
     }
 
-    var emptyExpiredMemorialPlaceholder: some View {
+    var emptyMemorialPlaceholder: some View {
         VStack(spacing: 10) {
-            ContentUnavailableView("没有已过纪念日", systemImage: "calendar.badge.clock")
+            ContentUnavailableView("没有可显示的纪念日", systemImage: "calendar.badge.clock")
         }
     }
 
@@ -458,12 +515,13 @@ private extension HomeView {
         do {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
             let query = HomeQuery(
+                scope: .homeUpcoming,
                 referenceDate: referenceDate,
-                notebookSourceFilter: focusState.notebookSourceFilter,
-                tagSourceFilter: focusState.tagSourceFilter,
-                timeRangeFilter: focusState.timeRange,
-                groupingMode: focusState.groupingMode,
-                sortingMode: focusState.sortMode,
+                notebookSourceFilter: homeFocusState.notebookSourceFilter,
+                tagSourceFilter: homeFocusState.tagSourceFilter,
+                timeRangeFilter: homeFocusState.timeRange,
+                groupingMode: homeFocusState.groupingMode,
+                sortingMode: homeFocusState.sortMode,
                 includeAllEvents: false
             )
 
@@ -479,47 +537,24 @@ private extension HomeView {
         }
     }
 
-    func loadExpiredMemorialSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
+    func loadMemorialSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
         do {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
-            let calendar = Calendar.current
-            let normalizedReferenceDate = HomeReferenceDate.normalized(self.referenceDate, calendar: calendar)
-            let expiredMemorialEvents = events
-                .filter { event in
-                    let targetDate = calendar.startOfDay(for: event.targetDate)
-                    return !event.isArchived && event.isMemorial && targetDate < normalizedReferenceDate
-                }
-                .sorted(by: compareExpiredMemorialEvents)
-            let pinnedEvents = expiredMemorialEvents.filter(\.pinToTop)
-            let regularEvents = expiredMemorialEvents.filter { !$0.pinToTop }
-            var sections: [HomeSection] = []
+            let query = HomeQuery(
+                scope: .memorialPast,
+                referenceDate: referenceDate,
+                notebookSourceFilter: memorialFocusState.notebookSourceFilter,
+                tagSourceFilter: memorialFocusState.tagSourceFilter,
+                timeRangeFilter: memorialFocusState.timeRange,
+                groupingMode: memorialFocusState.groupingMode,
+                sortingMode: memorialFocusState.sortMode,
+                includeAllEvents: true
+            )
 
-            if !pinnedEvents.isEmpty {
-                sections.append(
-                    HomeSection(
-                        id: "expired-memorials:pinned",
-                        title: "置顶",
-                        items: pinnedEvents.map {
-                            makeExpiredMemorialDisplayItem(from: $0, referenceDate: normalizedReferenceDate, calendar: calendar)
-                        }
-                    )
-                )
-            }
-
-            if !regularEvents.isEmpty {
-                sections.append(
-                    HomeSection(
-                        id: "expired-memorials",
-                        title: "已过纪念日",
-                        items: regularEvents.map {
-                            makeExpiredMemorialDisplayItem(from: $0, referenceDate: normalizedReferenceDate, calendar: calendar)
-                        }
-                    )
-                )
-            }
-
+            let sections = HomeBuilder.build(events: events, query: query)
+                .filter { !$0.items.isEmpty }
             let targetDatesByEventID = Dictionary(
-                uniqueKeysWithValues: expiredMemorialEvents.map { ($0.id, $0.targetDate) }
+                uniqueKeysWithValues: events.map { ($0.id, $0.targetDate) }
             )
 
             return (sections, targetDatesByEventID)
@@ -528,105 +563,50 @@ private extension HomeView {
         }
     }
 
-    func compareExpiredMemorialEvents(lhs: Event, rhs: Event) -> Bool {
-        if lhs.pinToTop != rhs.pinToTop {
-            return lhs.pinToTop && !rhs.pinToTop
-        }
-
-        if lhs.targetDate != rhs.targetDate {
-            return lhs.targetDate > rhs.targetDate
-        }
-
-        if lhs.createdAt != rhs.createdAt {
-            return lhs.createdAt < rhs.createdAt
-        }
-
-        let titleComparison = lhs.title.localizedCompare(rhs.title)
-        if titleComparison != .orderedSame {
-            return titleComparison == .orderedAscending
-        }
-
-        return lhs.id.uuidString < rhs.id.uuidString
-    }
-
-    func makeExpiredMemorialDisplayItem(
-        from event: Event,
-        referenceDate: Date,
-        calendar: Calendar = .current
-    ) -> HomeDisplayItem {
-        let targetDate = calendar.startOfDay(for: event.targetDate)
-        let elapsedDays = max(calendar.dateComponents([.day], from: targetDate, to: referenceDate).day ?? 0, 1)
-
-        return HomeDisplayItem(
-            id: event.id,
-            sourceEventId: event.id,
-            title: event.title,
-            iconSystemName: event.iconSystemName,
-            tintHex: event.notebook?.colorHex,
-            badgeText: "+\(elapsedDays)",
-            isToday: false,
-            stateIndicators: makeHomeStateIndicators(from: event),
-            sortKey: Double(elapsedDays),
-            groupKey: nil
-        )
-    }
-
-    func makeHomeStateIndicators(from event: Event) -> Set<HomeDisplayItemStateIndicator> {
-        var indicators: Set<HomeDisplayItemStateIndicator> = []
-
-        if event.hasChecklistItems {
-            indicators.insert(.checklist)
-        }
-
-        if !event.reminderPresets.isEmpty {
-            indicators.insert(.reminder)
-        }
-
-        if event.showOnHome {
-            indicators.insert(.showOnHome)
-        }
-
-        if event.pinToTop {
-            indicators.insert(.pinned)
-        }
-
-        return indicators
-    }
-
-    func restoreLastFocusStateIfNeeded() {
-        guard !hasRestoredLastFocusState else {
+    func restoreLastFocusStatesIfNeeded() {
+        guard !hasRestoredLastFocusStates else {
             return
         }
 
-        hasRestoredLastFocusState = true
-
-        guard let payload = LastFocusStateStore.shared.load() else {
-            return
-        }
+        hasRestoredLastFocusStates = true
 
         do {
             let notebooks = try modelContext.fetch(FetchDescriptor<Notebook>())
             let tags = try modelContext.fetch(FetchDescriptor<Tag>())
 
-            if let presetID = payload.selectedPresetID,
-               restoreLastFocusState(fromPresetID: presetID, notebooks: notebooks, tags: tags) {
-                return
-            }
-
-            let resolution = payload.settings.resolved(notebooks: notebooks, tags: tags)
-            focusState = resolution.focusState
-            selectedFocusPresetID = nil
-            LastFocusStateStore.shared.save(
-                settings: resolution.prunedSettings,
-                selectedPresetID: nil
-            )
+            restoreLastFocusStateIfNeeded(for: .home, notebooks: notebooks, tags: tags)
+            restoreLastFocusStateIfNeeded(for: .memorial, notebooks: notebooks, tags: tags)
         } catch {
-            assertionFailure("Failed to restore last focus state: \(error.localizedDescription)")
+            assertionFailure("Failed to restore last focus states: \(error.localizedDescription)")
         }
+    }
+
+    func restoreLastFocusStateIfNeeded(
+        for scope: LastFocusStateStore.Scope,
+        notebooks: [Notebook],
+        tags: [Tag]
+    ) {
+        guard let payload = LastFocusStateStore.shared.load(scope: scope) else {
+            return
+        }
+
+        if let presetID = payload.selectedPresetID,
+           restoreLastFocusState(fromPresetID: presetID, scope: scope, notebooks: notebooks, tags: tags) {
+            return
+        }
+
+        let resolution = payload.settings.resolved(notebooks: notebooks, tags: tags)
+        setFocusState(resolution.focusState, selectedPresetID: nil, for: scope)
+        LastFocusStateStore.shared.save(
+            settings: resolution.prunedSettings,
+            selectedPresetID: nil,
+            scope: scope
+        )
     }
 
     func restoreLastFocusState(
         fromPresetID presetID: UUID,
+        scope: LastFocusStateStore.Scope,
         notebooks: [Notebook],
         tags: [Tag]
     ) -> Bool {
@@ -649,16 +629,41 @@ private extension HomeView {
                 try modelContext.save()
             }
 
-            focusState = resolution.focusState
-            selectedFocusPresetID = preset.id
+            setFocusState(resolution.focusState, selectedPresetID: preset.id, for: scope)
             LastFocusStateStore.shared.save(
                 settings: resolution.prunedSettings,
-                selectedPresetID: preset.id
+                selectedPresetID: preset.id,
+                scope: scope
             )
             return true
         } catch {
             assertionFailure("Failed to restore focus preset: \(error.localizedDescription)")
             return false
+        }
+    }
+
+    func setFocusState(
+        _ focusState: HomeFocusState,
+        selectedPresetID: UUID?,
+        for scope: LastFocusStateStore.Scope
+    ) {
+        switch scope {
+        case .home:
+            homeFocusState = focusState
+            homeSelectedFocusPresetID = selectedPresetID
+        case .memorial:
+            memorialFocusState = focusState
+            memorialSelectedFocusPresetID = selectedPresetID
+        }
+    }
+
+    func handleFocusPresetDeleted(_ presetID: UUID) {
+        if homeSelectedFocusPresetID == presetID {
+            homeSelectedFocusPresetID = nil
+        }
+
+        if memorialSelectedFocusPresetID == presetID {
+            memorialSelectedFocusPresetID = nil
         }
     }
 
@@ -980,8 +985,11 @@ private extension HomeView {
 
         case .focus:
             FocusSheetView(
-                focusState: $focusState,
-                selectedPresetID: $selectedFocusPresetID,
+                focusState: activeFocusStateBinding,
+                selectedPresetID: activeSelectedFocusPresetIDBinding,
+                defaultFocusState: activeFocusDefaultState,
+                lastFocusStateScope: activeFocusScope,
+                onPresetDeleted: handleFocusPresetDeleted(_:),
                 onBack: {
                     haptics.play(.openDetailTap)
                     showHomeSheet()
