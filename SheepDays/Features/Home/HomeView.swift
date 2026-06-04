@@ -32,6 +32,7 @@ struct HomeView: View {
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
     @State private var activeHomeContentPage: HomeContentPage? = .upcoming
+    @State private var activeHomeThemeKind: HomeThemeKind = .standard
     @State private var suppressHomeRowActions = false
     @State private var rowActionSuppressionTask: Task<Void, Never>?
 
@@ -68,6 +69,7 @@ private extension HomeView {
     static let homePageDragSuppressionDistance: CGFloat = 8
     static let homePageDragSuppressionDominance: CGFloat = 1.15
     static let homePageDragSuppressionResetDelay: Duration = .milliseconds(180)
+    static let homeThemeTransitionAnimation = Animation.easeInOut(duration: 0.24)
     // 分步回到 today 动画
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
@@ -107,7 +109,7 @@ private extension HomeView {
     }
 
     var activeHomeTheme: SheepDaysTheme {
-        activeHomeContentPage == .expiredMemorials ? .memorial : .standard
+        activeHomeThemeKind.theme
     }
 
     var homePagesArea: some View {
@@ -129,12 +131,28 @@ private extension HomeView {
             .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             .simultaneousGesture(homePageDragGesture)
             .onChange(of: activeHomeContentPage) { oldValue, newValue in
-                guard newValue != nil, oldValue != nil, oldValue != newValue else {
+                guard let newValue, oldValue != newValue else {
                     return
                 }
 
-                haptics.play(.selectionStep)
+                transitionHomeTheme(to: newValue)
+
+                if oldValue != nil {
+                    haptics.play(.selectionStep)
+                }
             }
+        }
+    }
+
+    func transitionHomeTheme(to page: HomeContentPage) {
+        let nextThemeKind = HomeThemeKind(page: page)
+
+        guard activeHomeThemeKind != nextThemeKind else {
+            return
+        }
+
+        withAnimation(Self.homeThemeTransitionAnimation) {
+            activeHomeThemeKind = nextThemeKind
         }
     }
 
@@ -172,7 +190,7 @@ private extension HomeView {
         Image(systemName: systemName)
             .font(.system(size: 20, weight: .medium, design: .rounded))
             .foregroundStyle(.primary)
-            .frame(width: 30, height: 40)
+            .frame(width: 20, height: 30)
     }
 
     var homeSectionsArea: some View {
@@ -1205,6 +1223,29 @@ private enum HomeSheetRoute {
 private enum HomeContentPage: Hashable {
     case expiredMemorials
     case upcoming
+}
+
+private enum HomeThemeKind {
+    case standard
+    case memorial
+
+    init(page: HomeContentPage) {
+        switch page {
+        case .expiredMemorials:
+            self = .memorial
+        case .upcoming:
+            self = .standard
+        }
+    }
+
+    var theme: SheepDaysTheme {
+        switch self {
+        case .standard:
+            return .standard
+        case .memorial:
+            return .memorial
+        }
+    }
 }
 
 #Preview {

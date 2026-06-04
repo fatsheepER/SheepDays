@@ -31,15 +31,17 @@ someView
 
 ## Home 页面主题
 
-`Features/Home/HomeView.swift` 根据当前分页选择主题：
+`Features/Home/HomeView.swift` 在分页变化后更新当前主题状态：
 
 ```swift
-var activeHomeTheme: SheepDaysTheme {
-    activeHomeContentPage == .expiredMemorials ? .memorial : .standard
+func transitionHomeTheme(to page: HomeContentPage) {
+    withAnimation(Self.homeThemeTransitionAnimation) {
+        activeHomeThemeKind = HomeThemeKind(page: page)
+    }
 }
 ```
 
-Home 主内容和 bottom sheet 都注入同一套 `activeHomeTheme`。因此当页面切到已过纪念日分页时，以下位置会自动切到 memorial palette：
+Home 主内容和 bottom sheet 都注入同一套 `activeHomeTheme`。因此当页面切到已过纪念日分页时，以下位置会通过 `homeThemeTransitionAnimation` 切到 memorial palette：
 
 - `HomeDateView` 的日期主色和日期阴影。
 - `SDIncreBadge` 的文字色和 20% secondary 背景色。
