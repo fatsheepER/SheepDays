@@ -37,6 +37,8 @@ struct HomeView: View {
     @State private var activeHomeThemeKind: HomeThemeKind = .standard
     @State private var suppressHomeRowActions = false
     @State private var rowActionSuppressionTask: Task<Void, Never>?
+    @State private var relativeValuePrompt: HomeRelativeValuePrompt?
+    @State private var relativeValueInput = ""
 
     var body: some View {
         homeContent
@@ -367,6 +369,9 @@ private extension HomeView {
                         openDetail: { openEventDetailFromHomeRow(for: item.sourceEventId) },
                         jumpToEventDate: {
                             jumpHomeDateFromHomeRowIfPossible(targetDatesByEventID[item.sourceEventId])
+                        },
+                        setRelativeValue: {
+                            presentRelativeValuePromptFromHomeRowIfPossible(targetDatesByEventID[item.sourceEventId])
                         }
                     )
                     .id(item.id)
@@ -803,6 +808,71 @@ private extension HomeView {
         }
     }
 
+    func presentRelativeValuePromptFromHomeRowIfPossible(_ targetDate: Date?) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        presentRelativeValuePrompt(for: targetDate)
+    }
+
+    func presentRelativeValuePrompt(for targetDate: Date?) {
+        guard let targetDate else {
+            return
+        }
+
+        relativeValueInput = ""
+        relativeValuePrompt = HomeRelativeValuePrompt(
+            targetDate: HomeReferenceDate.normalized(targetDate),
+            mode: HomeRelativeValueMode(page: activeHomeContentPage ?? .upcoming)
+        )
+    }
+
+    var relativeValuePromptIsPresented: Binding<Bool> {
+        Binding(
+            get: { relativeValuePrompt != nil },
+            set: { isPresented in
+                if !isPresented {
+                    clearRelativeValuePrompt()
+                }
+            }
+        )
+    }
+
+    var parsedRelativeDayOffset: Int? {
+        let normalizedInput = relativeValueInput
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "＋", with: "+")
+            .replacingOccurrences(of: "−", with: "-")
+            .replacingOccurrences(of: "－", with: "-")
+
+        guard !normalizedInput.isEmpty else {
+            return nil
+        }
+
+        return Int(normalizedInput)
+    }
+
+    func applyRelativeValuePrompt() {
+        guard let relativeValuePrompt,
+              let relativeDayOffset = parsedRelativeDayOffset,
+              let targetDate = relativeValuePrompt.referenceDate(
+                forRelativeDayOffset: relativeDayOffset,
+                calendar: .current
+              ) else {
+            haptics.play(.error)
+            return
+        }
+
+        clearRelativeValuePrompt()
+        jumpHomeDate(to: targetDate)
+    }
+
+    func clearRelativeValuePrompt() {
+        relativeValuePrompt = nil
+        relativeValueInput = ""
+    }
+
     func restoreHomeDateToToday(
         stepCount requestedStepCount: Int = Self.todayRestoreStepCount,
         stepDelay: Duration = Self.todayRestoreStepDelay,
@@ -954,6 +1024,19 @@ private extension HomeView {
         .interactiveDismissDisabled()
         .padding(15)
         .animation(.snappy(duration: 0.25), value: sheetRoute)
+        .alert("设置相对数值", isPresented: relativeValuePromptIsPresented) {
+            TextField("26, +26, -30", text: $relativeValueInput)
+                .keyboardType(.numbersAndPunctuation)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("取消", role: .cancel) {
+                clearRelativeValuePrompt()
+            }
+
+            Button("确定", action: applyRelativeValuePrompt)
+                .disabled(parsedRelativeDayOffset == nil)
+        }
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
         }
@@ -1240,6 +1323,50 @@ private enum HomeSheetRoute {
 private enum HomeContentPage: Hashable {
     case expiredMemorials
     case upcoming
+}
+
+private struct HomeRelativeValuePrompt: Identifiable {
+    let id = UUID()
+    let targetDate: Date
+    let mode: HomeRelativeValueMode
+
+    func referenceDate(
+        forRelativeDayOffset relativeDayOffset: Int,
+        calendar: Calendar
+    ) -> Date? {
+        mode.referenceDate(
+            targetDate: targetDate,
+            relativeDayOffset: relativeDayOffset,
+            calendar: calendar
+        )
+    }
+}
+
+private enum HomeRelativeValueMode {
+    case remainingDays
+    case elapsedDays
+
+    init(page: HomeContentPage) {
+        switch page {
+        case .upcoming:
+            self = .remainingDays
+        case .expiredMemorials:
+            self = .elapsedDays
+        }
+    }
+
+    func referenceDate(
+        targetDate: Date,
+        relativeDayOffset: Int,
+        calendar: Calendar
+    ) -> Date? {
+        switch self {
+        case .remainingDays:
+            return calendar.date(byAdding: .day, value: -relativeDayOffset, to: targetDate)
+        case .elapsedDays:
+            return calendar.date(byAdding: .day, value: relativeDayOffset, to: targetDate)
+        }
+    }
 }
 
 private enum HomeThemeKind {
