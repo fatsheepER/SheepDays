@@ -23,11 +23,11 @@ nonisolated enum HomeDisplayItemStateIndicator: Hashable, CaseIterable, Identifi
         case .recurrence:
             "repeat"
         case .reminder:
-            "bell.fill"
+            "bell"
         case .showOnHome:
-            "star.fill"
+            "star"
         case .pinned:
-            "pin.fill"
+            "pin"
         }
     }
 
