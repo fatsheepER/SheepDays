@@ -60,6 +60,7 @@ struct EventDetailView: View {
                         dateSection
                         showOnHomeSection
                         pinToTopSection
+                        memorialSection
                         importanceLevelSection
                         checklistSection(scrollProxy: scrollProxy)
 
@@ -248,6 +249,17 @@ private extension EventDetailView {
             Spacer()
 
             Toggle("", isOn: pinToTopBinding)
+                .tint(eventAccentColor)
+        }
+    }
+
+    var memorialSection: some View {
+        HStack {
+            sectionTitle("纪念日", "calendar.badge.clock")
+
+            Spacer()
+
+            Toggle("", isOn: isMemorialBinding)
                 .tint(eventAccentColor)
         }
     }
@@ -679,6 +691,16 @@ private extension EventDetailView {
             get: { event.pinToTop },
             set: { newValue in
                 event.pinToTop = newValue
+                persistChanges()
+            }
+        )
+    }
+
+    var isMemorialBinding: Binding<Bool> {
+        Binding(
+            get: { event.isMemorial },
+            set: { newValue in
+                event.isMemorial = newValue
                 persistChanges()
             }
         )
