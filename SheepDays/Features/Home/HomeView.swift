@@ -950,12 +950,21 @@ private extension HomeView {
         .presentationDetents(availableSheetDetents, selection: $selectedSheetDetent)
         .presentationDragIndicator(.hidden)
         .presentationBackground(.clear)
-        .presentationBackgroundInteraction(.enabled)
+        .presentationBackgroundInteraction(sheetBackgroundInteraction)
         .interactiveDismissDisabled()
         .padding(15)
         .animation(.snappy(duration: 0.25), value: sheetRoute)
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
+        }
+    }
+
+    var sheetBackgroundInteraction: PresentationBackgroundInteraction {
+        switch sheetRoute {
+        case .focus, .quickAdd, .notebooks:
+            return .disabled
+        default:
+            return .enabled
         }
     }
 
