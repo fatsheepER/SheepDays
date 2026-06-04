@@ -37,6 +37,7 @@ struct HomeView: View {
 
     var body: some View {
         homeContent
+            .sheepDaysTheme(activeHomeTheme)
             .onAppear {
                 isBottomSheetPresented = true
                 restoreLastFocusStateIfNeeded()
@@ -47,6 +48,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $isBottomSheetPresented) {
                 sheetContainer
+                    .sheepDaysTheme(activeHomeTheme)
                     .ignoresSafeArea()
             }
     }
@@ -93,6 +95,7 @@ private extension HomeView {
                 floatingDateHeader
                     .allowsHitTesting(false)
                     .zIndex(1)
+                    .padding(.horizontal)
             }
 //            .padding(.horizontal)
 
@@ -101,6 +104,10 @@ private extension HomeView {
                 .padding(.trailing)
                 .zIndex(2)
         }
+    }
+
+    var activeHomeTheme: SheepDaysTheme {
+        activeHomeContentPage == .expiredMemorials ? .memorial : .standard
     }
 
     var homePagesArea: some View {

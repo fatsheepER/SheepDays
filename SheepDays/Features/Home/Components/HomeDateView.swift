@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct HomeDateView: View {
+    @Environment(\.sheepDaysTheme) private var theme
+
     private let content: HomeDateDisplayContent
 
     init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
@@ -25,8 +27,8 @@ struct HomeDateView: View {
             Text(content.dayText)
                 .contentTransition(.numericText())
                 .font(.system(size:75, weight: .bold, design: .serif))
-                .foregroundStyle(.accent)
-                .modifier(DayTextLifeEffect())
+                .foregroundStyle(theme.accentColor)
+                .modifier(DayTextLifeEffect(accentColor: theme.accentColor))
                 .frame(width: 100)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -82,13 +84,15 @@ private extension Locale {
 }
 
 private struct DayTextLifeEffect: ViewModifier {
+    let accentColor: Color
+
     @State private var floatOffset = CGSize.zero
     @State private var motionTask: Task<Void, Never>?
 
     func body(content: Content) -> some View {
         content
-            .shadow(color: .accent.opacity(0.38), radius: 10, x: 0, y: 3)
-            .shadow(color: .accent.opacity(0.22), radius: 22, x: 0, y: 7)
+            .shadow(color: accentColor.opacity(0.38), radius: 10, x: 0, y: 3)
+            .shadow(color: accentColor.opacity(0.22), radius: 22, x: 0, y: 7)
             .offset(floatOffset)
             .onAppear {
                 startMotion()
