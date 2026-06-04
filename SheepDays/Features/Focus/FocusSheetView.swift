@@ -10,6 +10,7 @@ import SwiftData
 
 struct FocusSheetView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.sheepDaysTheme) private var theme
     @Binding var focusState: HomeFocusState
     @Binding var selectedPresetID: UUID?
 
@@ -244,7 +245,7 @@ private extension FocusSheetView {
                         }
                         .foregroundStyle(
                             focusState.timeRange == range
-                            ? .accent
+                            ? theme.accentColor
                             : Color(.tertiaryLabel)
                         )
 
@@ -297,7 +298,7 @@ private extension FocusSheetView {
                 }
                 
                 Circle().frame(width: 3)
-                    .foregroundStyle(.accent.opacity(0.5))
+                    .foregroundStyle(theme.accentColor.opacity(0.5))
                 
                 Menu {
                     ForEach(FocusSortDirection.allCases, id: \.self) { direction in
