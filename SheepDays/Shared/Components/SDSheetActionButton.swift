@@ -17,6 +17,7 @@ struct SDSheetActionButtonAppearance {
     let backgroundColor: Color
     let titleForegroundColor: Color
     let iconForegroundColor: Color
+    fileprivate let semanticRole: SDSheetActionButtonAppearanceSemanticRole?
 
     init(
         backgroundColor: Color,
@@ -26,7 +27,36 @@ struct SDSheetActionButtonAppearance {
         self.backgroundColor = backgroundColor
         self.titleForegroundColor = titleForegroundColor
         self.iconForegroundColor = iconForegroundColor ?? titleForegroundColor
+        self.semanticRole = nil
     }
+
+    fileprivate init(
+        backgroundColor: Color,
+        titleForegroundColor: Color,
+        iconForegroundColor: Color? = nil,
+        semanticRole: SDSheetActionButtonAppearanceSemanticRole
+    ) {
+        self.backgroundColor = backgroundColor
+        self.titleForegroundColor = titleForegroundColor
+        self.iconForegroundColor = iconForegroundColor ?? titleForegroundColor
+        self.semanticRole = semanticRole
+    }
+
+    fileprivate func resolved(with theme: SheepDaysTheme) -> SDSheetActionButtonAppearance {
+        switch semanticRole {
+        case .themeProminent:
+            return SDSheetActionButtonAppearance(
+                backgroundColor: theme.secondaryAccentColor,
+                titleForegroundColor: theme.accentColor
+            )
+        case nil:
+            return self
+        }
+    }
+}
+
+fileprivate enum SDSheetActionButtonAppearanceSemanticRole {
+    case themeProminent
 }
 
 extension SDSheetActionButtonAppearance {
@@ -41,8 +71,9 @@ extension SDSheetActionButtonAppearance {
     )
 
     static let prominent = SDSheetActionButtonAppearance(
-        backgroundColor: .accent.opacity(0.1),
-        titleForegroundColor: .accentColor
+        backgroundColor: .sheepDaysSecondaryAccent,
+        titleForegroundColor: .sheepDaysAccent,
+        semanticRole: .themeProminent
     )
 
     static let destructive = SDSheetActionButtonAppearance(
@@ -60,13 +91,12 @@ struct SDSheetActionButton: View {
     private static let defaultFont = Font.system(size: 18, weight: .semibold, design: .rounded)
 
     @Environment(\.font) private var environmentFont
+    @Environment(\.sheepDaysTheme) private var theme
 
     let iconSystemName: String?
     let title: String
     let placement: SDSheetActionButtonPlacement
-    let backgroundColor: Color
-    let titleForegroundColor: Color
-    let iconForegroundColor: Color
+    let appearance: SDSheetActionButtonAppearance
 
     init(
         iconSystemName: String? = nil,
@@ -77,9 +107,7 @@ struct SDSheetActionButton: View {
         self.iconSystemName = iconSystemName
         self.title = title
         self.placement = placement
-        self.backgroundColor = appearance.backgroundColor
-        self.titleForegroundColor = appearance.titleForegroundColor
-        self.iconForegroundColor = appearance.iconForegroundColor
+        self.appearance = appearance
     }
 
     init(
@@ -93,20 +121,24 @@ struct SDSheetActionButton: View {
         self.iconSystemName = iconSystemName
         self.title = title
         self.placement = placement
-        self.backgroundColor = backgroundColor
-        self.titleForegroundColor = titleForegroundColor
-        self.iconForegroundColor = iconForegroundColor ?? titleForegroundColor
+        self.appearance = SDSheetActionButtonAppearance(
+            backgroundColor: backgroundColor,
+            titleForegroundColor: titleForegroundColor,
+            iconForegroundColor: iconForegroundColor
+        )
     }
 
     var body: some View {
+        let resolvedAppearance = appearance.resolved(with: theme)
+
         HStack(spacing: 6) {
             if let iconSystemName {
                 Image(systemName: iconSystemName)
-                    .foregroundStyle(iconForegroundColor)
+                    .foregroundStyle(resolvedAppearance.iconForegroundColor)
             }
 
             Text(title)
-                .foregroundStyle(titleForegroundColor)
+                .foregroundStyle(resolvedAppearance.titleForegroundColor)
         }
         .font(environmentFont ?? Self.defaultFont)
         .frame(maxWidth: .infinity, maxHeight: 50)
@@ -117,7 +149,7 @@ struct SDSheetActionButton: View {
                 bottomLeading: bottomLeadingRadius,
                 bottomTrailing: bottomTrailingRadius,
                 cornerStyle: .continuous,
-                color: backgroundColor
+                color: resolvedAppearance.backgroundColor
             )
         )
     }
@@ -163,8 +195,8 @@ private extension SDSheetActionButton {
             iconSystemName: "checkmark",
             title: "保存",
             placement: .right,
-            backgroundColor: .accent.opacity(0.12),
-            titleForegroundColor: .accentColor,
+            backgroundColor: .sheepDaysSecondaryAccent,
+            titleForegroundColor: .sheepDaysAccent,
             iconForegroundColor: .green
         )
         .font(.system(size: 16, weight: .semibold, design: .rounded))

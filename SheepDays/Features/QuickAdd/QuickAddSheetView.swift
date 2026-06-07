@@ -41,7 +41,6 @@ struct QuickAddSheetView: View {
     @State private var errorMessage: String?
     @State private var hasPreparedDefaults = false
 
-    @State private var isDatePickerPresented = false
     @State private var isNotebookCreatorPresented = false
     @State private var newNotebookName = ""
     @State private var newNotebookIconSystemName = ""
@@ -93,30 +92,6 @@ struct QuickAddSheetView: View {
         }
         .onChange(of: notebooks.count) {
             syncSelectedNotebookIfNeeded()
-        }
-        .sheet(isPresented: $isDatePickerPresented) {
-            NavigationStack {
-                VStack(spacing: 20) {
-                    DatePicker(
-                        "事件日期",
-                        selection: $date,
-                        displayedComponents: [.date]
-                    )
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                }
-                .padding()
-                .navigationTitle("选择日期")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("完成") {
-                            isDatePickerPresented = false
-                        }
-                    }
-                }
-            }
-            .presentationDetents([.medium])
         }
         .sheet(isPresented: $isNotebookCreatorPresented) {
             notebookCreatorSheet
@@ -241,12 +216,14 @@ private extension QuickAddSheetView {
                 .frame(width: 30)
             
             // date
-            Button {
-                isDatePickerPresented = true
+            QuickAddElasticPopoverMenu {
+                isTitleFieldFocused = false
+                haptics.play(.openDetailTap)
             } label: {
-                SDDateBadge(date: date)
+                QuickAddDateMenuLabel(date: date)
+            } content: {
+                QuickAddDatePickerPopoverContent(date: $date)
             }
-            .buttonStyle(.plain)
         }
     }
     
@@ -597,6 +574,155 @@ private extension QuickAddSheetView {
 
     func applyTagSelection(_ selectedTagIDs: Set<UUID>) {
         self.selectedTagIDs = selectedTagIDs
+    }
+}
+
+private struct QuickAddElasticPopoverMenu<Label: View, Content: View>: View {
+    private let transitionID = "QuickAddDatePickerPopover"
+    private let onToggle: () -> Void
+    private let label: () -> Label
+    private let content: () -> Content
+
+    @State private var isExpanded = false
+    @Namespace private var namespace
+
+    init(
+        onToggle: @escaping () -> Void = {},
+        @ViewBuilder label: @escaping () -> Label,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.onToggle = onToggle
+        self.label = label
+        self.content = content
+    }
+
+    var body: some View {
+        Button {
+            onToggle()
+            isExpanded.toggle()
+        } label: {
+            label()
+        }
+        .buttonBorderShape(.capsule)
+        .buttonStyle(.glass)
+        .matchedTransitionSource(id: transitionID, in: namespace)
+        .popover(isPresented: $isExpanded) {
+            QuickAddPopoverContentReveal {
+                content()
+            }
+            .presentationCompactAdaptation(.popover)
+            .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
+        }
+    }
+}
+
+private struct QuickAddPopoverContentReveal<Content: View>: View {
+    private let content: () -> Content
+
+    @State private var isVisible = false
+
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        content()
+            .opacity(isVisible ? 1 : 0)
+            .task {
+                try? await Task.sleep(for: .milliseconds(100))
+
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                withAnimation(.snappy(duration: 0.3, extraBounce: 0)) {
+                    isVisible = true
+                }
+            }
+    }
+}
+
+private struct QuickAddDateMenuLabel: View {
+    let date: Date
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "calendar")
+                .accessibilityHidden(true)
+
+            Text(dateLabel)
+                .contentTransition(.numericText())
+        }
+        .font(.system(size: 15, weight: .semibold, design: .rounded))
+        .foregroundStyle(Color(.secondaryLabel))
+//        .padding(.horizontal, 10)
+//        .frame(minHeight: 30)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("选择日期")
+        .accessibilityValue(dateLabel)
+    }
+}
+
+private extension QuickAddDateMenuLabel {
+    var dateLabel: String {
+        let calendar = Calendar.autoupdatingCurrent
+        let isCurrentYear = calendar.isDate(date, equalTo: .now, toGranularity: .year)
+
+        if isCurrentYear {
+            return date.formatted(
+                .dateTime
+                    .month(.defaultDigits)
+                    .day()
+                    .locale(.autoupdatingCurrent)
+            )
+        }
+
+        return date.formatted(
+            .dateTime
+                .year()
+                .month(.defaultDigits)
+                .day()
+                .locale(.autoupdatingCurrent)
+        )
+    }
+}
+
+private struct QuickAddDatePickerPopoverContent: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @Binding var date: Date
+
+    var body: some View {
+        VStack(spacing: 10) {
+
+            DatePicker(
+                "事件日期",
+                selection: $date,
+                displayedComponents: [.date]
+            )
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            
+            HStack(alignment: .center, spacing: 12) {
+                Text("选择日期")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(.label))
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .frame(width: 30, height: 28)
+                }
+                .buttonStyle(.glassProminent)
+                .accessibilityLabel("完成")
+            }
+        }
+        .padding(16)
+        .frame(width: 330)
     }
 }
 

@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct HomeSheetView: View {
+    @Environment(\.sheepDaysTheme) private var theme
+
     @Binding var referenceDate: Date
     let badgeDisplayMode: HomeItemBadgeDisplayMode
     let isCompact: Bool
@@ -49,10 +51,10 @@ private extension HomeSheetView {
                 .padding(.horizontal, 10)
                 .background(
                     Capsule()
-                        .fill(Color.accent.opacity(0.15))
+                        .fill(theme.secondaryAccentColor)
                         .frame(height: 30)
                 )
-                .foregroundStyle(.accent)
+                .foregroundStyle(theme.accentColor)
                 .frame(width: 80)
                     
             }
@@ -66,10 +68,10 @@ private extension HomeSheetView {
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .background(
                         Circle()
-                            .fill(Color.accent.opacity(0.15))
+                            .fill(theme.secondaryAccentColor)
                             .frame(width: 30, height: 30)
                     )
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(theme.accentColor)
             }
             .buttonStyle(.plain)
         }

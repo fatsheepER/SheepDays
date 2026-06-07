@@ -9,6 +9,7 @@ import Foundation
 
 struct HomeDateDisplayContent {
     let referenceDate: Date
+    let locale: Locale
     let yearText: String?
     let monthText: String
     let separatorText: String
@@ -41,6 +42,7 @@ struct HomeDateDisplayContent {
         weekdayFormatter.dateFormat = "EEE"
 
         self.referenceDate = normalizedReferenceDate
+        self.locale = locale
         self.yearText = Self.shouldShowYear(referenceDate: normalizedReferenceDate, today: normalizedToday, calendar: calendar)
             ? yearFormatter.string(from: normalizedReferenceDate)
             : nil

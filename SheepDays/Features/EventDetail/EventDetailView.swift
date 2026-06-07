@@ -60,6 +60,7 @@ struct EventDetailView: View {
                         dateSection
                         showOnHomeSection
                         pinToTopSection
+                        memorialSection
                         importanceLevelSection
                         checklistSection(scrollProxy: scrollProxy)
 
@@ -252,6 +253,17 @@ private extension EventDetailView {
         }
     }
 
+    var memorialSection: some View {
+        HStack {
+            sectionTitle("纪念日", "calendar.badge.clock")
+
+            Spacer()
+
+            Toggle("", isOn: isMemorialBinding)
+                .tint(eventAccentColor)
+        }
+    }
+
     var importanceLevelSection: some View {
         VStack {
             // title
@@ -302,7 +314,7 @@ private extension EventDetailView {
             }
 
             ZStack(alignment: .topLeading) {
-                VStack(spacing: 3) {
+                VStack(spacing: 0) {
                     checklistCreateRow
 
                     ForEach(orderedChecklistItems) { item in
@@ -684,6 +696,16 @@ private extension EventDetailView {
         )
     }
 
+    var isMemorialBinding: Binding<Bool> {
+        Binding(
+            get: { event.isMemorial },
+            set: { newValue in
+                event.isMemorial = newValue
+                persistChanges()
+            }
+        )
+    }
+
     var notebookSelection: Binding<UUID?> {
         Binding(
             get: { event.notebook?.id },
@@ -936,6 +958,8 @@ private extension EventDetailView {
     }
 
     func toggleChecklistItem(_ item: ChecklistItem) {
+        haptics.play(.openDetailTap)
+        
         item.isCompleted.toggle()
         item.updatedAt = .now
 

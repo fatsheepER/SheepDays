@@ -165,6 +165,53 @@ enum HomeFocusTimeRange: String, CaseIterable, Codable {
             return nil
         }
     }
+
+    func lowerBound(from referenceDate: Date, calendar: Calendar) -> Date? {
+        switch self {
+        case .sevenDays:
+            return calendar.date(byAdding: .day, value: -7, to: referenceDate)
+        case .oneMonth:
+            return calendar.date(byAdding: .month, value: -1, to: referenceDate)
+        case .sixMonths:
+            return calendar.date(byAdding: .month, value: -6, to: referenceDate)
+        case .all:
+            return nil
+        }
+    }
+
+    func contains(
+        _ date: Date,
+        referenceDate: Date,
+        calendar: Calendar,
+        scope: HomeQueryScope
+    ) -> Bool {
+        let normalizedReferenceDate = calendar.startOfDay(for: referenceDate)
+        let normalizedDate = calendar.startOfDay(for: date)
+
+        switch scope {
+        case .homeUpcoming:
+            guard normalizedDate >= normalizedReferenceDate else {
+                return false
+            }
+
+            guard let upperBound = upperBound(from: normalizedReferenceDate, calendar: calendar) else {
+                return true
+            }
+
+            return normalizedDate <= upperBound
+
+        case .memorialPast:
+            guard normalizedDate <= normalizedReferenceDate else {
+                return false
+            }
+
+            guard let lowerBound = lowerBound(from: normalizedReferenceDate, calendar: calendar) else {
+                return true
+            }
+
+            return normalizedDate >= lowerBound
+        }
+    }
 }
 
 enum HomeTimeRangeBucket: String, CaseIterable {
@@ -199,37 +246,75 @@ enum HomeTimeRangeBucket: String, CaseIterable {
         }
     }
 
-    func contains(_ date: Date, referenceDate: Date, calendar: Calendar) -> Bool {
+    func contains(
+        _ date: Date,
+        referenceDate: Date,
+        calendar: Calendar,
+        scope: HomeQueryScope
+    ) -> Bool {
         let normalizedReferenceDate = calendar.startOfDay(for: referenceDate)
         let normalizedDate = calendar.startOfDay(for: date)
 
-        switch self {
-        case .sevenDays:
-            guard let upperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate) else {
-                return false
+        switch scope {
+        case .homeUpcoming:
+            switch self {
+            case .sevenDays:
+                guard let upperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate) else {
+                    return false
+                }
+
+                return normalizedDate >= normalizedReferenceDate && normalizedDate <= upperBound
+            case .oneMonth:
+                guard let sevenDayUpperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate),
+                      let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate) else {
+                    return false
+                }
+
+                return normalizedDate > sevenDayUpperBound && normalizedDate <= monthUpperBound
+            case .sixMonths:
+                guard let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate),
+                      let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
+                    return false
+                }
+
+                return normalizedDate > monthUpperBound && normalizedDate <= sixMonthUpperBound
+            case .furtherAway:
+                guard let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
+                    return false
+                }
+
+                return normalizedDate > sixMonthUpperBound
             }
 
-            return normalizedDate >= normalizedReferenceDate && normalizedDate <= upperBound
-        case .oneMonth:
-            guard let sevenDayUpperBound = calendar.date(byAdding: .day, value: 7, to: normalizedReferenceDate),
-                  let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate) else {
-                return false
-            }
+        case .memorialPast:
+            switch self {
+            case .sevenDays:
+                guard let lowerBound = calendar.date(byAdding: .day, value: -7, to: normalizedReferenceDate) else {
+                    return false
+                }
 
-            return normalizedDate > sevenDayUpperBound && normalizedDate <= monthUpperBound
-        case .sixMonths:
-            guard let monthUpperBound = calendar.date(byAdding: .month, value: 1, to: normalizedReferenceDate),
-                  let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
-                return false
-            }
+                return normalizedDate >= lowerBound && normalizedDate <= normalizedReferenceDate
+            case .oneMonth:
+                guard let sevenDayLowerBound = calendar.date(byAdding: .day, value: -7, to: normalizedReferenceDate),
+                      let monthLowerBound = calendar.date(byAdding: .month, value: -1, to: normalizedReferenceDate) else {
+                    return false
+                }
 
-            return normalizedDate > monthUpperBound && normalizedDate <= sixMonthUpperBound
-        case .furtherAway:
-            guard let sixMonthUpperBound = calendar.date(byAdding: .month, value: 6, to: normalizedReferenceDate) else {
-                return false
-            }
+                return normalizedDate >= monthLowerBound && normalizedDate < sevenDayLowerBound
+            case .sixMonths:
+                guard let monthLowerBound = calendar.date(byAdding: .month, value: -1, to: normalizedReferenceDate),
+                      let sixMonthLowerBound = calendar.date(byAdding: .month, value: -6, to: normalizedReferenceDate) else {
+                    return false
+                }
 
-            return normalizedDate > sixMonthUpperBound
+                return normalizedDate >= sixMonthLowerBound && normalizedDate < monthLowerBound
+            case .furtherAway:
+                guard let sixMonthLowerBound = calendar.date(byAdding: .month, value: -6, to: normalizedReferenceDate) else {
+                    return false
+                }
+
+                return normalizedDate < sixMonthLowerBound
+            }
         }
     }
 }
@@ -292,4 +377,8 @@ struct HomeFocusState: Equatable {
     var timeRange: HomeFocusTimeRange = .all
     var sortMode: HomeSortMode = .targetDateAscending
     var groupingMode: HomeGroupingMode = .none
+}
+
+extension HomeFocusState {
+    static let memorialDefault = HomeFocusState(sortMode: .targetDateDescending)
 }

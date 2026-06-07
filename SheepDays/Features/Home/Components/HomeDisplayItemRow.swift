@@ -16,6 +16,7 @@ struct HomeDisplayItemRow: View {
     var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
     var openDetail: () -> Void = {}
     var jumpToEventDate: () -> Void = {}
+    var setRelativeValue: (() -> Void)?
 
     var body: some View {
         let primaryAction: () -> Void = {
@@ -42,6 +43,11 @@ struct HomeDisplayItemRow: View {
                 Label("跳到该日期", systemImage: "calendar")
             }
             .disabled(!canJumpToEventDate)
+
+            Button(action: setRelativeValueWithoutFeedback) {
+                Label("设置相对数值", systemImage: "number")
+            }
+            .disabled(!canSetRelativeValue)
         })
     }
 }
@@ -49,6 +55,10 @@ struct HomeDisplayItemRow: View {
 private extension HomeDisplayItemRow {
     var canJumpToEventDate: Bool {
         badgeDate != nil
+    }
+
+    var canSetRelativeValue: Bool {
+        badgeDate != nil && setRelativeValue != nil
     }
 
     func jumpToEventDateWithFeedback() {
@@ -66,6 +76,14 @@ private extension HomeDisplayItemRow {
         }
 
         jumpToEventDate()
+    }
+
+    func setRelativeValueWithoutFeedback() {
+        guard canSetRelativeValue else {
+            return
+        }
+
+        setRelativeValue?()
     }
 }
 

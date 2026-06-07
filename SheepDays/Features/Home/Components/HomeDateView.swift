@@ -8,13 +8,16 @@
 import SwiftUI
 
 struct HomeDateView: View {
+    @Environment(\.sheepDaysTheme) private var theme
+
     private let content: HomeDateDisplayContent
 
-    init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current) {
+    init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
         self.content = HomeDateDisplayContent(
             referenceDate: referenceDate,
             today: today,
-            calendar: calendar
+            calendar: calendar,
+            locale: locale
         )
     }
 
@@ -23,10 +26,10 @@ struct HomeDateView: View {
             // day
             Text(content.dayText)
                 .contentTransition(.numericText())
-                .font(.system(size:75, weight: .bold, design: .serif))
-                .foregroundStyle(.accent)
-                .modifier(DayTextLifeEffect())
-                .frame(width: 100)
+                .font(.system(size:55, weight: .bold, design: .serif))
+                .foregroundStyle(theme.accentColor)
+                .modifier(DayTextLifeEffect(accentColor: theme.accentColor))
+                .frame(width: 70)
 
             VStack(alignment: .leading, spacing: 5) {
                 // year - only when not this year
@@ -41,7 +44,7 @@ struct HomeDateView: View {
                     // month
                     Text(content.monthText)
                         .contentTransition(.numericText())
-                        .font(.system(size: 35, weight: .semibold, design: .serif))
+                        .font(monthTextFont)
                 }
                 
 
@@ -58,22 +61,39 @@ struct HomeDateView: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
+                .frame(height: 30)
             }
             .fixedSize(horizontal: false, vertical: true)
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private var monthTextFont: Font {
+        if content.locale.isChineseLanguage {
+            return .sourceHanSerifSC(size: 30, weight: .bold)
+        }
+
+        return .system(size: 35, weight: .semibold, design: .serif)
+    }
+}
+
+private extension Locale {
+    var isChineseLanguage: Bool {
+        language.languageCode?.identifier == "zh"
+    }
 }
 
 private struct DayTextLifeEffect: ViewModifier {
+    let accentColor: Color
+
     @State private var floatOffset = CGSize.zero
     @State private var motionTask: Task<Void, Never>?
 
     func body(content: Content) -> some View {
         content
-            .shadow(color: .accent.opacity(0.38), radius: 10, x: 0, y: 3)
-            .shadow(color: .accent.opacity(0.22), radius: 22, x: 0, y: 7)
+            .shadow(color: accentColor.opacity(0.38), radius: 10, x: 0, y: 3)
+            .shadow(color: accentColor.opacity(0.22), radius: 22, x: 0, y: 7)
             .offset(floatOffset)
             .onAppear {
                 startMotion()
@@ -171,7 +191,7 @@ private struct WeekdayIndicatorView: View {
                     .transition(rollTransition)
             }
         }
-        .frame(width: 68, height: 35)
+        .frame(width: 68, height: 30)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .foregroundStyle(Color(.secondarySystemGroupedBackground))
@@ -257,7 +277,7 @@ private struct WeekdayIndicatorView: View {
     VStack(spacing: 12) {
         HomeDateView(referenceDate: .now)
         HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: 4, to: .now) ?? .now)
-        HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: -2, to: .now) ?? .now)
+        HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: -5, to: .now) ?? .now)
         HomeDateView(referenceDate: Calendar.current.date(byAdding: .year, value: 2, to: .now) ?? .now)
     }
     .padding()

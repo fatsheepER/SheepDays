@@ -58,14 +58,15 @@ private extension HomeBuilder {
             return false
         }
 
-        guard query.includeAllEvents || event.showOnHome else {
-            return false
-        }
-
         let normalizedReferenceDate = calendar.startOfDay(for: query.referenceDate)
         let normalizedTargetDate = calendar.startOfDay(for: event.targetDate)
 
-        guard normalizedTargetDate >= normalizedReferenceDate else {
+        guard matchesScope(
+            event: event,
+            normalizedTargetDate: normalizedTargetDate,
+            normalizedReferenceDate: normalizedReferenceDate,
+            query: query
+        ) else {
             return false
         }
 
@@ -101,11 +102,35 @@ private extension HomeBuilder {
             }
         }
 
-        guard let upperBound = query.timeRangeFilter.upperBound(from: normalizedReferenceDate, calendar: calendar) else {
-            return true
-        }
+        return query.timeRangeFilter.contains(
+            normalizedTargetDate,
+            referenceDate: normalizedReferenceDate,
+            calendar: calendar,
+            scope: query.scope
+        )
+    }
 
-        return normalizedTargetDate <= upperBound
+    static func matchesScope(
+        event: Event,
+        normalizedTargetDate: Date,
+        normalizedReferenceDate: Date,
+        query: HomeQuery
+    ) -> Bool {
+        switch query.scope {
+        case .homeUpcoming:
+            guard query.includeAllEvents || event.showOnHome else {
+                return false
+            }
+
+            return normalizedTargetDate >= normalizedReferenceDate
+
+        case .memorialPast:
+            guard event.isMemorial else {
+                return false
+            }
+
+            return normalizedTargetDate <= normalizedReferenceDate
+        }
     }
 
     static func makeDisplayItem(from event: Event, query: HomeQuery) -> HomeDisplayItem {
@@ -117,12 +142,22 @@ private extension HomeBuilder {
             title: event.title,
             iconSystemName: event.iconSystemName,
             tintHex: event.notebook?.colorHex,
-            badgeText: dateDisplay.badgeText,
+            badgeText: badgeText(from: dateDisplay, query: query),
             isToday: dateDisplay.dayOffsetFromToday == 0,
             stateIndicators: makeStateIndicators(from: event),
             sortKey: Double(dateDisplay.dayOffsetFromToday),
             groupKey: nil
         )
+    }
+
+    static func badgeText(from dateDisplay: HomeDateDisplayContent, query: HomeQuery) -> String {
+        switch query.scope {
+        case .homeUpcoming:
+            return dateDisplay.badgeText
+        case .memorialPast:
+            let elapsedDays = abs(dateDisplay.dayOffsetFromToday)
+            return elapsedDays == 0 ? dateDisplay.badgeText : "+\(elapsedDays)"
+        }
     }
 
     static func makeStateIndicators(from event: Event) -> Set<HomeDisplayItemStateIndicator> {

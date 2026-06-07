@@ -18,9 +18,11 @@ struct HomeView: View {
     @State private var dateRestoreTask: Task<Void, Never>?
     @State private var dateRestoreToken = 0
     @State private var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
-    @State private var focusState = HomeFocusState()
-    @State private var selectedFocusPresetID: UUID?
-    @State private var hasRestoredLastFocusState = false
+    @State private var homeFocusState = HomeFocusState()
+    @State private var homeSelectedFocusPresetID: UUID?
+    @State private var memorialFocusState = HomeFocusState.memorialDefault
+    @State private var memorialSelectedFocusPresetID: UUID?
+    @State private var hasRestoredLastFocusStates = false
 
     @State private var isBottomSheetPresented = true
     @State private var sheetRoute: HomeSheetRoute = .home
@@ -31,49 +33,34 @@ struct HomeView: View {
     @State private var shouldFocusQuickAddTitle = false
     @State private var selectedEvent: Event?
     @State private var notebookEditorOption: NotebookEditorOption?
+    @State private var activeHomeContentPage: HomeContentPage? = .upcoming
+    @State private var activeHomeThemeKind: HomeThemeKind = .standard
+    @State private var suppressHomeRowActions = false
+    @State private var rowActionSuppressionTask: Task<Void, Never>?
+    @State private var relativeValuePrompt: HomeRelativeValuePrompt?
+    @State private var relativeValueInput = ""
 
     var body: some View {
-        NavigationStack {
-            homeContent
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        HStack {
-                            Menu {
-                                Section("Testing") {
-                                    Button("Add Preview Events", action: insertPreviewEvents)
-                                    Button("Clear Preview Events", role: .destructive, action: removePreviewEvents)
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                            }
-
-                            Button {
-                                showSettings()
-                            } label: {
-                                Image(systemName: "gear")
-                            }
-                        }
-                    }
-                }
-                .onAppear {
-                    isBottomSheetPresented = true
-                    restoreLastFocusStateIfNeeded()
-                }
-                .onDisappear {
-                    cancelDateRestore()
-                }
-                .sheet(isPresented: $isBottomSheetPresented) {
-                    sheetContainer
-                        .ignoresSafeArea()
-                }
-        }
+        homeContent
+            .sheepDaysTheme(activeHomeTheme)
+            .onAppear {
+                isBottomSheetPresented = true
+                restoreLastFocusStatesIfNeeded()
+            }
+            .onDisappear {
+                cancelDateRestore()
+                cancelHomeRowActionSuppression()
+            }
+            .sheet(isPresented: $isBottomSheetPresented) {
+                sheetContainer
+                    .sheepDaysTheme(activeHomeTheme)
+                    .ignoresSafeArea()
+            }
     }
 }
 
 // MARK: - Main Content
 private extension HomeView {
-    // 让 HomeDateView 向上与 Toolbar 重叠
-    static let homeContentToolbarOverlap: CGFloat = 40
     // 控制顶部柔化层效果
     static let floatingDateScrollInset: CGFloat = 106
     static let floatingDateFadeHeight: CGFloat = 200
@@ -83,6 +70,10 @@ private extension HomeView {
     static let bottomScrollFadeOffset: CGFloat = 64
     static let bottomSheetInsetHeight: CGFloat = 200
     static let edgeFadeHorizontalBleed: CGFloat = 42
+    static let homePageDragSuppressionDistance: CGFloat = 8
+    static let homePageDragSuppressionDominance: CGFloat = 1.15
+    static let homePageDragSuppressionResetDelay: Duration = .milliseconds(180)
+    static let homeThemeTransitionAnimation = Animation.easeInOut(duration: 0.24)
     // 分步回到 today 动画
     static let todayRestoreStepDelay: Duration = .milliseconds(220)
     static let todayRestoreStepCount = 3
@@ -100,20 +91,165 @@ private extension HomeView {
     ]
 
     var homeContent: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             Color(.systemGroupedBackground)
                 .ignoresSafeArea()
 
             ZStack(alignment: .top) {
-                homeSectionsArea
+                homePagesArea
 
                 floatingDateHeader
                     .allowsHitTesting(false)
                     .zIndex(1)
+                    .padding(.horizontal)
             }
-            .padding(.horizontal)
-            .padding(.top, -Self.homeContentToolbarOverlap)
+//            .padding(.horizontal)
+
+            floatingToolbar
+                .padding(.top)
+                .padding(.trailing)
+                .zIndex(2)
         }
+    }
+
+    var activeHomeTheme: SheepDaysTheme {
+        activeHomeThemeKind.theme
+    }
+
+    var activeFocusScope: LastFocusStateStore.Scope {
+        activeHomeContentPage == .expiredMemorials ? .memorial : .home
+    }
+
+    var activeFocusDefaultState: HomeFocusState {
+        switch activeFocusScope {
+        case .home:
+            return HomeFocusState()
+        case .memorial:
+            return .memorialDefault
+        }
+    }
+
+    var activeFocusStateBinding: Binding<HomeFocusState> {
+        Binding(
+            get: {
+                switch activeFocusScope {
+                case .home:
+                    return homeFocusState
+                case .memorial:
+                    return memorialFocusState
+                }
+            },
+            set: { newValue in
+                switch activeFocusScope {
+                case .home:
+                    homeFocusState = newValue
+                case .memorial:
+                    memorialFocusState = newValue
+                }
+            }
+        )
+    }
+
+    var activeSelectedFocusPresetIDBinding: Binding<UUID?> {
+        Binding(
+            get: {
+                switch activeFocusScope {
+                case .home:
+                    return homeSelectedFocusPresetID
+                case .memorial:
+                    return memorialSelectedFocusPresetID
+                }
+            },
+            set: { newValue in
+                switch activeFocusScope {
+                case .home:
+                    homeSelectedFocusPresetID = newValue
+                case .memorial:
+                    memorialSelectedFocusPresetID = newValue
+                }
+            }
+        )
+    }
+
+    var homePagesArea: some View {
+        GeometryReader { geometry in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    memorialSectionsArea
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .id(HomeContentPage.expiredMemorials)
+
+                    homeSectionsArea
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .id(HomeContentPage.upcoming)
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $activeHomeContentPage)
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .simultaneousGesture(homePageDragGesture)
+            .onChange(of: activeHomeContentPage) { oldValue, newValue in
+                guard let newValue, oldValue != newValue else {
+                    return
+                }
+
+                transitionHomeTheme(to: newValue)
+
+                if oldValue != nil {
+                    haptics.play(.selectionStep)
+                }
+            }
+        }
+    }
+
+    func transitionHomeTheme(to page: HomeContentPage) {
+        let nextThemeKind = HomeThemeKind(page: page)
+
+        guard activeHomeThemeKind != nextThemeKind else {
+            return
+        }
+
+        withAnimation(Self.homeThemeTransitionAnimation) {
+            activeHomeThemeKind = nextThemeKind
+        }
+    }
+
+    var floatingToolbar: some View {
+        HStack(spacing: 10) {
+            previewActionsMenu
+            settingsToolbarButton
+        }
+    }
+
+    var previewActionsMenu: some View {
+        Menu {
+            Section("Testing") {
+                Button("Add Preview Events", action: insertPreviewEvents)
+                Button("Clear Preview Events", role: .destructive, action: removePreviewEvents)
+            }
+        } label: {
+            floatingToolbarIcon(systemName: "ellipsis")
+        }
+        .buttonStyle(.glass)
+        .accessibilityLabel("Preview actions")
+    }
+
+    var settingsToolbarButton: some View {
+        Button {
+            showSettings()
+        } label: {
+            floatingToolbarIcon(systemName: "gearshape")
+        }
+        .buttonStyle(.glass)
+        .accessibilityLabel("Settings")
+    }
+
+    func floatingToolbarIcon(systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 20, weight: .medium, design: .rounded))
+            .foregroundStyle(.primary)
+            .frame(width: 20, height: 30)
     }
 
     var homeSectionsArea: some View {
@@ -122,9 +258,38 @@ private extension HomeView {
         let sections = snapshot.sections
         let targetDatesByEventID = snapshot.targetDatesByEventID
 
-        return ZStack {
-            if sections.isEmpty {
+        return homeSectionsContent(
+            sections: sections,
+            targetDatesByEventID: targetDatesByEventID,
+            emptyContent: {
                 emptyHomePlaceholder
+            }
+        )
+    }
+
+    var memorialSectionsArea: some View {
+        let _ = contentRefreshToken
+        let snapshot = loadMemorialSnapshot()
+        let sections = snapshot.sections
+        let targetDatesByEventID = snapshot.targetDatesByEventID
+
+        return homeSectionsContent(
+            sections: sections,
+            targetDatesByEventID: targetDatesByEventID,
+            emptyContent: {
+                emptyMemorialPlaceholder
+            }
+        )
+    }
+
+    func homeSectionsContent<EmptyContent: View>(
+        sections: [HomeSection],
+        targetDatesByEventID: [UUID: Date],
+        @ViewBuilder emptyContent: () -> EmptyContent
+    ) -> some View {
+        ZStack {
+            if sections.isEmpty {
+                emptyContent()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ZStack(alignment: .bottom) {
@@ -149,6 +314,7 @@ private extension HomeView {
                                 .frame(height: Self.bottomSheetInsetHeight)
                             }
                         }
+                        .padding(.horizontal)
                     }
 
                     if isBottomSheetPresented {
@@ -200,9 +366,12 @@ private extension HomeView {
                         item: item,
                         badgeDisplayMode: itemBadgeDisplayMode,
                         badgeDate: targetDatesByEventID[item.sourceEventId],
-                        openDetail: { openEventDetail(for: item.sourceEventId) },
+                        openDetail: { openEventDetailFromHomeRow(for: item.sourceEventId) },
                         jumpToEventDate: {
-                            jumpHomeDateIfPossible(targetDatesByEventID[item.sourceEventId])
+                            jumpHomeDateFromHomeRowIfPossible(targetDatesByEventID[item.sourceEventId])
+                        },
+                        setRelativeValue: {
+                            presentRelativeValuePromptFromHomeRowIfPossible(targetDatesByEventID[item.sourceEventId])
                         }
                     )
                     .id(item.id)
@@ -219,6 +388,12 @@ private extension HomeView {
     var emptyHomePlaceholder: some View {
         VStack(spacing: 10) {
             ContentUnavailableView("没有可显示的事件", systemImage: "tray", description: Text("点击创建新事件，或调整你的聚焦配置"))
+        }
+    }
+
+    var emptyMemorialPlaceholder: some View {
+        VStack(spacing: 10) {
+            ContentUnavailableView("没有可显示的纪念日", systemImage: "calendar.badge.clock")
         }
     }
 
@@ -288,17 +463,70 @@ private extension HomeView {
         }
     }
 
+    var homePageDragGesture: some Gesture {
+        DragGesture(minimumDistance: Self.homePageDragSuppressionDistance, coordinateSpace: .local)
+            .onChanged { value in
+                updateHomeRowActionSuppression(for: value)
+            }
+            .onEnded { _ in
+                releaseHomeRowActionSuppressionAfterDelay()
+            }
+    }
+
+    func updateHomeRowActionSuppression(for value: DragGesture.Value) {
+        let horizontalDistance = abs(value.translation.width)
+        let verticalDistance = abs(value.translation.height)
+
+        guard horizontalDistance >= Self.homePageDragSuppressionDistance,
+              horizontalDistance > verticalDistance * Self.homePageDragSuppressionDominance else {
+            return
+        }
+
+        beginHomeRowActionSuppression()
+    }
+
+    func beginHomeRowActionSuppression() {
+        rowActionSuppressionTask?.cancel()
+
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        suppressHomeRowActions = true
+    }
+
+    func releaseHomeRowActionSuppressionAfterDelay() {
+        rowActionSuppressionTask?.cancel()
+        rowActionSuppressionTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.homePageDragSuppressionResetDelay)
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            suppressHomeRowActions = false
+            rowActionSuppressionTask = nil
+        }
+    }
+
+    func cancelHomeRowActionSuppression() {
+        rowActionSuppressionTask?.cancel()
+        rowActionSuppressionTask = nil
+        suppressHomeRowActions = false
+    }
+
     // MARK: - Debug Functions
     func loadHomeSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
         do {
             let events = try modelContext.fetch(FetchDescriptor<Event>())
             let query = HomeQuery(
+                scope: .homeUpcoming,
                 referenceDate: referenceDate,
-                notebookSourceFilter: focusState.notebookSourceFilter,
-                tagSourceFilter: focusState.tagSourceFilter,
-                timeRangeFilter: focusState.timeRange,
-                groupingMode: focusState.groupingMode,
-                sortingMode: focusState.sortMode,
+                notebookSourceFilter: homeFocusState.notebookSourceFilter,
+                tagSourceFilter: homeFocusState.tagSourceFilter,
+                timeRangeFilter: homeFocusState.timeRange,
+                groupingMode: homeFocusState.groupingMode,
+                sortingMode: homeFocusState.sortMode,
                 includeAllEvents: false
             )
 
@@ -314,40 +542,76 @@ private extension HomeView {
         }
     }
 
-    func restoreLastFocusStateIfNeeded() {
-        guard !hasRestoredLastFocusState else {
+    func loadMemorialSnapshot() -> (sections: [HomeSection], targetDatesByEventID: [UUID: Date]) {
+        do {
+            let events = try modelContext.fetch(FetchDescriptor<Event>())
+            let query = HomeQuery(
+                scope: .memorialPast,
+                referenceDate: referenceDate,
+                notebookSourceFilter: memorialFocusState.notebookSourceFilter,
+                tagSourceFilter: memorialFocusState.tagSourceFilter,
+                timeRangeFilter: memorialFocusState.timeRange,
+                groupingMode: memorialFocusState.groupingMode,
+                sortingMode: memorialFocusState.sortMode,
+                includeAllEvents: true
+            )
+
+            let sections = HomeBuilder.build(events: events, query: query)
+                .filter { !$0.items.isEmpty }
+            let targetDatesByEventID = Dictionary(
+                uniqueKeysWithValues: events.map { ($0.id, $0.targetDate) }
+            )
+
+            return (sections, targetDatesByEventID)
+        } catch {
+            return ([], [:])
+        }
+    }
+
+    func restoreLastFocusStatesIfNeeded() {
+        guard !hasRestoredLastFocusStates else {
             return
         }
 
-        hasRestoredLastFocusState = true
-
-        guard let payload = LastFocusStateStore.shared.load() else {
-            return
-        }
+        hasRestoredLastFocusStates = true
 
         do {
             let notebooks = try modelContext.fetch(FetchDescriptor<Notebook>())
             let tags = try modelContext.fetch(FetchDescriptor<Tag>())
 
-            if let presetID = payload.selectedPresetID,
-               restoreLastFocusState(fromPresetID: presetID, notebooks: notebooks, tags: tags) {
-                return
-            }
-
-            let resolution = payload.settings.resolved(notebooks: notebooks, tags: tags)
-            focusState = resolution.focusState
-            selectedFocusPresetID = nil
-            LastFocusStateStore.shared.save(
-                settings: resolution.prunedSettings,
-                selectedPresetID: nil
-            )
+            restoreLastFocusStateIfNeeded(for: .home, notebooks: notebooks, tags: tags)
+            restoreLastFocusStateIfNeeded(for: .memorial, notebooks: notebooks, tags: tags)
         } catch {
-            assertionFailure("Failed to restore last focus state: \(error.localizedDescription)")
+            assertionFailure("Failed to restore last focus states: \(error.localizedDescription)")
         }
+    }
+
+    func restoreLastFocusStateIfNeeded(
+        for scope: LastFocusStateStore.Scope,
+        notebooks: [Notebook],
+        tags: [Tag]
+    ) {
+        guard let payload = LastFocusStateStore.shared.load(scope: scope) else {
+            return
+        }
+
+        if let presetID = payload.selectedPresetID,
+           restoreLastFocusState(fromPresetID: presetID, scope: scope, notebooks: notebooks, tags: tags) {
+            return
+        }
+
+        let resolution = payload.settings.resolved(notebooks: notebooks, tags: tags)
+        setFocusState(resolution.focusState, selectedPresetID: nil, for: scope)
+        LastFocusStateStore.shared.save(
+            settings: resolution.prunedSettings,
+            selectedPresetID: nil,
+            scope: scope
+        )
     }
 
     func restoreLastFocusState(
         fromPresetID presetID: UUID,
+        scope: LastFocusStateStore.Scope,
         notebooks: [Notebook],
         tags: [Tag]
     ) -> Bool {
@@ -370,16 +634,41 @@ private extension HomeView {
                 try modelContext.save()
             }
 
-            focusState = resolution.focusState
-            selectedFocusPresetID = preset.id
+            setFocusState(resolution.focusState, selectedPresetID: preset.id, for: scope)
             LastFocusStateStore.shared.save(
                 settings: resolution.prunedSettings,
-                selectedPresetID: preset.id
+                selectedPresetID: preset.id,
+                scope: scope
             )
             return true
         } catch {
             assertionFailure("Failed to restore focus preset: \(error.localizedDescription)")
             return false
+        }
+    }
+
+    func setFocusState(
+        _ focusState: HomeFocusState,
+        selectedPresetID: UUID?,
+        for scope: LastFocusStateStore.Scope
+    ) {
+        switch scope {
+        case .home:
+            homeFocusState = focusState
+            homeSelectedFocusPresetID = selectedPresetID
+        case .memorial:
+            memorialFocusState = focusState
+            memorialSelectedFocusPresetID = selectedPresetID
+        }
+    }
+
+    func handleFocusPresetDeleted(_ presetID: UUID) {
+        if homeSelectedFocusPresetID == presetID {
+            homeSelectedFocusPresetID = nil
+        }
+
+        if memorialSelectedFocusPresetID == presetID {
+            memorialSelectedFocusPresetID = nil
         }
     }
 
@@ -460,6 +749,14 @@ private extension HomeView {
     }
 
     // MARK: - Event Detail Functions
+    func openEventDetailFromHomeRow(for eventID: UUID) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        openEventDetail(for: eventID)
+    }
+
     func openEventDetail(for eventID: UUID) {
         haptics.play(.openDetailTap)
         withAnimation {
@@ -484,6 +781,14 @@ private extension HomeView {
         }
     }
 
+    func jumpHomeDateFromHomeRowIfPossible(_ targetDate: Date?) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        jumpHomeDateIfPossible(targetDate)
+    }
+
     func jumpHomeDateIfPossible(_ targetDate: Date?) {
         guard let targetDate else {
             return
@@ -501,6 +806,71 @@ private extension HomeView {
         withAnimation {
             referenceDate = normalizedDate
         }
+    }
+
+    func presentRelativeValuePromptFromHomeRowIfPossible(_ targetDate: Date?) {
+        guard !suppressHomeRowActions else {
+            return
+        }
+
+        presentRelativeValuePrompt(for: targetDate)
+    }
+
+    func presentRelativeValuePrompt(for targetDate: Date?) {
+        guard let targetDate else {
+            return
+        }
+
+        relativeValueInput = ""
+        relativeValuePrompt = HomeRelativeValuePrompt(
+            targetDate: HomeReferenceDate.normalized(targetDate),
+            mode: HomeRelativeValueMode(page: activeHomeContentPage ?? .upcoming)
+        )
+    }
+
+    var relativeValuePromptIsPresented: Binding<Bool> {
+        Binding(
+            get: { relativeValuePrompt != nil },
+            set: { isPresented in
+                if !isPresented {
+                    clearRelativeValuePrompt()
+                }
+            }
+        )
+    }
+
+    var parsedRelativeDayOffset: Int? {
+        let normalizedInput = relativeValueInput
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "＋", with: "+")
+            .replacingOccurrences(of: "−", with: "-")
+            .replacingOccurrences(of: "－", with: "-")
+
+        guard !normalizedInput.isEmpty else {
+            return nil
+        }
+
+        return Int(normalizedInput)
+    }
+
+    func applyRelativeValuePrompt() {
+        guard let relativeValuePrompt,
+              let relativeDayOffset = parsedRelativeDayOffset,
+              let targetDate = relativeValuePrompt.referenceDate(
+                forRelativeDayOffset: relativeDayOffset,
+                calendar: .current
+              ) else {
+            haptics.play(.error)
+            return
+        }
+
+        clearRelativeValuePrompt()
+        jumpHomeDate(to: targetDate)
+    }
+
+    func clearRelativeValuePrompt() {
+        relativeValuePrompt = nil
+        relativeValueInput = ""
     }
 
     func restoreHomeDateToToday(
@@ -650,12 +1020,34 @@ private extension HomeView {
         .presentationDetents(availableSheetDetents, selection: $selectedSheetDetent)
         .presentationDragIndicator(.hidden)
         .presentationBackground(.clear)
-        .presentationBackgroundInteraction(.enabled)
+        .presentationBackgroundInteraction(sheetBackgroundInteraction)
         .interactiveDismissDisabled()
         .padding(15)
         .animation(.snappy(duration: 0.25), value: sheetRoute)
+        .alert("设置相对数值", isPresented: relativeValuePromptIsPresented) {
+            TextField("26, +26, -30", text: $relativeValueInput)
+                .keyboardType(.numbersAndPunctuation)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("取消", role: .cancel) {
+                clearRelativeValuePrompt()
+            }
+
+            Button("确定", action: applyRelativeValuePrompt)
+                .disabled(parsedRelativeDayOffset == nil)
+        }
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
+        }
+    }
+
+    var sheetBackgroundInteraction: PresentationBackgroundInteraction {
+        switch sheetRoute {
+        case .focus, .quickAdd, .notebooks:
+            return .disabled
+        default:
+            return .enabled
         }
     }
 
@@ -685,8 +1077,11 @@ private extension HomeView {
 
         case .focus:
             FocusSheetView(
-                focusState: $focusState,
-                selectedPresetID: $selectedFocusPresetID,
+                focusState: activeFocusStateBinding,
+                selectedPresetID: activeSelectedFocusPresetIDBinding,
+                defaultFocusState: activeFocusDefaultState,
+                lastFocusStateScope: activeFocusScope,
+                onPresetDeleted: handleFocusPresetDeleted(_:),
                 onBack: {
                     haptics.play(.openDetailTap)
                     showHomeSheet()
@@ -924,6 +1319,79 @@ private enum HomeSheetRoute {
     case settings
     case eventDetail
 }
+
+private enum HomeContentPage: Hashable {
+    case expiredMemorials
+    case upcoming
+}
+
+private struct HomeRelativeValuePrompt: Identifiable {
+    let id = UUID()
+    let targetDate: Date
+    let mode: HomeRelativeValueMode
+
+    func referenceDate(
+        forRelativeDayOffset relativeDayOffset: Int,
+        calendar: Calendar
+    ) -> Date? {
+        mode.referenceDate(
+            targetDate: targetDate,
+            relativeDayOffset: relativeDayOffset,
+            calendar: calendar
+        )
+    }
+}
+
+private enum HomeRelativeValueMode {
+    case remainingDays
+    case elapsedDays
+
+    init(page: HomeContentPage) {
+        switch page {
+        case .upcoming:
+            self = .remainingDays
+        case .expiredMemorials:
+            self = .elapsedDays
+        }
+    }
+
+    func referenceDate(
+        targetDate: Date,
+        relativeDayOffset: Int,
+        calendar: Calendar
+    ) -> Date? {
+        switch self {
+        case .remainingDays:
+            return calendar.date(byAdding: .day, value: -relativeDayOffset, to: targetDate)
+        case .elapsedDays:
+            return calendar.date(byAdding: .day, value: relativeDayOffset, to: targetDate)
+        }
+    }
+}
+
+private enum HomeThemeKind {
+    case standard
+    case memorial
+
+    init(page: HomeContentPage) {
+        switch page {
+        case .expiredMemorials:
+            self = .memorial
+        case .upcoming:
+            self = .standard
+        }
+    }
+
+    var theme: SheepDaysTheme {
+        switch self {
+        case .standard:
+            return .standard
+        case .memorial:
+            return .memorial
+        }
+    }
+}
+
 #Preview {
     HomeView()
         .environment(\.appOverlayCoordinator, AppOverlayCoordinator())

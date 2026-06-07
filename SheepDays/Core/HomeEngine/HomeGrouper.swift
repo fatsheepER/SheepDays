@@ -63,7 +63,12 @@ private extension HomeGrouper {
 
         return buckets.compactMap { bucket in
             let bucketEvents = events.filter { event in
-                bucket.contains(event.targetDate, referenceDate: query.referenceDate, calendar: calendar)
+                bucket.contains(
+                    event.targetDate,
+                    referenceDate: query.referenceDate,
+                    calendar: calendar,
+                    scope: query.scope
+                )
             }
 
             guard !bucketEvents.isEmpty else {
