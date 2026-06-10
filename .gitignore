@@ -20,6 +20,7 @@ DerivedData/
 .build/
 .build-cache
 Package.swift
+.swiftpm/xcode/
 
 # Local environment / secrets
 .env
