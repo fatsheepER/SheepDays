@@ -171,7 +171,6 @@ private extension HomeView {
                 homePagesArea
 
                 floatingDateHeader
-                    .allowsHitTesting(false)
                     .zIndex(1)
                     .padding(.horizontal)
             }
@@ -480,8 +479,9 @@ private extension HomeView {
                 .frame(height: Self.floatingDateFadeHeight)
                 .padding(.horizontal, -Self.edgeFadeHorizontalBleed)
                 .offset(y: Self.floatingDateFadeOffset)
+                .allowsHitTesting(false)
 
-            HomeDateView(referenceDate: referenceDate)
+            HomeDateView(referenceDate: interactiveReferenceDate)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
