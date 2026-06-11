@@ -73,6 +73,9 @@ struct EventDetailView: View {
                     RoundedRectangle(cornerRadius: 35, style: .continuous)
                         .foregroundStyle(Color(.quaternarySystemFill))
                 )
+                .clipShape(
+                    RoundedRectangle(cornerRadius: 35, style: .continuous)
+                )
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: isNewChecklistItemFieldFocused) { _, isFocused in
                     if isFocused {

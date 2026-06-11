@@ -1173,13 +1173,13 @@ private extension HomeView {
         case .settings:
             return .height(190)
         case .notebooks:
-            return .fraction(0.82)
+            return .fraction(0.9)
         case .notebookEditor:
             return .height(190)
         case .quickAdd:
             return .height(240)
         case .eventDetail:
-            return .large
+            return .fraction(0.9)
 //            return .fraction(0.82)
         }
     }
