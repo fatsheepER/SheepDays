@@ -21,6 +21,7 @@ struct CapsuleRollerView: View {
 
     @State private var scrollIndex: Int?
     @State private var resetTask: DispatchWorkItem?
+    @State private var dateStepTask: Task<Void, Never>?
     @State private var isResetting = false
 
     init(adjustedDate: Binding<Date>, lineSpacing: CGFloat = 5, lineHeight: CGFloat = 60) {
@@ -75,16 +76,12 @@ struct CapsuleRollerView: View {
                 if unwrappedPreviousValue != unwrappedNewValue {
                     haptics.play(.selectionStep)
                     
-                    var delta = unwrappedNewValue - unwrappedPreviousValue
-                    let factor = adjustmentFactor(for: visibleLineCount)
-                    let adjusted = (Double(abs(delta)) / factor).rounded(.up)
-                    delta = Int(adjusted) * delta.signum()
-                    
-                    withAnimation {
-                        if let updatedDate = Calendar.current.date(byAdding: .day, value: delta, to: adjustedDate) {
-                            adjustedDate = updatedDate
-                        }
-                    }
+                    let delta = adjustedDateDelta(
+                        from: unwrappedPreviousValue,
+                        to: unwrappedNewValue,
+                        visibleLineCount: visibleLineCount
+                    )
+                    moveAdjustedDate(by: delta)
                 }
                 
                 // 3. 防抖策略：重置静默复位计时器
@@ -100,6 +97,10 @@ struct CapsuleRollerView: View {
                 self.resetTask = task
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
+            }
+            .onDisappear {
+                resetTask?.cancel()
+                dateStepTask?.cancel()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: lineHeight)
@@ -118,6 +119,42 @@ private extension CapsuleRollerView {
 
     func adjustmentFactor(for visibleLineCount: Double) -> Double {
         max(visibleLineCount / baselineDaysPerScreen, 1)
+    }
+
+    func adjustedDateDelta(from previousIndex: Int, to newIndex: Int, visibleLineCount: Double) -> Int {
+        let rawDelta = newIndex - previousIndex
+        let factor = adjustmentFactor(for: visibleLineCount)
+        let adjusted = (Double(abs(rawDelta)) / factor).rounded(.up)
+
+        return Int(adjusted) * rawDelta.signum()
+    }
+
+    func moveAdjustedDate(by delta: Int) {
+        guard delta != 0 else {
+            return
+        }
+
+        dateStepTask?.cancel()
+        dateStepTask = Task { @MainActor in
+            let step = delta.signum()
+            let stepCount = abs(delta)
+
+            for stepIndex in 0..<stepCount {
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                withAnimation(.snappy(duration: 0.16)) {
+                    if let updatedDate = Calendar.current.date(byAdding: .day, value: step, to: adjustedDate) {
+                        adjustedDate = updatedDate
+                    }
+                }
+
+                if stepIndex < stepCount - 1 {
+                    try? await Task.sleep(for: .milliseconds(65))
+                }
+            }
+        }
     }
 }
 

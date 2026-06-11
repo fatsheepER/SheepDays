@@ -62,7 +62,7 @@ struct HomeView: View {
 // MARK: - Main Content
 private extension HomeView {
     // 控制顶部柔化层效果
-    static let floatingDateScrollInset: CGFloat = 106
+    static let floatingDateScrollInset: CGFloat = 145
     static let floatingDateFadeHeight: CGFloat = 200
     static let floatingDateFadeOffset: CGFloat = -42
     // 控制底部柔化层效果
