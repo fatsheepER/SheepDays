@@ -611,11 +611,7 @@ private struct TagListNewTagRow: View {
         .font(.system(size: 15, weight: .semibold))
         .padding(.vertical, 10)
         .padding(.horizontal, 10)
-        .background(
-            Capsule(style: .continuous)
-                .foregroundStyle(Color(.secondarySystemFill))
-                .glassEffect()
-        )
+        .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
     }
 }
 

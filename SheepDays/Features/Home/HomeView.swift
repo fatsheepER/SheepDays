@@ -62,9 +62,9 @@ struct HomeView: View {
 // MARK: - Main Content
 private extension HomeView {
     // 控制顶部柔化层效果
-    static let floatingDateScrollInset: CGFloat = 145
-    static let floatingDateFadeHeight: CGFloat = 200
-    static let floatingDateFadeOffset: CGFloat = -42
+    static let floatingDateScrollInset: CGFloat = 160
+    static let floatingDateFadeHeight: CGFloat = 175
+    static let floatingDateFadeOffset: CGFloat = -30
     // 控制底部柔化层效果
     static let bottomScrollFadeHeight: CGFloat = 172
     static let bottomScrollFadeOffset: CGFloat = 64
@@ -90,8 +90,8 @@ private extension HomeView {
                 floatingDateHeader
                     .zIndex(1)
                     .padding(.horizontal)
+                    .padding(.top)
             }
-//            .padding(.horizontal)
 
             floatingToolbar
                 .padding(.top)
@@ -406,7 +406,7 @@ private extension HomeView {
     func scrollEdgeFade(edge: VerticalEdge) -> some View {
         ZStack {
             Rectangle()
-                .fill(.thickMaterial)
+                .fill(.ultraThickMaterial)
 
             Rectangle()
                 .fill(Color(.systemGroupedBackground).opacity(0.78))
@@ -424,7 +424,7 @@ private extension HomeView {
             stops = [
                 .init(color: .black.opacity(1.00), location: 0.0),
                 .init(color: .black.opacity(0.82), location: 0.68),
-                .init(color: .black.opacity(0.28), location: 0.88),
+                .init(color: .black.opacity(0.48), location: 0.88),
                 .init(color: .clear, location: 1.0)
             ]
         case .bottom:

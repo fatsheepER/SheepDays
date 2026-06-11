@@ -62,6 +62,10 @@ struct HomeDateView: View {
                 calendar: calendar,
                 selectDate: selectDate
             )
+            .padding(.vertical, 5)
+            .clipShape(Capsule(style: .continuous))
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -78,6 +82,7 @@ struct HomeDateView: View {
     private var weekContent: HomeWeekDisplayContent {
         HomeWeekDisplayContent(
             referenceDate: referenceDate,
+            today: today,
             calendar: calendar
         )
     }
@@ -127,8 +132,9 @@ private struct HomeWeekDisplayContent: Equatable {
     let selectedDate: Date
     let days: [HomeWeekDay]
 
-    init(referenceDate: Date, calendar: Calendar) {
+    init(referenceDate: Date, today: Date = .now, calendar: Calendar) {
         let selectedDate = calendar.startOfDay(for: referenceDate)
+        let today = calendar.startOfDay(for: today)
         let weekStartDate = calendar.startOfNaturalWeek(containing: selectedDate)
         let weekdayFormatter = DateFormatter()
 
@@ -146,6 +152,7 @@ private struct HomeWeekDisplayContent: Equatable {
                 date: date,
                 dayText: String(calendar.component(.day, from: date)),
                 weekdayText: weekdayFormatter.string(from: date).uppercased(),
+                isToday: calendar.isDate(date, inSameDayAs: today),
                 isSelected: calendar.isDate(date, inSameDayAs: selectedDate)
             )
         }
@@ -156,6 +163,7 @@ private struct HomeWeekDay: Identifiable, Equatable {
     let date: Date
     let dayText: String
     let weekdayText: String
+    let isToday: Bool
     let isSelected: Bool
 
     var id: Date { date }
@@ -195,7 +203,7 @@ private struct HomeWeekStripView: View {
         }
         .frame(height: 60)
         .clipped()
-        .contentShape(Rectangle())
+        .contentShape(Capsule())
         .simultaneousGesture(pageDragGesture)
         .onChange(of: week) { oldWeek, newWeek in
             updateDisplayedWeek(from: oldWeek, to: newWeek)
@@ -302,17 +310,17 @@ private struct HomeWeekDayBlock: View {
             VStack(spacing: 3) {
                 Text(day.dayText)
                     .contentTransition(.numericText())
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(day.isSelected ? Color.primary : Color.secondary)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(dayTextColor)
                     .lineLimit(1)
-                    .frame(width: 30)
+                    .frame(width: 30, alignment: .center)
 
                 Text(day.weekdayText)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(theme.accentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(5)
@@ -323,11 +331,19 @@ private struct HomeWeekDayBlock: View {
                         .matchedGeometryEffect(id: "selected-week-day-background", in: selectionNamespace)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+//            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("\(day.weekdayText) \(day.dayText)"))
+    }
+
+    private var dayTextColor: Color {
+        if day.isToday {
+            return theme.accentColor
+        }
+
+        return day.isSelected ? .primary : .secondary
     }
 }
 
