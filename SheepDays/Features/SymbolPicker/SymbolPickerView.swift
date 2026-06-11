@@ -44,37 +44,51 @@ struct SymbolPickerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            
-            Divider()
-                .padding(.horizontal)
-                .padding(.vertical, 20)
+        NavigationStack {
+            VStack(spacing: 0) {
+                selectedSymbolPreview
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    Group {
-                        if recentSymbolLimit > 0 {
-                            SymbolPickerSectionView(
-                                section: recentSection,
-                                selectedSystemName: stagedSystemName,
-                                tintColor: tintColor,
-                                placeholderCount: recentPlaceholderCount,
-                                onSelect: handleSelect
-                            )
-                        }
+                Divider()
+                    .padding(.horizontal)
+                    .padding(.vertical, 20)
 
-                        ForEach(sections) { section in
-                            SymbolPickerSectionView(
-                                section: section,
-                                selectedSystemName: stagedSystemName,
-                                tintColor: tintColor,
-                                placeholderCount: 0,
-                                onSelect: handleSelect
-                            )
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Group {
+                            if recentSymbolLimit > 0 {
+                                SymbolPickerSectionView(
+                                    section: recentSection,
+                                    selectedSystemName: stagedSystemName,
+                                    tintColor: tintColor,
+                                    placeholderCount: recentPlaceholderCount,
+                                    onSelect: handleSelect
+                                )
+                            }
+
+                            ForEach(sections) { section in
+                                SymbolPickerSectionView(
+                                    section: section,
+                                    selectedSystemName: stagedSystemName,
+                                    tintColor: tintColor,
+                                    placeholderCount: 0,
+                                    onSelect: handleSelect
+                                )
+                            }
                         }
+                        .padding(.horizontal, 2) // to avoid covered stroke
                     }
-                    .padding(.horizontal, 2) // to avoid covered stroke
+                }
+            }
+            .padding(.horizontal, 23)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                    }
                 }
             }
         }
@@ -82,8 +96,7 @@ struct SymbolPickerView: View {
             stagedSystemName = selectedSystemName
             recentSystemNames = recentSymbolStore.load(limit: recentSymbolLimit)
         }
-        .padding(.horizontal, 23)
-        .padding(.vertical, 20)
+        .clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 40, style: .continuous)
                 .fill(Color(.systemBackground))
@@ -95,27 +108,15 @@ struct SymbolPickerView: View {
         }
     }
 
-    private var header: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Color(.secondaryLabel))
-                
-                Spacer()
+    private var selectedSymbolPreview: some View {
+        HStack {
+            Image(systemName: stagedSystemName ?? "questionmark.circle")
+                .font(.system(size: 40, weight: .semibold, design: .rounded))
+                .foregroundStyle(tintColor)
+                .frame(width: 60, height: 50)
+                .contentTransition(.symbolEffect)
 
-                SDHeaderActionButton(iconSystemName: "xmark", action: onClose)
-            }
-
-            HStack {
-                Image(systemName: stagedSystemName ?? "questionmark.circle")
-                    .font(.system(size: 40, weight: .semibold, design: .rounded))
-                    .foregroundStyle(tintColor)
-                    .frame(width: 60, height: 50)
-                    .contentTransition(.symbolEffect)
-                
-                Spacer()
-            }
+            Spacer()
         }
         .animation(.bouncy(duration: 0.1), value: stagedSystemName)
     }
