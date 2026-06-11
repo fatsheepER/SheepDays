@@ -92,6 +92,7 @@ struct EventDetailView: View {
             }
 
             controls
+                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .alert(

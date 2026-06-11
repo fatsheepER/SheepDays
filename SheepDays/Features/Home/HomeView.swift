@@ -248,8 +248,8 @@ private extension HomeView {
     func floatingToolbarIcon(systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 20, weight: .medium, design: .rounded))
-            .foregroundStyle(.primary)
             .frame(width: 20, height: 30)
+            .foregroundStyle(Color(.secondaryLabel))
     }
 
     var homeSectionsArea: some View {
