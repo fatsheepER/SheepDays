@@ -43,14 +43,12 @@ struct HomeDateView: View {
                     .foregroundStyle(theme.accentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .frame(width: 68, alignment: .leading)
 
                 Text(content.monthText)
                     .contentTransition(.numericText())
-                    .font(monthTextFont)
+                    .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(monthTextColor)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
 
                 if content.dayOffsetFromToday != 0 {
                     SDIncreBadge(text: content.badgeText)
@@ -82,14 +80,6 @@ struct HomeDateView: View {
             referenceDate: referenceDate,
             calendar: calendar
         )
-    }
-
-    private var monthTextFont: Font {
-        if locale.isChineseLanguage {
-            return .system(size: 30, weight: .medium)
-        }
-
-        return .system(size: 30, weight: .semibold)
     }
 
     private var monthTextColor: Color {

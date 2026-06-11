@@ -79,89 +79,6 @@ private extension HomeView {
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
 
-    static let previewNotebookDefinitions: [(name: String, colorHex: String, iconSystemName: String)] = [
-        ("Preview Inbox", "#FFB347", "tray.full.fill"),
-        ("Preview Life", "#7EC8E3", "leaf.fill"),
-        ("Preview Work", "#FF7A7A", "briefcase.fill")
-    ]
-
-    static let previewTagNames = [
-        "Preview Health",
-        "Preview Family",
-        "Preview Travel",
-        "Preview Launch"
-    ]
-
-    static let previewEventTitlePrefixes = [
-        "Preview Event ",
-        "Preview Memorial "
-    ]
-
-    static let previewEventDayOffsets: [Int] = [
-        0, 1, 2, 3, 5, 7, 10, 14, 21, 30,
-        45, 60, 75, 90, 105, 120, 135, 150, 165, 180
-    ]
-
-    static let previewMemorialDefinitions: [PreviewMemorialDefinition] = [
-        PreviewMemorialDefinition(
-            title: "Preview Memorial Graduation",
-            note: "Past memorial sample for the memorial timeline.",
-            dayOffset: -120,
-            iconSystemName: "graduationcap.fill",
-            notebookIndex: 1,
-            tagIndices: [1, 3],
-            checklistItems: [
-                ("整理照片", true),
-                ("补一段回忆备注", false)
-            ]
-        ),
-        PreviewMemorialDefinition(
-            title: "Preview Memorial First Trip",
-            note: "Another expired memorial event.",
-            dayOffset: -28,
-            iconSystemName: "airplane.departure",
-            notebookIndex: 1,
-            tagIndices: [2],
-            checklistItems: [
-                ("确认相册封面", true)
-            ]
-        ),
-        PreviewMemorialDefinition(
-            title: "Preview Memorial Today",
-            note: "Today belongs to both the upcoming and memorial scopes.",
-            dayOffset: 0,
-            iconSystemName: "sparkles",
-            notebookIndex: 0,
-            tagIndices: [1],
-            checklistItems: [
-                ("写一条纪念日记录", false),
-                ("选一个当天图标", true)
-            ]
-        ),
-        PreviewMemorialDefinition(
-            title: "Preview Memorial Anniversary",
-            note: "Upcoming memorial sample for home scope testing.",
-            dayOffset: 18,
-            iconSystemName: "heart.fill",
-            notebookIndex: 1,
-            tagIndices: [1],
-            checklistItems: [
-                ("准备礼物", false),
-                ("预约晚餐", false),
-                ("写卡片", true)
-            ]
-        ),
-        PreviewMemorialDefinition(
-            title: "Preview Memorial Reunion",
-            note: "Future memorial that should remain on the upcoming page.",
-            dayOffset: 96,
-            iconSystemName: "person.2.fill",
-            notebookIndex: 0,
-            tagIndices: [1, 2],
-            checklistItems: []
-        )
-    ]
-
     var homeContent: some View {
         ZStack(alignment: .topTrailing) {
             Color(.systemGroupedBackground)
@@ -744,6 +661,90 @@ private extension HomeView {
         }
     }
 
+    // MARK: - Preview Data
+    static let previewNotebookDefinitions: [(name: String, colorHex: String, iconSystemName: String)] = [
+        ("Preview Inbox", "#FFB347", "tray.full.fill"),
+        ("Preview Life", "#7EC8E3", "leaf.fill"),
+        ("Preview Work", "#FF7A7A", "briefcase.fill")
+    ]
+
+    static let previewTagNames = [
+        "Preview Health",
+        "Preview Family",
+        "Preview Travel",
+        "Preview Launch"
+    ]
+
+    static let previewEventTitlePrefixes = [
+        "Preview Event ",
+        "Preview Memorial "
+    ]
+
+    static let previewEventDayOffsets: [Int] = [
+        0, 1, 2, 3, 5, 7, 10, 14, 21, 30,
+        45, 60, 75, 90, 105, 120, 135, 150, 165, 180
+    ]
+
+    static let previewMemorialDefinitions: [PreviewMemorialDefinition] = [
+        PreviewMemorialDefinition(
+            title: "Preview Memorial Graduation",
+            note: "Past memorial sample for the memorial timeline.",
+            dayOffset: -120,
+            iconSystemName: "graduationcap.fill",
+            notebookIndex: 1,
+            tagIndices: [1, 3],
+            checklistItems: [
+                ("整理照片", true),
+                ("补一段回忆备注", false)
+            ]
+        ),
+        PreviewMemorialDefinition(
+            title: "Preview Memorial First Trip",
+            note: "Another expired memorial event.",
+            dayOffset: -28,
+            iconSystemName: "airplane.departure",
+            notebookIndex: 1,
+            tagIndices: [2],
+            checklistItems: [
+                ("确认相册封面", true)
+            ]
+        ),
+        PreviewMemorialDefinition(
+            title: "Preview Memorial Today",
+            note: "Today belongs to both the upcoming and memorial scopes.",
+            dayOffset: 0,
+            iconSystemName: "sparkles",
+            notebookIndex: 0,
+            tagIndices: [1],
+            checklistItems: [
+                ("写一条纪念日记录", false),
+                ("选一个当天图标", true)
+            ]
+        ),
+        PreviewMemorialDefinition(
+            title: "Preview Memorial Anniversary",
+            note: "Upcoming memorial sample for home scope testing.",
+            dayOffset: 18,
+            iconSystemName: "heart.fill",
+            notebookIndex: 1,
+            tagIndices: [1],
+            checklistItems: [
+                ("准备礼物", false),
+                ("预约晚餐", false),
+                ("写卡片", true)
+            ]
+        ),
+        PreviewMemorialDefinition(
+            title: "Preview Memorial Reunion",
+            note: "Future memorial that should remain on the upcoming page.",
+            dayOffset: 96,
+            iconSystemName: "person.2.fill",
+            notebookIndex: 0,
+            tagIndices: [1, 2],
+            checklistItems: []
+        )
+    ]
+    
     func insertPreviewEvents() {
         do {
             try removePreviewData()
