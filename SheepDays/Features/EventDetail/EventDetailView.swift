@@ -308,6 +308,7 @@ private extension EventDetailView {
 
                 if event.hasChecklistItems {
                     Text("\(event.completedChecklistItemCount)/\(event.checklistItemCount)")
+                        .contentTransition(.numericText())
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
@@ -945,7 +946,11 @@ private extension EventDetailView {
         )
 
         modelContext.insert(item)
-        event.checklistItems.append(item)
+        
+        withAnimation {
+            event.checklistItems.append(item)
+        }
+        
         newChecklistItemTitle = ""
         keepNewChecklistItemFieldFocused()
         persistChanges()
@@ -960,7 +965,9 @@ private extension EventDetailView {
     func toggleChecklistItem(_ item: ChecklistItem) {
         haptics.play(.openDetailTap)
         
-        item.isCompleted.toggle()
+        withAnimation {
+            item.isCompleted.toggle()
+        }
         item.updatedAt = .now
 
         if item.isCompleted, focusedChecklistItemID == item.id {
