@@ -63,28 +63,39 @@ struct TagListView: View {
                                     }
                                     .tint(Color(.secondarySystemFill))
 
-                                    Button(role: .destructive) {
+                                    Button {
                                         pendingDeletedTagID = tag.id
                                     } label: {
                                         Image(systemName: "trash")
                                     }
+                                    .tint(Color(.red))
                                 }
                         }
                     }
                 }
-                .animation(tagRowAnimation, value: tagIDs)
-
-                VStack {
-                    Spacer()
-
-                    newTagRow
-                        .listRowStyle()
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear
+                        .frame(height: listBottomInsetHeight)
                 }
-                .padding()
+                .animation(tagRowAnimation, value: tagIDs)
+                .animation(tagNewRowAnimation, value: isEditingTag)
+
+                if !isEditingTag {
+                    VStack {
+                        Spacer()
+
+                        newTagRow
+                            .transition(tagNewRowTransition)
+                            .listRowStyle()
+                    }
+                    .padding()
+                }
 
             }
+            .animation(tagNewRowAnimation, value: isEditingTag)
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .background(tagListBackgroundColor.ignoresSafeArea())
             .foregroundStyle(.white)
             .navigationTitle("标签")
@@ -150,6 +161,14 @@ struct TagListView: View {
 private extension TagListView {
     var tagIDs: [UUID] {
         tags.map(\.id)
+    }
+
+    var isEditingTag: Bool {
+        editingTagID != nil
+    }
+
+    var listBottomInsetHeight: CGFloat {
+        isEditingTag ? tagEditingBottomInsetHeight : tagNewRowBottomInsetHeight
     }
 
     var isSelectionMode: Bool {
@@ -473,6 +492,13 @@ private let tagRowTransition = AnyTransition.asymmetric(
     insertion: .scale(scale: 0.94).combined(with: .opacity),
     removal: .scale(scale: 0.94).combined(with: .opacity)
 )
+private let tagNewRowAnimation = Animation.snappy(duration: 0.22, extraBounce: 0)
+private let tagNewRowTransition = AnyTransition.asymmetric(
+    insertion: .move(edge: .bottom).combined(with: .scale),
+    removal: .move(edge: .bottom).combined(with: .scale)
+)
+private let tagNewRowBottomInsetHeight: CGFloat = 82
+private let tagEditingBottomInsetHeight: CGFloat = 76
 
 private extension View {
     func listRowStyle() -> some View {
