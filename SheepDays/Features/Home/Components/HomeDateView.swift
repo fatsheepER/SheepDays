@@ -97,7 +97,7 @@ struct HomeDateView: View {
     }
 
     private func selectDate(_ date: Date) {
-        withAnimation(.snappy(duration: 0.22)) {
+        withAnimation {
             referenceDate = calendar.startOfDay(for: date)
         }
     }
@@ -222,11 +222,7 @@ private struct HomeWeekStripView: View {
     private func updateDisplayedWeek(from oldWeek: HomeWeekDisplayContent, to newWeek: HomeWeekDisplayContent) {
         pageDirection = newWeek.selectedDate >= oldWeek.selectedDate ? .forward : .backward
 
-        let animation: Animation = newWeek.weekStartDate == displayedWeek.weekStartDate
-            ? .snappy(duration: 0.22)
-            : .smooth(duration: 0.26)
-
-        withAnimation(animation) {
+        withAnimation {
             displayedWeek = newWeek
         }
     }

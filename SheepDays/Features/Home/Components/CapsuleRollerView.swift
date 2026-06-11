@@ -144,14 +144,14 @@ private extension CapsuleRollerView {
                     return
                 }
 
-                withAnimation(.snappy(duration: 0.16)) {
+                withAnimation {
                     if let updatedDate = Calendar.current.date(byAdding: .day, value: step, to: adjustedDate) {
                         adjustedDate = updatedDate
                     }
                 }
 
                 if stepIndex < stepCount - 1 {
-                    try? await Task.sleep(for: .milliseconds(65))
+                    try? await Task.sleep(for: .milliseconds(220))
                 }
             }
         }
