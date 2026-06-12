@@ -13,8 +13,8 @@ struct TagListView: View {
 
     @Query(
         sort: [
-            SortDescriptor(\Tag.name),
-            SortDescriptor(\Tag.createdAt)
+            SortDescriptor(\Tag.createdAt, order: .reverse),
+            SortDescriptor(\Tag.name)
         ]
     )
     private var tags: [Tag]
@@ -45,54 +45,45 @@ struct TagListView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                List {
-                    if tags.isEmpty {
-                        TagListEmptyRow()
+            List {
+                if tags.isEmpty {
+                    TagListEmptyRow()
+                        .listRowStyle()
+                } else {
+                    ForEach(tags) { tag in
+                        tagRow(for: tag)
+                            .transition(tagRowTransition)
                             .listRowStyle()
-                    } else {
-                        ForEach(tags) { tag in
-                            tagRow(for: tag)
-                                .transition(tagRowTransition)
-                                .listRowStyle()
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
-                                        beginEditing(tag)
-                                    } label: {
-                                        Image(systemName: "pencil")
-                                    }
-                                    .tint(Color(.secondarySystemFill))
-
-                                    Button {
-                                        pendingDeletedTagID = tag.id
-                                    } label: {
-                                        Image(systemName: "trash")
-                                    }
-                                    .tint(Color(.red))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    beginEditing(tag)
+                                } label: {
+                                    Image(systemName: "pencil")
                                 }
-                        }
+                                .tint(Color(.secondarySystemFill))
+
+                                Button {
+                                    pendingDeletedTagID = tag.id
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .tint(Color(.red))
+                            }
                     }
                 }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear
-                        .frame(height: listBottomInsetHeight)
-                }
-                .scrollDismissesKeyboard(.immediately)
-                .animation(tagRowAnimation, value: tagIDs)
-                .animation(tagNewRowAnimation, value: isEditingTag)
-
-                if !isEditingTag {
-                    VStack {
-                        Spacer()
-
-                        newTagRow
-                            .transition(tagNewRowTransition)
-                            .listRowStyle()
-                    }
-                    .padding()
-                }
-
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isEditingTag {
+                    Color.clear
+                        .frame(height: tagEditingBottomInsetHeight)
+                } else {
+                    newTagRow
+                        .padding()
+                        .transition(tagNewRowTransition)
+                }
+            }
+            .scrollDismissesKeyboard(.immediately)
+            .animation(tagRowAnimation, value: tagIDs)
             .animation(tagNewRowAnimation, value: isEditingTag)
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -103,9 +94,19 @@ struct TagListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: close) {
-                        Image(systemName: "xmark")
+                    HStack(spacing: 10) {
+                        Button {
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        .accessibilityLabel("排序")
+
+                        Button(action: close) {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("关闭")
                     }
+                    .padding(.horizontal, 5)
                 }
             }
             .preferredColorScheme(.dark)
@@ -166,10 +167,6 @@ private extension TagListView {
 
     var isEditingTag: Bool {
         editingTagID != nil
-    }
-
-    var listBottomInsetHeight: CGFloat {
-        isEditingTag ? tagEditingBottomInsetHeight : tagNewRowBottomInsetHeight
     }
 
     var isSelectionMode: Bool {
@@ -498,7 +495,6 @@ private let tagNewRowTransition = AnyTransition.asymmetric(
     insertion: .move(edge: .bottom).combined(with: .scale),
     removal: .move(edge: .bottom).combined(with: .scale)
 )
-private let tagNewRowBottomInsetHeight: CGFloat = 82
 private let tagEditingBottomInsetHeight: CGFloat = 76
 
 private extension View {
@@ -593,6 +589,7 @@ private struct TagListNewTagRow: View {
                 .frame(width: 24, height: 24)
 
             TextField("新建标签", text: $name)
+                .font(.default)
                 .textFieldStyle(.plain)
                 .focused(isFocused)
                 .submitLabel(.done)
@@ -671,8 +668,8 @@ private let tagListPreviewContainer: ModelContainer = {
 private let tagListPreviewSelectedIDs: Set<UUID> = {
     var descriptor = FetchDescriptor<Tag>(
         sortBy: [
-            SortDescriptor(\Tag.name),
-            SortDescriptor(\Tag.createdAt)
+            SortDescriptor(\Tag.createdAt, order: .reverse),
+            SortDescriptor(\Tag.name)
         ]
     )
     descriptor.fetchLimit = 1
