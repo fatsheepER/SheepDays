@@ -8,12 +8,7 @@
 import SwiftUI
 import SwiftData
 
-#Preview("Home Sheet") {
-    EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
-        .modelContainer(eventDetailPreviewContainer)
-}
-
-private struct EventDetailSheetPreviewHost: View {
+struct EventDetailSheetPreviewHost: View {
     @Environment(\.haptics) private var haptics
     @StateObject private var overlayCoordinator = AppOverlayCoordinator()
     @State private var isBottomSheetPresented = true
@@ -92,7 +87,7 @@ private struct EventDetailSheetPreviewHost: View {
     }
 }
 
-private let eventDetailPreviewContainer: ModelContainer = {
+let eventDetailPreviewContainer: ModelContainer = {
     let container = ModelContainerProvider.makePreviewContainer()
     let context = container.mainContext
 
@@ -135,7 +130,7 @@ private let eventDetailPreviewContainer: ModelContainer = {
     return container
 }()
 
-private let eventDetailPreviewEvent: Event = {
+let eventDetailPreviewEvent: Event = {
     let context = eventDetailPreviewContainer.mainContext
     let descriptor = FetchDescriptor<Event>()
     return (try? context.fetch(descriptor).first) ?? Event(title: "Preview Event", targetDate: .now)

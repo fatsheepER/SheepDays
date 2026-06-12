@@ -134,6 +134,12 @@ struct EventDetailView: View {
     }
 }
 
+// MARK: - Preview
+#Preview("Home Sheet") {
+    EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
+        .modelContainer(eventDetailPreviewContainer)
+}
+
 private extension EventDetailView {
     // MARK: - Form Sections
     var titleSection: some View {
