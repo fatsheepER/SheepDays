@@ -10,10 +10,14 @@ import SwiftData
 import UIKit
 
 struct EventDetailView: View {
+    // MARK: - Environment
     @Environment(\.modelContext) private var modelContext
     @Environment(\.haptics) private var haptics
+
+    // MARK: - Model
     @Bindable var event: Event
 
+    // MARK: - Queries
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
         sort: [
@@ -31,8 +35,9 @@ struct EventDetailView: View {
     )
     private var allTags: [Tag]
 
+    // MARK: - UI State
     @State private var errorMessage: String?
-    @State private var pendingManagementAction: PendingManagementAction?
+    @State private var pendingManagementAction: EventDetailManagementAction?
     @State private var newChecklistItemTitle: String = ""
     @State private var draggedChecklistItemID: UUID?
     @State private var dragTranslationY: CGFloat = 0
@@ -41,8 +46,9 @@ struct EventDetailView: View {
     @State private var checklistRowFrames: [UUID: CGRect] = [:]
     @State private var checklistScrollFrame: CGRect = .zero
     @State private var focusedChecklistItemID: UUID?
-    @FocusState private var isNewChecklistItemFieldFocused: Bool
+    @State private var isNewChecklistItemFieldFocused: Bool = false
 
+    // MARK: - Callbacks
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
     var onRequestSymbolPicker: (SymbolPickerPresentation) -> Void = { _ in }
@@ -62,7 +68,7 @@ struct EventDetailView: View {
                         pinToTopSection
                         memorialSection
                         importanceLevelSection
-                        checklistSection(scrollProxy: scrollProxy)
+                        checklistSection()
 
                         Color.clear.frame(height: bottomContentSpacerHeight)
                     }
@@ -70,8 +76,10 @@ struct EventDetailView: View {
                     .padding(.vertical, 20)
                 }
                 .background(
-                    RoundedRectangle(cornerRadius: 35, style: .continuous)
-                        .foregroundStyle(Color(.quaternarySystemFill))
+                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.systemBackground))
+                )
+                .clipShape(
+                    SDRoundedCornersShape(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, style: .continuous)
                 )
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: isNewChecklistItemFieldFocused) { _, isFocused in
@@ -89,6 +97,7 @@ struct EventDetailView: View {
             }
 
             controls
+//                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .alert(
@@ -125,189 +134,91 @@ struct EventDetailView: View {
     }
 }
 
+// MARK: - Preview
+#Preview("Home Sheet") {
+    EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
+        .modelContainer(eventDetailPreviewContainer)
+}
+
 private extension EventDetailView {
-    // MARK: - Subviews
+    // MARK: - Form Sections
     var titleSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Button {
-                    presentSymbolPicker()
-                } label: {
-                    Image(systemName: event.iconSystemName ?? "calendar")
-                        .font(.system(size: 40, weight: .medium, design: .rounded))
-                        .foregroundStyle(eventAccentColor)
-                }
-                .buttonStyle(.plain)
-                .frame(height: 50)
-
-                Spacer()
-
-                Text(remainingDaysText)
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
-                    .foregroundStyle(eventAccentColor)
-            }
-            .padding(.horizontal, 5)
-
-            TextField("请输入事件名称", text: titleBinding)
-                .textFieldStyle(.plain)
-                .font(.system(size: 25, weight: .semibold, design: .rounded))
-        }
+        EventDetailHeaderSection(
+            iconSystemName: event.iconSystemName,
+            accentColor: eventAccentColor,
+            remainingDaysText: remainingDaysText,
+            title: titleBinding,
+            onIconTap: presentSymbolPicker
+        )
     }
 
     var notebookAndTagsSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                Menu {
-                    if notebooks.isEmpty {
-                        Text("暂无事件本")
-                    } else {
-                        Section("选择事件本") {
-                            ForEach(notebooks) { notebook in
-                                Button {
-                                    moveToNotebook(notebook)
-                                } label: {
-                                    notebookMenuLabel(
-                                        for: notebook,
-                                        isSelected: notebook.id == event.notebook?.id
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    SDNotebookBadge(notebook: event.notebook)
-                        .frame(height: 40)
-                }
-                .buttonStyle(.plain)
-
-                ForEach(event.tags.sorted(by: { $0.name.localizedCompare($1.name) == .orderedAscending })) { tag in
-                    Button {
-                        presentTagList()
-                    } label: {
-                        SDTagBadge(tag: tag)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Button {
-                    presentTagList()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(.secondaryLabel))
-                        .padding(10)
-                        .background(
-                            Capsule()
-                                .foregroundStyle(Color(.quaternarySystemFill))
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
+        EventDetailNotebookTagsSection(
+            notebooks: notebooks,
+            selectedNotebook: event.notebook,
+            tags: event.tags,
+            onMoveToNotebook: { notebook in
+                moveToNotebook(notebook)
+            },
+            onRequestTagList: presentTagList
+        )
     }
 
     var noteSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("备注", "note.text")
-
-            TextEditor(text: noteBinding)
-                .textEditorStyle(.plain)
-                .frame(minHeight: 80)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.tertiarySystemFill))
-                )
-        }
+        EventDetailNoteSection(note: noteBinding)
     }
 
     var dateSection: some View {
-        HStack {
-            sectionTitle("日期", "calendar")
-
-            Spacer()
-
-            SDDatePicker(date: dateBinding, range: eventDateRange)
-        }
+        EventDetailDateSection(date: dateBinding, range: eventDateRange)
     }
 
     var showOnHomeSection: some View {
-        HStack {
-            sectionTitle("显示在首页", "star")
-
-            Spacer()
-
-            Toggle("", isOn: showOnHomeBinding)
-                .tint(eventAccentColor)
-        }
+        EventDetailToggleRow(
+            title: "显示在首页",
+            systemImage: "star",
+            isOn: showOnHomeBinding,
+            accentColor: eventAccentColor
+        )
     }
 
     var pinToTopSection: some View {
-        HStack {
-            sectionTitle("置顶", "pin")
-
-            Spacer()
-
-            Toggle("", isOn: pinToTopBinding)
-                .tint(eventAccentColor)
-        }
+        EventDetailToggleRow(
+            title: "置顶",
+            systemImage: "pin",
+            isOn: pinToTopBinding,
+            accentColor: eventAccentColor
+        )
     }
 
     var memorialSection: some View {
-        HStack {
-            sectionTitle("纪念日", "calendar.badge.clock")
-
-            Spacer()
-
-            Toggle("", isOn: isMemorialBinding)
-                .tint(eventAccentColor)
-        }
+        EventDetailToggleRow(
+            title: "纪念日",
+            systemImage: "calendar.badge.clock",
+            isOn: isMemorialBinding,
+            accentColor: eventAccentColor
+        )
     }
 
     var importanceLevelSection: some View {
-        VStack {
-            // title
-            HStack {
-                sectionTitle("重要性", "flag")
-
-                Spacer()
-
-                Text(importanceLevelText)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(.tertiaryLabel))
-            }
-
-            // indicator
-            HStack {
-                ForEach(1...5, id: \.self) { level in
-                    Button {
-                        setImportanceLevel(level)
-                    } label: {
-                        Capsule()
-                            .frame(height: 10)
-                            .foregroundStyle(
-                                event.importanceLevel >= level
-                                ? eventAccentColor
-                                : Color(.tertiarySystemFill)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical)
-            .padding(.horizontal)
-        }
+        EventDetailImportanceSection(
+            importanceLevel: event.importanceLevel,
+            levelText: importanceLevelText,
+            accentColor: eventAccentColor,
+            onSetLevel: setImportanceLevel(_:)
+        )
     }
 
-    func checklistSection(scrollProxy: ScrollViewProxy) -> some View {
+    // MARK: - Checklist Section
+    func checklistSection() -> some View {
         VStack {
             HStack {
-                sectionTitle("检查清单", "checklist")
+                EventDetailSectionTitle(title: "检查清单", systemImage: "checklist")
 
                 Spacer()
 
                 if event.hasChecklistItems {
                     Text("\(event.completedChecklistItemCount)/\(event.checklistItemCount)")
+                        .contentTransition(.numericText())
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
@@ -318,7 +229,7 @@ private extension EventDetailView {
                     checklistCreateRow
 
                     ForEach(orderedChecklistItems) { item in
-                        checklistItemRow(for: item, scrollProxy: scrollProxy)
+                        checklistItemRow(for: item)
                     }
                 }
                 .background(checklistScrollFrameReader)
@@ -339,6 +250,7 @@ private extension EventDetailView {
         }
     }
 
+    // MARK: - Checklist Rows
     var checklistCreateRow: some View {
         HStack {
             Image(systemName: "circle")
@@ -346,11 +258,27 @@ private extension EventDetailView {
                 .font(.system(size: 20, weight: .medium, design: .rounded))
                 .contentTransition(.symbolEffect)
 
-            TextField("新的检查事项", text: $newChecklistItemTitle)
-                .textFieldStyle(.plain)
-                .submitLabel(.done)
-                .focused($isNewChecklistItemFieldFocused)
-                .onSubmit(createChecklistItem)
+            ChecklistCreateTextField(
+                text: $newChecklistItemTitle,
+                placeholder: "新的检查事项",
+                isFocused: isNewChecklistItemFieldFocused,
+                onSubmit: createChecklistItem,
+                onBeginEditing: {
+                    if focusedChecklistItemID != nil {
+                        focusedChecklistItemID = nil
+                    }
+
+                    if !isNewChecklistItemFieldFocused {
+                        isNewChecklistItemFieldFocused = true
+                    }
+                },
+                onEndEditing: {
+                    if isNewChecklistItemFieldFocused {
+                        isNewChecklistItemFieldFocused = false
+                    }
+                }
+            )
+            .frame(minHeight: 24)
 
             Spacer()
         }
@@ -362,11 +290,11 @@ private extension EventDetailView {
         .id(ChecklistScrollTarget.newItem)
     }
 
-    func checklistItemRow(for item: ChecklistItem, scrollProxy: ScrollViewProxy) -> some View {
+    func checklistItemRow(for item: ChecklistItem) -> some View {
         let isDragging = draggedChecklistItemID == item.id
 
         return ZStack {
-            checklistItemRowContent(for: item, mode: .normal, scrollProxy: scrollProxy)
+            checklistItemRowContent(for: item, mode: .normal)
                 .opacity(isDragging ? 0 : 1)
 
             if isDragging {
@@ -376,12 +304,15 @@ private extension EventDetailView {
         }
         .id(ChecklistScrollTarget.item(item.id))
         .background(checklistRowFrameReader(for: item.id))
+        .transition(.asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .scale.combined(with: .opacity)
+        ))
     }
 
     func checklistItemRowContent(
         for item: ChecklistItem,
-        mode: ChecklistRowMode,
-        scrollProxy: ScrollViewProxy? = nil
+        mode: ChecklistRowMode
     ) -> some View {
         HStack {
             Button {
@@ -396,11 +327,14 @@ private extension EventDetailView {
                 ChecklistTitleTextField(
                     text: checklistTitleBinding(for: item),
                     placeholder: "检查事项",
+                    isFocused: focusedChecklistItemID == item.id,
                     onEmptyBackspace: {
                         deleteChecklistItem(item)
                     },
                     onBeginEditing: {
-                        focusedChecklistItemID = item.id
+                        if focusedChecklistItemID != item.id {
+                            focusedChecklistItemID = item.id
+                        }
                     },
                     onEndEditing: {
                         if focusedChecklistItemID == item.id {
@@ -420,13 +354,14 @@ private extension EventDetailView {
                 .foregroundStyle(Color(.tertiaryLabel))
                 .frame(width: 40, height: 32)
                 .contentShape(Rectangle())
-                .gesture(checklistDragGesture(for: item, scrollProxy: scrollProxy))
+                .gesture(checklistDragGesture(for: item))
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 7)
         .opacity(item.isCompleted ? 0.6 : 1)
     }
 
+    // MARK: - Checklist Supporting Views
     func checklistItemTitleText(for item: ChecklistItem) -> some View {
         Text(item.title.isEmpty ? "检查事项" : item.title)
             .lineLimit(1)
@@ -503,36 +438,16 @@ private extension EventDetailView {
         }
     }
 
+    // MARK: - Controls
     var controls: some View {
-        HStack(spacing: 10) {
-            // back
-            Button {
-                onClose()
-            } label: {
-                SDSheetActionButton(iconSystemName: "arrow.left", title: "返回", placement: .left, appearance: .secondary)
-            }
-            .buttonStyle(.plain)
-
-            Menu {
-                Button {
-                    pendingManagementAction = .archive
-                } label: {
-                    Label("归档", systemImage: "tray")
-                }
-
-                Button(role: .destructive) {
-                    pendingManagementAction = .delete
-                } label: {
-                    Label("删除", systemImage: "trash")
-                }
-            } label: {
-                SDSheetActionButton(iconSystemName: "tray", title: "管理", placement: .right, appearance: .destructive)
-            }
-            .buttonStyle(.plain)
-        }
+        EventDetailControls(
+            onClose: onClose,
+            onArchive: { pendingManagementAction = .archive },
+            onDelete: { pendingManagementAction = .delete }
+        )
     }
 
-    // MARK: - Computed variables
+    // MARK: - Display Values
     var eventAccentColor: Color {
         if let colorHex = event.notebook?.colorHex,
            let color = Color(hex: colorHex) {
@@ -560,10 +475,6 @@ private extension EventDetailView {
         }
     }
 
-    var trimmedTitle: String {
-        event.title.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     var importanceLevelText: String {
         "\(event.importanceLevel)/5"
     }
@@ -572,6 +483,7 @@ private extension EventDetailView {
         Date.distantPast...Date.distantFuture
     }
 
+    // MARK: - Layout Values
     var isChecklistInputFocused: Bool {
         isNewChecklistItemFieldFocused || focusedChecklistItemID != nil
     }
@@ -580,6 +492,7 @@ private extension EventDetailView {
         isChecklistInputFocused ? 320 : 50
     }
 
+    // MARK: - Checklist Values
     var orderedChecklistItems: [ChecklistItem] {
         let sortedItems = sortedChecklistItems
         let itemsByID = Dictionary(uniqueKeysWithValues: sortedItems.map { ($0.id, $0) })
@@ -610,6 +523,7 @@ private extension EventDetailView {
         48
     }
 
+    // MARK: - Presentation Bindings
     var pendingManagementActionIsPresented: Binding<Bool> {
         Binding(
             get: { pendingManagementAction != nil },
@@ -621,41 +535,7 @@ private extension EventDetailView {
         )
     }
 
-    private enum PendingManagementAction: String, Identifiable {
-        case archive
-        case delete
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .archive:
-                return "归档事件"
-            case .delete:
-                return "删除事件"
-            }
-        }
-
-        var message: String {
-            switch self {
-            case .archive:
-                return "归档后，这个事件会从当前列表中隐藏。"
-            case .delete:
-                return "删除后无法恢复。"
-            }
-        }
-
-        var confirmButtonTitle: String {
-            switch self {
-            case .archive:
-                return "确认归档"
-            case .delete:
-                return "确认删除"
-            }
-        }
-    }
-
-    // MARK: - Bindings
+    // MARK: - Field Bindings
     var titleBinding: Binding<String> {
         Binding(
             get: { event.title },
@@ -706,16 +586,6 @@ private extension EventDetailView {
         )
     }
 
-    var notebookSelection: Binding<UUID?> {
-        Binding(
-            get: { event.notebook?.id },
-            set: { notebookID in
-                event.notebook = notebooks.first(where: { $0.id == notebookID })
-                persistChanges()
-            }
-        )
-    }
-
     var noteBinding: Binding<String> {
         Binding(
             get: { event.note ?? "" },
@@ -736,34 +606,7 @@ private extension EventDetailView {
         )
     }
 
-    @ViewBuilder
-    func sectionTitle(_ title: String, _ imageName: String) -> some View {
-        HStack(alignment: .firstTextBaseline,spacing: 5) {
-            Image(systemName: imageName)
-                .font(.system(size: 18, weight: .medium))
-
-            Text(title)
-                .font(.system(size: 18, weight: .semibold))
-        }
-        .frame(height: 35)
-        .foregroundStyle(Color(.secondaryLabel))
-    }
-
-    func notebookMenuLabel(for notebook: Notebook, isSelected: Bool) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: notebook.iconSystemName ?? "book.closed")
-                .foregroundStyle(notebook.tintColor)
-            Text(notebook.name)
-
-            if isSelected {
-                Spacer()
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color(.secondaryLabel))
-            }
-        }
-    }
-
-    // MARK: - Functions
+    // MARK: - Symbol and Tag Actions
     func applySymbolSelection(_ systemName: String?) {
         event.iconSystemName = systemName
         persistChanges()
@@ -807,7 +650,8 @@ private extension EventDetailView {
         persistChanges()
     }
 
-    func checklistDragGesture(for item: ChecklistItem, scrollProxy: ScrollViewProxy?) -> some Gesture {
+    // MARK: - Checklist Dragging
+    func checklistDragGesture(for item: ChecklistItem) -> some Gesture {
         LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(ChecklistCoordinateSpace.name)))
             .onChanged { value in
@@ -822,7 +666,7 @@ private extension EventDetailView {
                     }
 
                     dragTranslationY = dragValue.translation.height
-                    updateChecklistDragOrder(for: item.id, scrollProxy: scrollProxy)
+                    updateChecklistDragOrder(for: item.id)
                 default:
                     break
                 }
@@ -845,7 +689,7 @@ private extension EventDetailView {
         haptics.play(.selectionStep)
     }
 
-    func updateChecklistDragOrder(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
+    func updateChecklistDragOrder(for draggedID: UUID) {
         let currentOrder = dragOrderIDs.isEmpty ? sortedChecklistItems.map(\.id) : dragOrderIDs
         guard let draggedFrame = dragStartFrame ?? checklistRowFrames[draggedID] else {
             return
@@ -864,7 +708,6 @@ private extension EventDetailView {
         nextOrder.insert(draggedID, at: min(targetIndex, nextOrder.count))
 
         guard nextOrder != currentOrder else {
-            autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
             return
         }
 
@@ -872,26 +715,6 @@ private extension EventDetailView {
             dragOrderIDs = nextOrder
         }
         haptics.play(.selectionStep)
-        autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
-    }
-
-    func autoScrollChecklistIfNeeded(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
-        guard let scrollProxy,
-              let currentIndex = dragOrderIDs.firstIndex(of: draggedID) else {
-            return
-        }
-
-        if dragTranslationY < -90, currentIndex > 0 {
-            let targetID = dragOrderIDs[currentIndex - 1]
-            withAnimation(.linear(duration: 0.18)) {
-                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .top)
-            }
-        } else if dragTranslationY > 90, currentIndex < dragOrderIDs.count - 1 {
-            let targetID = dragOrderIDs[currentIndex + 1]
-            withAnimation(.linear(duration: 0.18)) {
-                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .bottom)
-            }
-        }
     }
 
     func endChecklistDrag() {
@@ -914,6 +737,7 @@ private extension EventDetailView {
         persistChanges()
     }
 
+    // MARK: - Checklist Focus and Scrolling
     func endChecklistEditing() {
         isNewChecklistItemFieldFocused = false
         focusedChecklistItemID = nil
@@ -933,6 +757,7 @@ private extension EventDetailView {
         }
     }
 
+    // MARK: - Checklist Mutations
     func createChecklistItem() {
         let title = newChecklistItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
@@ -945,22 +770,21 @@ private extension EventDetailView {
         )
 
         modelContext.insert(item)
-        event.checklistItems.append(item)
-        newChecklistItemTitle = ""
-        keepNewChecklistItemFieldFocused()
-        persistChanges()
-    }
-
-    func keepNewChecklistItemFieldFocused() {
-        DispatchQueue.main.async {
-            isNewChecklistItemFieldFocused = true
+        
+        withAnimation(.snappy(duration: 0.22)) {
+            event.checklistItems.append(item)
         }
+        
+        newChecklistItemTitle = ""
+        persistChanges()
     }
 
     func toggleChecklistItem(_ item: ChecklistItem) {
         haptics.play(.openDetailTap)
         
-        item.isCompleted.toggle()
+        withAnimation {
+            item.isCompleted.toggle()
+        }
         item.updatedAt = .now
 
         if item.isCompleted, focusedChecklistItemID == item.id {
@@ -981,10 +805,36 @@ private extension EventDetailView {
     }
 
     func deleteChecklistItem(_ item: ChecklistItem) {
-        event.checklistItems.removeAll { $0.id == item.id }
+        moveChecklistFocusAfterDeleting(item)
+
+        withAnimation(.snappy(duration: 0.18)) {
+            event.checklistItems.removeAll { $0.id == item.id }
+        }
+
         modelContext.delete(item)
         normalizeChecklistOrder(sortedChecklistItems)
         persistChanges()
+    }
+
+    func moveChecklistFocusAfterDeleting(_ item: ChecklistItem) {
+        if let previousEditableItemID = previousEditableChecklistItemID(before: item) {
+            focusedChecklistItemID = previousEditableItemID
+            isNewChecklistItemFieldFocused = false
+        } else {
+            focusedChecklistItemID = nil
+            isNewChecklistItemFieldFocused = true
+        }
+    }
+
+    func previousEditableChecklistItemID(before item: ChecklistItem) -> UUID? {
+        guard let currentIndex = orderedChecklistItems.firstIndex(where: { $0.id == item.id }) else {
+            return nil
+        }
+
+        return orderedChecklistItems[..<currentIndex]
+            .reversed()
+            .first { !$0.isCompleted }?
+            .id
     }
 
     func normalizeChecklistOrder(_ items: [ChecklistItem]) {
@@ -1000,7 +850,8 @@ private extension EventDetailView {
         }
     }
 
-    private func performManagementAction(_ action: PendingManagementAction) {
+    // MARK: - Event Management Actions
+    private func performManagementAction(_ action: EventDetailManagementAction) {
         switch action {
         case .archive:
             archiveEvent()
@@ -1043,6 +894,7 @@ private extension EventDetailView {
         persistChanges()
     }
 
+    // MARK: - Persistence
     @discardableResult
     func persistChanges() -> Bool {
         event.updatedAt = .now
@@ -1057,251 +909,3 @@ private extension EventDetailView {
         }
     }
 }
-
-private enum ChecklistScrollTarget: Hashable {
-    case newItem
-    case item(UUID)
-}
-
-private enum ChecklistRowMode: Equatable {
-    case normal
-    case floating
-}
-
-private enum ChecklistCoordinateSpace {
-    static let name = "event-detail-checklist"
-}
-
-private struct ChecklistRowFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [UUID: CGRect] = [:]
-
-    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, newValue in newValue })
-    }
-}
-
-private struct ChecklistScrollFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
-private struct ChecklistTitleTextField: UIViewRepresentable {
-    @Binding var text: String
-    let placeholder: String
-    let onEmptyBackspace: () -> Void
-    let onBeginEditing: () -> Void
-    let onEndEditing: () -> Void
-
-    func makeUIView(context: Context) -> EmptyBackspaceTextField {
-        let textField = EmptyBackspaceTextField()
-        textField.borderStyle = .none
-        textField.backgroundColor = .clear
-        textField.font = .systemFont(ofSize: 18, weight: .medium)
-        textField.textColor = .secondaryLabel
-        textField.placeholder = placeholder
-        textField.returnKeyType = .done
-        textField.onEmptyBackspace = context.coordinator.handleEmptyBackspace
-        textField.addTarget(
-            context.coordinator,
-            action: #selector(Coordinator.textDidChange(_:)),
-            for: .editingChanged
-        )
-        textField.delegate = context.coordinator
-        return textField
-    }
-
-    func updateUIView(_ uiView: EmptyBackspaceTextField, context: Context) {
-        context.coordinator.parent = self
-
-        if uiView.text != text {
-            uiView.text = text
-        }
-
-        uiView.placeholder = placeholder
-        uiView.onEmptyBackspace = context.coordinator.handleEmptyBackspace
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        var parent: ChecklistTitleTextField
-
-        init(parent: ChecklistTitleTextField) {
-            self.parent = parent
-        }
-
-        @objc func textDidChange(_ textField: UITextField) {
-            parent.text = textField.text ?? ""
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            textField.resignFirstResponder()
-            return true
-        }
-
-        func textFieldDidBeginEditing(_ textField: UITextField) {
-            parent.onBeginEditing()
-        }
-
-        func textFieldDidEndEditing(_ textField: UITextField) {
-            parent.onEndEditing()
-        }
-
-        func handleEmptyBackspace() {
-            DispatchQueue.main.async {
-                self.parent.onEmptyBackspace()
-            }
-        }
-    }
-
-    final class EmptyBackspaceTextField: UITextField {
-        var onEmptyBackspace: (() -> Void)?
-
-        override func deleteBackward() {
-            if text?.isEmpty ?? true {
-                onEmptyBackspace?()
-            } else {
-                super.deleteBackward()
-            }
-        }
-    }
-}
-
-// MARK: - Preview
-#Preview("Home Sheet") {
-    EventDetailSheetPreviewHost(event: eventDetailPreviewEvent)
-        .modelContainer(eventDetailPreviewContainer)
-}
-
-private struct EventDetailSheetPreviewHost: View {
-    @Environment(\.haptics) private var haptics
-    @StateObject private var overlayCoordinator = AppOverlayCoordinator()
-    @State private var isBottomSheetPresented = true
-    @State private var selectedSheetDetent: PresentationDetent = .large
-
-    let event: Event
-
-    var body: some View {
-        NavigationStack {
-            previewHomeContent
-                .safeAreaInset(edge: .bottom) {
-                    if isBottomSheetPresented {
-                        Color.clear
-                            .frame(height: 170)
-                    }
-                }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-                .sheet(isPresented: $isBottomSheetPresented) {
-                    sheetContainer
-                        .ignoresSafeArea()
-                }
-        }
-        .environment(\.appOverlayCoordinator, overlayCoordinator)
-        .background(
-            AppOverlayWindowPresenter(
-                coordinator: overlayCoordinator,
-                haptics: haptics,
-                modelContainer: eventDetailPreviewContainer
-            )
-        )
-    }
-
-    private var previewHomeContent: some View {
-        Color(.systemGroupedBackground)
-            .ignoresSafeArea()
-    }
-
-    private var sheetContainer: some View {
-        VStack(spacing: 0) {
-            EventDetailView(
-                event: event,
-                onClose: {},
-                onRequestSymbolPicker: presentSymbolPicker(_:),
-                onRequestTagList: presentTagList(_:)
-            )
-            .transition(.opacity)
-        }
-        .presentationDetents([.large], selection: $selectedSheetDetent)
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(.clear)
-        .presentationBackgroundInteraction(.enabled)
-        .interactiveDismissDisabled()
-        .padding(15)
-    }
-
-    private func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
-        overlayCoordinator.present(
-            .symbolPicker(
-                presentation: presentation,
-                onDismiss: {}
-            )
-        )
-    }
-
-    private func presentTagList(_ presentation: TagListPresentation) {
-        overlayCoordinator.present(
-            .tagList(
-                presentation: presentation,
-                onDismiss: {}
-            )
-        )
-    }
-}
-
-private let eventDetailPreviewContainer: ModelContainer = {
-    let container = ModelContainerProvider.makePreviewContainer()
-    let context = container.mainContext
-
-    let notebooks = [
-        Notebook(name: "家庭", colorHex: "FF8A65", iconSystemName: "house.fill"),
-        Notebook(name: "工作", colorHex: "5C6BC0", iconSystemName: "briefcase.fill"),
-        Notebook(name: "旅行", colorHex: "26A69A", iconSystemName: "airplane"),
-        Notebook(name: "学习", colorHex: "7E57C2", iconSystemName: "book.fill")
-    ]
-
-    let tags = [
-        Tag(name: "健康"),
-        Tag(name: "暑假计划")
-    ]
-
-    notebooks.forEach(context.insert)
-    tags.forEach(context.insert)
-
-    let event = Event(
-        title: "Project Launch",
-        note: "这一块先放一段预览备注，方便继续调 noteSection。",
-        targetDate: Calendar.current.date(byAdding: .day, value: 12, to: .now) ?? .now,
-        allDay: true,
-        iconSystemName: "flag.fill",
-        notebook: notebooks[1],
-        tags: tags
-    )
-
-    context.insert(event)
-
-    [
-        ChecklistItem(title: "还没做好的事情", isCompleted: false, sortIndex: 3),
-        ChecklistItem(title: "还没做好的事情", isCompleted: true, sortIndex: 2),
-        ChecklistItem(title: "空标题后再退格会删除", isCompleted: false, sortIndex: 1)
-    ].forEach { item in
-        context.insert(item)
-        event.checklistItems.append(item)
-    }
-
-    return container
-}()
-
-private let eventDetailPreviewEvent: Event = {
-    let context = eventDetailPreviewContainer.mainContext
-    let descriptor = FetchDescriptor<Event>()
-    return (try? context.fetch(descriptor).first) ?? Event(title: "Preview Event", targetDate: .now)
-}()

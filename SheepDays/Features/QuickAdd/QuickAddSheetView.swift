@@ -66,7 +66,6 @@ struct QuickAddSheetView: View {
                     .frame(height: 40)
             }
             .padding(10)
-//            .padding(.horizontal, 5)
             .background(
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .fill(Color(.quaternarySystemFill))
@@ -124,11 +123,27 @@ private extension QuickAddSheetView {
 
             Spacer()
             
-            Text(offsetText)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(Color(.secondaryLabel))
-                .contentTransition(.numericText())
-                .padding(.horizontal, 10)
+            // date
+            DatePicker(
+                "事件日期",
+                selection: dateSelection,
+                displayedComponents: [.date]
+            )
+            .datePickerStyle(.compact)
+            .labelsHidden()
+            .fixedSize()
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    isTitleFieldFocused = false
+                    haptics.play(.openDetailTap)
+                }
+            )
+            
+//            Text(offsetText)
+//                .font(.system(size: 18, weight: .medium))
+//                .foregroundStyle(Color(.secondaryLabel))
+//                .contentTransition(.numericText())
+//                .padding(.horizontal, 10)
 
         }
     }
@@ -215,15 +230,7 @@ private extension QuickAddSheetView {
                 .foregroundStyle(Color(.secondaryLabel))
                 .frame(width: 30)
             
-            // date
-            QuickAddElasticPopoverMenu {
-                isTitleFieldFocused = false
-                haptics.play(.openDetailTap)
-            } label: {
-                QuickAddDateMenuLabel(date: date)
-            } content: {
-                QuickAddDatePickerPopoverContent(date: $date)
-            }
+            
         }
     }
     
@@ -293,6 +300,13 @@ extension QuickAddSheetView {
 
     var canSubmit: Bool {
         !trimmedTitle.isEmpty && !isSaving
+    }
+
+    var dateSelection: Binding<Date> {
+        Binding(
+            get: { date },
+            set: { date = Calendar.current.startOfDay(for: $0) }
+        )
     }
 
     var offsetText: String {
@@ -574,155 +588,6 @@ private extension QuickAddSheetView {
 
     func applyTagSelection(_ selectedTagIDs: Set<UUID>) {
         self.selectedTagIDs = selectedTagIDs
-    }
-}
-
-private struct QuickAddElasticPopoverMenu<Label: View, Content: View>: View {
-    private let transitionID = "QuickAddDatePickerPopover"
-    private let onToggle: () -> Void
-    private let label: () -> Label
-    private let content: () -> Content
-
-    @State private var isExpanded = false
-    @Namespace private var namespace
-
-    init(
-        onToggle: @escaping () -> Void = {},
-        @ViewBuilder label: @escaping () -> Label,
-        @ViewBuilder content: @escaping () -> Content
-    ) {
-        self.onToggle = onToggle
-        self.label = label
-        self.content = content
-    }
-
-    var body: some View {
-        Button {
-            onToggle()
-            isExpanded.toggle()
-        } label: {
-            label()
-        }
-        .buttonBorderShape(.capsule)
-        .buttonStyle(.glass)
-        .matchedTransitionSource(id: transitionID, in: namespace)
-        .popover(isPresented: $isExpanded) {
-            QuickAddPopoverContentReveal {
-                content()
-            }
-            .presentationCompactAdaptation(.popover)
-            .navigationTransition(.zoom(sourceID: transitionID, in: namespace))
-        }
-    }
-}
-
-private struct QuickAddPopoverContentReveal<Content: View>: View {
-    private let content: () -> Content
-
-    @State private var isVisible = false
-
-    init(@ViewBuilder content: @escaping () -> Content) {
-        self.content = content
-    }
-
-    var body: some View {
-        content()
-            .opacity(isVisible ? 1 : 0)
-            .task {
-                try? await Task.sleep(for: .milliseconds(100))
-
-                guard !Task.isCancelled else {
-                    return
-                }
-
-                withAnimation(.snappy(duration: 0.3, extraBounce: 0)) {
-                    isVisible = true
-                }
-            }
-    }
-}
-
-private struct QuickAddDateMenuLabel: View {
-    let date: Date
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "calendar")
-                .accessibilityHidden(true)
-
-            Text(dateLabel)
-                .contentTransition(.numericText())
-        }
-        .font(.system(size: 15, weight: .semibold, design: .rounded))
-        .foregroundStyle(Color(.secondaryLabel))
-//        .padding(.horizontal, 10)
-//        .frame(minHeight: 30)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("选择日期")
-        .accessibilityValue(dateLabel)
-    }
-}
-
-private extension QuickAddDateMenuLabel {
-    var dateLabel: String {
-        let calendar = Calendar.autoupdatingCurrent
-        let isCurrentYear = calendar.isDate(date, equalTo: .now, toGranularity: .year)
-
-        if isCurrentYear {
-            return date.formatted(
-                .dateTime
-                    .month(.defaultDigits)
-                    .day()
-                    .locale(.autoupdatingCurrent)
-            )
-        }
-
-        return date.formatted(
-            .dateTime
-                .year()
-                .month(.defaultDigits)
-                .day()
-                .locale(.autoupdatingCurrent)
-        )
-    }
-}
-
-private struct QuickAddDatePickerPopoverContent: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @Binding var date: Date
-
-    var body: some View {
-        VStack(spacing: 10) {
-
-            DatePicker(
-                "事件日期",
-                selection: $date,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.graphical)
-            .labelsHidden()
-            
-            HStack(alignment: .center, spacing: 12) {
-                Text("选择日期")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(.label))
-
-                Spacer()
-
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .frame(width: 30, height: 28)
-                }
-                .buttonStyle(.glassProminent)
-                .accessibilityLabel("完成")
-            }
-        }
-        .padding(16)
-        .frame(width: 330)
     }
 }
 

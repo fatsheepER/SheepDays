@@ -9,12 +9,23 @@ import SwiftUI
 
 struct HomeDateView: View {
     @Environment(\.sheepDaysTheme) private var theme
+    @Environment(\.haptics) private var haptics
+    @Binding private var referenceDate: Date
 
-    private let content: HomeDateDisplayContent
+    private let today: Date
+    private let calendar: Calendar
+    private let locale: Locale
+
+    init(referenceDate: Binding<Date>, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
+        _referenceDate = referenceDate
+        self.today = today
+        self.calendar = calendar
+        self.locale = locale
+    }
 
     init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
-        self.content = HomeDateDisplayContent(
-            referenceDate: referenceDate,
+        self.init(
+            referenceDate: .constant(referenceDate),
             today: today,
             calendar: calendar,
             locale: locale
@@ -22,59 +33,69 @@ struct HomeDateView: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 15) {
-            // day
-            Text(content.dayText)
-                .contentTransition(.numericText())
-                .font(.system(size:55, weight: .bold, design: .serif))
-                .foregroundStyle(theme.accentColor)
-                .modifier(DayTextLifeEffect(accentColor: theme.accentColor))
-                .frame(width: 70)
+        let content = self.content
+        let weekContent = self.weekContent
 
-            VStack(alignment: .leading, spacing: 5) {
-                // year - only when not this year
-                if let yearText = content.yearText {
-                    Text(yearText)
-                        .contentTransition(.numericText())
-                        .font(.system(size: 20, weight: .bold, design: .serif))
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack(spacing: 5) {
-                    // month
-                    Text(content.monthText)
-                        .contentTransition(.numericText())
-                        .font(monthTextFont)
-                }
-                
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(content.dayText)
+                    .contentTransition(.numericText())
+                    .font(.system(size: 55, weight: .bold))
+                    .foregroundStyle(theme.accentColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
-                HStack(spacing: 10) {
-                    // weekday
-                    WeekdayIndicatorView(
-                        text: content.weekdayAbbreviationText,
-                        date: content.referenceDate
-                    )
-                    
-                    // incre badge
-                    if content.dayOffsetFromToday != 0 {
-                        SDIncreBadge(text: content.badgeText)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+                Text(content.monthText)
+                    .contentTransition(.numericText())
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(monthTextColor)
+                    .lineLimit(1)
+
+                if content.dayOffsetFromToday != 0 {
+                    SDIncreBadge(text: content.badgeText)
+                        .transition(.scale.combined(with: .opacity))
                 }
-                .frame(height: 30)
             }
-            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HomeWeekStripView(
+                week: weekContent,
+                calendar: calendar,
+                selectDate: selectDate
+            )
+            .padding(.vertical, 5)
+            .clipShape(Capsule(style: .continuous))
+            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var monthTextFont: Font {
-        if content.locale.isChineseLanguage {
-            return .sourceHanSerifSC(size: 30, weight: .bold)
-        }
+    private var content: HomeDateDisplayContent {
+        HomeDateDisplayContent(
+            referenceDate: referenceDate,
+            today: today,
+            calendar: calendar,
+            locale: locale
+        )
+    }
 
-        return .system(size: 35, weight: .semibold, design: .serif)
+    private var weekContent: HomeWeekDisplayContent {
+        HomeWeekDisplayContent(
+            referenceDate: referenceDate,
+            today: today,
+            calendar: calendar
+        )
+    }
+
+    private var monthTextColor: Color {
+        locale.isChineseLanguage ? .primary : .secondary
+    }
+
+    private func selectDate(_ date: Date) {
+        withAnimation {
+            referenceDate = calendar.startOfDay(for: date)
+        }
     }
 }
 
@@ -84,201 +105,268 @@ private extension Locale {
     }
 }
 
-private struct DayTextLifeEffect: ViewModifier {
-    let accentColor: Color
-
-    @State private var floatOffset = CGSize.zero
-    @State private var motionTask: Task<Void, Never>?
-
-    func body(content: Content) -> some View {
-        content
-            .shadow(color: accentColor.opacity(0.38), radius: 10, x: 0, y: 3)
-            .shadow(color: accentColor.opacity(0.22), radius: 22, x: 0, y: 7)
-            .offset(floatOffset)
-            .onAppear {
-                startMotion()
-            }
-            .onDisappear {
-                motionTask?.cancel()
-                motionTask = nil
-            }
-    }
-
-    private func startMotion() {
-        guard motionTask == nil else {
-            return
-        }
-
-        motionTask = Task { @MainActor in
-            while !Task.isCancelled {
-                let duration = Double.random(in: 1.4...2.2)
-                let nextOffset = CGSize(
-                    width: CGFloat.random(in: -1.8...1.8),
-                    height: CGFloat.random(in: -1.4...1.4)
-                )
-
-                withAnimation(.smooth(duration: duration)) {
-                    floatOffset = nextOffset
-                }
-
-                try? await Task.sleep(for: .milliseconds(Int(duration * 1_000)))
-            }
-        }
-    }
-}
-
-private enum WeekdayRollDirection {
+private enum HomeWeekPageDirection {
     case forward
     case backward
 
     var insertionEdge: Edge {
         switch self {
         case .forward:
-            return .bottom
+            return .trailing
         case .backward:
-            return .top
+            return .leading
         }
     }
 
     var removalEdge: Edge {
         switch self {
         case .forward:
-            return .top
+            return .leading
         case .backward:
-            return .bottom
-        }
-    }
-
-    var scrubRotationStep: Double {
-        switch self {
-        case .forward:
-            return -180
-        case .backward:
-            return 180
+            return .trailing
         }
     }
 }
 
-private struct WeekdayIndicatorView: View {
-    let text: String
+private struct HomeWeekDisplayContent: Equatable {
+    let weekStartDate: Date
+    let selectedDate: Date
+    let days: [HomeWeekDay]
+
+    init(referenceDate: Date, today: Date = .now, calendar: Calendar) {
+        let selectedDate = calendar.startOfDay(for: referenceDate)
+        let today = calendar.startOfDay(for: today)
+        let weekStartDate = calendar.startOfNaturalWeek(containing: selectedDate)
+        let weekdayFormatter = DateFormatter()
+
+        weekdayFormatter.calendar = calendar
+        weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        weekdayFormatter.timeZone = calendar.timeZone
+        weekdayFormatter.dateFormat = "EEE"
+
+        self.weekStartDate = weekStartDate
+        self.selectedDate = selectedDate
+        self.days = (0..<7).map { offset in
+            let date = calendar.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+
+            return HomeWeekDay(
+                date: date,
+                dayText: String(calendar.component(.day, from: date)),
+                weekdayText: weekdayFormatter.string(from: date).uppercased(),
+                isToday: calendar.isDate(date, inSameDayAs: today),
+                isSelected: calendar.isDate(date, inSameDayAs: selectedDate)
+            )
+        }
+    }
+}
+
+private struct HomeWeekDay: Identifiable, Equatable {
     let date: Date
+    let dayText: String
+    let weekdayText: String
+    let isToday: Bool
+    let isSelected: Bool
 
-    @State private var displayedText: String
-    @State private var pendingText: String
-    @State private var pendingDate: Date
-    @State private var isScrubbing = false
-    @State private var direction: WeekdayRollDirection = .forward
-    @State private var scrubRotation = 0.0
-    @State private var settleTask: Task<Void, Never>?
+    var id: Date { date }
+}
 
-    init(text: String, date: Date) {
-        self.text = text
-        self.date = date
-        _displayedText = State(initialValue: text)
-        _pendingText = State(initialValue: text)
-        _pendingDate = State(initialValue: date)
+private struct HomeWeekStripView: View {
+    let week: HomeWeekDisplayContent
+    let calendar: Calendar
+    let selectDate: (Date) -> Void
+
+    @Environment(\.haptics) private var haptics
+    
+    @Namespace private var selectionNamespace
+    @State private var displayedWeek: HomeWeekDisplayContent
+    @State private var pageDirection: HomeWeekPageDirection = .forward
+    @GestureState private var dragOffset: CGFloat = 0
+
+    private static let swipeActivationDistance: CGFloat = 36
+    private static let horizontalDominance: CGFloat = 1.15
+    private static let maximumPageDragOffset: CGFloat = 56
+
+    init(week: HomeWeekDisplayContent, calendar: Calendar, selectDate: @escaping (Date) -> Void) {
+        self.week = week
+        self.calendar = calendar
+        self.selectDate = selectDate
+        _displayedWeek = State(initialValue: week)
     }
 
     var body: some View {
         ZStack {
-            if isScrubbing {
-                scrubContent
-                    .id("scrub-\(pendingDate.timeIntervalSinceReferenceDate)")
-                    .transition(rollTransition)
-            } else {
-                weekdayText(displayedText)
-                    .id(displayedText)
-                    .transition(rollTransition)
-            }
+            HomeWeekPageView(
+                week: displayedWeek,
+                selectionNamespace: selectionNamespace,
+                selectDate: selectDate
+            )
+            .id(displayedWeek.weekStartDate)
+            .offset(x: dragOffset)
+            .transition(pageTransition)
         }
-        .frame(width: 68, height: 30)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .foregroundStyle(Color(.secondarySystemGroupedBackground))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color(.separator), lineWidth: 2)
-        }
-        .onChange(of: date) { oldDate, newDate in
-            beginTransition(from: oldDate, to: newDate, text: text)
-        }
-        .onDisappear {
-            settleTask?.cancel()
+        .frame(height: 60)
+        .clipped()
+        .contentShape(Capsule())
+        .simultaneousGesture(pageDragGesture)
+        .onChange(of: week) { oldWeek, newWeek in
+            updateDisplayedWeek(from: oldWeek, to: newWeek)
         }
     }
 
-    private var scrubContent: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { _ in
-//                Capsule()
-//                    .fill(.secondary.opacity(0.36))
-//                    .frame(width: 9, height: 4)
-                
-                RoundedRectangle(cornerRadius: 100, style: .continuous)
-                    .fill(.secondary.opacity(0.5))
-                    .frame(width: 4, height: 20)
-                    .frame(width: 15)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .blur(radius: 0.7)
-        .opacity(0.8)
-        .rotation3DEffect(
-            .degrees(scrubRotation),
-            axis: (x: 1, y: 0, z: 0),
-            perspective: 0.65
-        )
-    }
-
-    private var rollTransition: AnyTransition {
+    private var pageTransition: AnyTransition {
         .asymmetric(
-            insertion: .move(edge: direction.insertionEdge).combined(with: .opacity),
-            removal: .move(edge: direction.removalEdge).combined(with: .opacity)
+            insertion: .move(edge: pageDirection.insertionEdge).combined(with: .opacity),
+            removal: .move(edge: pageDirection.removalEdge).combined(with: .opacity)
         )
     }
 
-    private func weekdayText(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 21, weight: .semibold, design: .rounded))
-            .tracking(3)
-            .foregroundStyle(.secondary)
+    private func updateDisplayedWeek(from oldWeek: HomeWeekDisplayContent, to newWeek: HomeWeekDisplayContent) {
+        pageDirection = newWeek.selectedDate >= oldWeek.selectedDate ? .forward : .backward
+
+        withAnimation {
+            displayedWeek = newWeek
+        }
     }
 
-    private func beginTransition(from oldDate: Date, to newDate: Date, text newText: String) {
-        let newDirection: WeekdayRollDirection = newDate >= oldDate ? .forward : .backward
+    private var pageDragGesture: some Gesture {
+        DragGesture(minimumDistance: 14)
+            .updating($dragOffset) { value, state, _ in
+                guard Self.hasHorizontalIntent(value) else {
+                    return
+                }
 
-        direction = newDirection
-        pendingText = newText
-        pendingDate = newDate
-        settleTask?.cancel()
+                state = min(
+                    max(value.translation.width, -Self.maximumPageDragOffset),
+                    Self.maximumPageDragOffset
+                )
+            }
+            .onEnded { value in
+                guard Self.hasHorizontalIntent(value) else {
+                    return
+                }
 
-        withAnimation(.easeInOut(duration: 0.11)) {
-            isScrubbing = true
-            scrubRotation += newDirection.scrubRotationStep
+                let translation = dominantHorizontalTranslation(for: value)
+                guard abs(translation) >= Self.swipeActivationDistance else {
+                    return
+                }
+
+                haptics.play(.openDetailTap)
+                moveToAdjacentWeek(translation < 0 ? 1 : -1)
+            }
+    }
+
+    private static func hasHorizontalIntent(_ value: DragGesture.Value) -> Bool {
+        abs(value.translation.width) > abs(value.translation.height) * horizontalDominance
+    }
+
+    private func dominantHorizontalTranslation(for value: DragGesture.Value) -> CGFloat {
+        if abs(value.predictedEndTranslation.width) > abs(value.translation.width) {
+            return value.predictedEndTranslation.width
         }
 
-        settleTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(180))
-            guard !Task.isCancelled else {
-                return
-            }
+        return value.translation.width
+    }
 
-            withAnimation(.smooth(duration: 0.26)) {
-                displayedText = pendingText
-                isScrubbing = false
+    private func moveToAdjacentWeek(_ weekOffset: Int) {
+        guard let targetDate = calendar.date(
+            byAdding: .day,
+            value: weekOffset * 7,
+            to: displayedWeek.weekStartDate
+        ) else {
+            return
+        }
+
+        selectDate(calendar.startOfDay(for: targetDate))
+    }
+}
+
+private struct HomeWeekPageView: View {
+    let week: HomeWeekDisplayContent
+    let selectionNamespace: Namespace.ID
+    let selectDate: (Date) -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(week.days) { day in
+                HomeWeekDayBlock(
+                    day: day,
+                    selectionNamespace: selectionNamespace,
+                    selectDate: selectDate
+                )
             }
         }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct HomeWeekDayBlock: View {
+    @Environment(\.sheepDaysTheme) private var theme
+
+    let day: HomeWeekDay
+    let selectionNamespace: Namespace.ID
+    let selectDate: (Date) -> Void
+
+    var body: some View {
+        Button {
+            selectDate(day.date)
+        } label: {
+            VStack(spacing: 3) {
+                Text(day.dayText)
+                    .contentTransition(.numericText())
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(dayTextColor)
+                    .lineLimit(1)
+                    .frame(width: 30, alignment: .center)
+
+                Text(day.weekdayText)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(theme.accentColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(5)
+            .background(alignment: .center) {
+                if day.isSelected {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color(.quaternarySystemFill))
+                        .matchedGeometryEffect(id: "selected-week-day-background", in: selectionNamespace)
+                }
+            }
+//            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(day.weekdayText) \(day.dayText)"))
+    }
+
+    private var dayTextColor: Color {
+        if day.isToday {
+            return theme.accentColor
+        }
+
+        return day.isSelected ? .primary : .secondary
+    }
+}
+
+private extension Calendar {
+    func startOfNaturalWeek(containing date: Date) -> Date {
+        let normalizedDate = startOfDay(for: date)
+        let weekday = component(.weekday, from: normalizedDate)
+        let daysFromWeekStart = (weekday - firstWeekday + 7) % 7
+
+        return self.date(byAdding: .day, value: -daysFromWeekStart, to: normalizedDate) ?? normalizedDate
     }
 }
 
 #Preview {
+    @Previewable @State var date = Date()
+
     VStack(spacing: 12) {
-        HomeDateView(referenceDate: .now)
+        HomeDateView(referenceDate: $date)
         HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: 4, to: .now) ?? .now)
-        HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: -5, to: .now) ?? .now)
-        HomeDateView(referenceDate: Calendar.current.date(byAdding: .year, value: 2, to: .now) ?? .now)
     }
     .padding()
 }
