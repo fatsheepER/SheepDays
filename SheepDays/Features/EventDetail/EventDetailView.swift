@@ -41,7 +41,7 @@ struct EventDetailView: View {
     @State private var checklistRowFrames: [UUID: CGRect] = [:]
     @State private var checklistScrollFrame: CGRect = .zero
     @State private var focusedChecklistItemID: UUID?
-    @FocusState private var isNewChecklistItemFieldFocused: Bool
+    @State private var isNewChecklistItemFieldFocused: Bool = false
 
     var onClose: () -> Void = {}
     var onEventUpdated: () -> Void = {}
@@ -62,7 +62,7 @@ struct EventDetailView: View {
                         pinToTopSection
                         memorialSection
                         importanceLevelSection
-                        checklistSection(scrollProxy: scrollProxy)
+                        checklistSection()
 
                         Color.clear.frame(height: bottomContentSpacerHeight)
                     }
@@ -70,11 +70,10 @@ struct EventDetailView: View {
                     .padding(.vertical, 20)
                 }
                 .background(
-                    RoundedRectangle(cornerRadius: 35, style: .continuous)
-                        .foregroundStyle(Color(.quaternarySystemFill))
+                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.quaternarySystemFill))
                 )
                 .clipShape(
-                    RoundedRectangle(cornerRadius: 35, style: .continuous)
+                    SDRoundedCornersShape(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, style: .continuous)
                 )
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: isNewChecklistItemFieldFocused) { _, isFocused in
@@ -92,7 +91,7 @@ struct EventDetailView: View {
             }
 
             controls
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+//                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .alert(
@@ -303,7 +302,7 @@ private extension EventDetailView {
         }
     }
 
-    func checklistSection(scrollProxy: ScrollViewProxy) -> some View {
+    func checklistSection() -> some View {
         VStack {
             HStack {
                 sectionTitle("检查清单", "checklist")
@@ -323,7 +322,7 @@ private extension EventDetailView {
                     checklistCreateRow
 
                     ForEach(orderedChecklistItems) { item in
-                        checklistItemRow(for: item, scrollProxy: scrollProxy)
+                        checklistItemRow(for: item)
                     }
                 }
                 .background(checklistScrollFrameReader)
@@ -351,11 +350,19 @@ private extension EventDetailView {
                 .font(.system(size: 20, weight: .medium, design: .rounded))
                 .contentTransition(.symbolEffect)
 
-            TextField("新的检查事项", text: $newChecklistItemTitle)
-                .textFieldStyle(.plain)
-                .submitLabel(.done)
-                .focused($isNewChecklistItemFieldFocused)
-                .onSubmit(createChecklistItem)
+            ChecklistCreateTextField(
+                text: $newChecklistItemTitle,
+                placeholder: "新的检查事项",
+                onSubmit: createChecklistItem,
+                onBeginEditing: {
+                    focusedChecklistItemID = nil
+                    isNewChecklistItemFieldFocused = true
+                },
+                onEndEditing: {
+                    isNewChecklistItemFieldFocused = false
+                }
+            )
+            .frame(minHeight: 24)
 
             Spacer()
         }
@@ -367,11 +374,11 @@ private extension EventDetailView {
         .id(ChecklistScrollTarget.newItem)
     }
 
-    func checklistItemRow(for item: ChecklistItem, scrollProxy: ScrollViewProxy) -> some View {
+    func checklistItemRow(for item: ChecklistItem) -> some View {
         let isDragging = draggedChecklistItemID == item.id
 
         return ZStack {
-            checklistItemRowContent(for: item, mode: .normal, scrollProxy: scrollProxy)
+            checklistItemRowContent(for: item, mode: .normal)
                 .opacity(isDragging ? 0 : 1)
 
             if isDragging {
@@ -381,12 +388,15 @@ private extension EventDetailView {
         }
         .id(ChecklistScrollTarget.item(item.id))
         .background(checklistRowFrameReader(for: item.id))
+        .transition(.asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .opacity)
+        )
     }
 
     func checklistItemRowContent(
         for item: ChecklistItem,
-        mode: ChecklistRowMode,
-        scrollProxy: ScrollViewProxy? = nil
+        mode: ChecklistRowMode
     ) -> some View {
         HStack {
             Button {
@@ -425,7 +435,7 @@ private extension EventDetailView {
                 .foregroundStyle(Color(.tertiaryLabel))
                 .frame(width: 40, height: 32)
                 .contentShape(Rectangle())
-                .gesture(checklistDragGesture(for: item, scrollProxy: scrollProxy))
+                .gesture(checklistDragGesture(for: item))
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 7)
@@ -812,7 +822,7 @@ private extension EventDetailView {
         persistChanges()
     }
 
-    func checklistDragGesture(for item: ChecklistItem, scrollProxy: ScrollViewProxy?) -> some Gesture {
+    func checklistDragGesture(for item: ChecklistItem) -> some Gesture {
         LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named(ChecklistCoordinateSpace.name)))
             .onChanged { value in
@@ -827,7 +837,7 @@ private extension EventDetailView {
                     }
 
                     dragTranslationY = dragValue.translation.height
-                    updateChecklistDragOrder(for: item.id, scrollProxy: scrollProxy)
+                    updateChecklistDragOrder(for: item.id)
                 default:
                     break
                 }
@@ -850,7 +860,7 @@ private extension EventDetailView {
         haptics.play(.selectionStep)
     }
 
-    func updateChecklistDragOrder(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
+    func updateChecklistDragOrder(for draggedID: UUID) {
         let currentOrder = dragOrderIDs.isEmpty ? sortedChecklistItems.map(\.id) : dragOrderIDs
         guard let draggedFrame = dragStartFrame ?? checklistRowFrames[draggedID] else {
             return
@@ -869,7 +879,6 @@ private extension EventDetailView {
         nextOrder.insert(draggedID, at: min(targetIndex, nextOrder.count))
 
         guard nextOrder != currentOrder else {
-            autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
             return
         }
 
@@ -877,26 +886,6 @@ private extension EventDetailView {
             dragOrderIDs = nextOrder
         }
         haptics.play(.selectionStep)
-        autoScrollChecklistIfNeeded(for: draggedID, scrollProxy: scrollProxy)
-    }
-
-    func autoScrollChecklistIfNeeded(for draggedID: UUID, scrollProxy: ScrollViewProxy?) {
-        guard let scrollProxy,
-              let currentIndex = dragOrderIDs.firstIndex(of: draggedID) else {
-            return
-        }
-
-        if dragTranslationY < -90, currentIndex > 0 {
-            let targetID = dragOrderIDs[currentIndex - 1]
-            withAnimation(.linear(duration: 0.18)) {
-                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .top)
-            }
-        } else if dragTranslationY > 90, currentIndex < dragOrderIDs.count - 1 {
-            let targetID = dragOrderIDs[currentIndex + 1]
-            withAnimation(.linear(duration: 0.18)) {
-                scrollProxy.scrollTo(ChecklistScrollTarget.item(targetID), anchor: .bottom)
-            }
-        }
     }
 
     func endChecklistDrag() {
@@ -951,19 +940,12 @@ private extension EventDetailView {
 
         modelContext.insert(item)
         
-        withAnimation {
+        withAnimation(.snappy(duration: 0.22)) {
             event.checklistItems.append(item)
         }
         
         newChecklistItemTitle = ""
-        keepNewChecklistItemFieldFocused()
         persistChanges()
-    }
-
-    func keepNewChecklistItemFieldFocused() {
-        DispatchQueue.main.async {
-            isNewChecklistItemFieldFocused = true
-        }
     }
 
     func toggleChecklistItem(_ item: ChecklistItem) {
@@ -1096,6 +1078,75 @@ private struct ChecklistScrollFramePreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         value = nextValue()
+    }
+}
+
+private struct ChecklistCreateTextField: UIViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onSubmit: () -> Void
+    let onBeginEditing: () -> Void
+    let onEndEditing: () -> Void
+
+    func makeUIView(context: Context) -> UITextField {
+        let textField = UITextField()
+        textField.borderStyle = .none
+        textField.backgroundColor = .clear
+        textField.font = .systemFont(ofSize: 18, weight: .medium)
+        textField.textColor = .secondaryLabel
+        textField.placeholder = placeholder
+        textField.returnKeyType = .done
+        textField.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.textDidChange(_:)),
+            for: .editingChanged
+        )
+        textField.delegate = context.coordinator
+        return textField
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        context.coordinator.parent = self
+
+        if uiView.text != text {
+            uiView.text = text
+        }
+
+        uiView.placeholder = placeholder
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: ChecklistCreateTextField
+
+        init(parent: ChecklistCreateTextField) {
+            self.parent = parent
+        }
+
+        @objc func textDidChange(_ textField: UITextField) {
+            parent.text = textField.text ?? ""
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            parent.onSubmit()
+
+            if textField.text != parent.text {
+                textField.text = parent.text
+            }
+
+            return false
+        }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            parent.onBeginEditing()
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            parent.onEndEditing()
+        }
     }
 }
 
