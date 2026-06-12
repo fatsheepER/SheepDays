@@ -76,7 +76,7 @@ struct EventDetailView: View {
                     .padding(.vertical, 20)
                 }
                 .background(
-                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.quaternarySystemFill))
+                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.systemBackground))
                 )
                 .clipShape(
                     SDRoundedCornersShape(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, style: .continuous)

@@ -1209,6 +1209,7 @@ private extension HomeView {
         .presentationBackgroundInteraction(sheetBackgroundInteraction)
         .interactiveDismissDisabled()
         .padding(15)
+        .background(sheetContainerBackgroundColor.ignoresSafeArea(.all))
         .animation(.snappy(duration: 0.25), value: sheetRoute)
         .alert("设置相对数值", isPresented: relativeValuePromptIsPresented) {
             TextField("26, +26, -30", text: $relativeValueInput)
@@ -1226,6 +1227,10 @@ private extension HomeView {
         .onChange(of: sheetRoute) { _, newValue in
             transitionDetent(to: newValue)
         }
+    }
+
+    var sheetContainerBackgroundColor: Color {
+        sheetRoute == .eventDetail ? Color(.systemGroupedBackground) : Color.clear
     }
 
     var sheetBackgroundInteraction: PresentationBackgroundInteraction {

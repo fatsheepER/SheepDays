@@ -66,6 +66,7 @@ struct EventDetailSheetPreviewHost: View {
         .presentationBackgroundInteraction(.enabled)
         .interactiveDismissDisabled()
         .padding(15)
+        .background(Color(.systemGroupedBackground).ignoresSafeArea(.all))
     }
 
     private func presentSymbolPicker(_ presentation: SymbolPickerPresentation) {
