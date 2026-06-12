@@ -62,8 +62,8 @@ struct HomeView: View {
 // MARK: - Main Content
 extension HomeView {
     // 控制顶部柔化层效果
-    static let floatingDateFadeHeight: CGFloat = 175
-    static let floatingDateFadeOffset: CGFloat = -30
+    static let floatingDateFadeHeight: CGFloat = 150
+    static let floatingDateFadeOffset: CGFloat = -35
     static let edgeFadeHorizontalBleed: CGFloat = 42
     static let homePageDragSuppressionDistance: CGFloat = 8
     static let homePageDragSuppressionDominance: CGFloat = 1.15
