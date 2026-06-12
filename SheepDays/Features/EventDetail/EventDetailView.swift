@@ -353,13 +353,21 @@ private extension EventDetailView {
             ChecklistCreateTextField(
                 text: $newChecklistItemTitle,
                 placeholder: "新的检查事项",
+                isFocused: isNewChecklistItemFieldFocused,
                 onSubmit: createChecklistItem,
                 onBeginEditing: {
-                    focusedChecklistItemID = nil
-                    isNewChecklistItemFieldFocused = true
+                    if focusedChecklistItemID != nil {
+                        focusedChecklistItemID = nil
+                    }
+
+                    if !isNewChecklistItemFieldFocused {
+                        isNewChecklistItemFieldFocused = true
+                    }
                 },
                 onEndEditing: {
-                    isNewChecklistItemFieldFocused = false
+                    if isNewChecklistItemFieldFocused {
+                        isNewChecklistItemFieldFocused = false
+                    }
                 }
             )
             .frame(minHeight: 24)
@@ -389,9 +397,9 @@ private extension EventDetailView {
         .id(ChecklistScrollTarget.item(item.id))
         .background(checklistRowFrameReader(for: item.id))
         .transition(.asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .opacity)
-        )
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .scale.combined(with: .opacity)
+        ))
     }
 
     func checklistItemRowContent(
@@ -411,11 +419,14 @@ private extension EventDetailView {
                 ChecklistTitleTextField(
                     text: checklistTitleBinding(for: item),
                     placeholder: "检查事项",
+                    isFocused: focusedChecklistItemID == item.id,
                     onEmptyBackspace: {
                         deleteChecklistItem(item)
                     },
                     onBeginEditing: {
-                        focusedChecklistItemID = item.id
+                        if focusedChecklistItemID != item.id {
+                            focusedChecklistItemID = item.id
+                        }
                     },
                     onEndEditing: {
                         if focusedChecklistItemID == item.id {
@@ -974,10 +985,36 @@ private extension EventDetailView {
     }
 
     func deleteChecklistItem(_ item: ChecklistItem) {
-        event.checklistItems.removeAll { $0.id == item.id }
+        moveChecklistFocusAfterDeleting(item)
+
+        withAnimation(.snappy(duration: 0.18)) {
+            event.checklistItems.removeAll { $0.id == item.id }
+        }
+
         modelContext.delete(item)
         normalizeChecklistOrder(sortedChecklistItems)
         persistChanges()
+    }
+
+    func moveChecklistFocusAfterDeleting(_ item: ChecklistItem) {
+        if let previousEditableItemID = previousEditableChecklistItemID(before: item) {
+            focusedChecklistItemID = previousEditableItemID
+            isNewChecklistItemFieldFocused = false
+        } else {
+            focusedChecklistItemID = nil
+            isNewChecklistItemFieldFocused = true
+        }
+    }
+
+    func previousEditableChecklistItemID(before item: ChecklistItem) -> UUID? {
+        guard let currentIndex = orderedChecklistItems.firstIndex(where: { $0.id == item.id }) else {
+            return nil
+        }
+
+        return orderedChecklistItems[..<currentIndex]
+            .reversed()
+            .first { !$0.isCompleted }?
+            .id
     }
 
     func normalizeChecklistOrder(_ items: [ChecklistItem]) {
@@ -1084,6 +1121,7 @@ private struct ChecklistScrollFramePreferenceKey: PreferenceKey {
 private struct ChecklistCreateTextField: UIViewRepresentable {
     @Binding var text: String
     let placeholder: String
+    let isFocused: Bool
     let onSubmit: () -> Void
     let onBeginEditing: () -> Void
     let onEndEditing: () -> Void
@@ -1113,6 +1151,10 @@ private struct ChecklistCreateTextField: UIViewRepresentable {
         }
 
         uiView.placeholder = placeholder
+
+        if isFocused, !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1153,6 +1195,7 @@ private struct ChecklistCreateTextField: UIViewRepresentable {
 private struct ChecklistTitleTextField: UIViewRepresentable {
     @Binding var text: String
     let placeholder: String
+    let isFocused: Bool
     let onEmptyBackspace: () -> Void
     let onBeginEditing: () -> Void
     let onEndEditing: () -> Void
@@ -1184,6 +1227,10 @@ private struct ChecklistTitleTextField: UIViewRepresentable {
 
         uiView.placeholder = placeholder
         uiView.onEmptyBackspace = context.coordinator.handleEmptyBackspace
+
+        if isFocused, !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+        }
     }
 
     func makeCoordinator() -> Coordinator {
