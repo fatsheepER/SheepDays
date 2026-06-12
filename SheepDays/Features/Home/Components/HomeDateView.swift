@@ -9,6 +9,7 @@ import SwiftUI
 
 struct HomeDateView: View {
     @Environment(\.sheepDaysTheme) private var theme
+    @Environment(\.haptics) private var haptics
     @Binding private var referenceDate: Date
 
     private let today: Date
@@ -174,6 +175,8 @@ private struct HomeWeekStripView: View {
     let calendar: Calendar
     let selectDate: (Date) -> Void
 
+    @Environment(\.haptics) private var haptics
+    
     @Namespace private var selectionNamespace
     @State private var displayedWeek: HomeWeekDisplayContent
     @State private var pageDirection: HomeWeekPageDirection = .forward
@@ -247,6 +250,7 @@ private struct HomeWeekStripView: View {
                     return
                 }
 
+                haptics.play(.openDetailTap)
                 moveToAdjacentWeek(translation < 0 ? 1 : -1)
             }
     }
