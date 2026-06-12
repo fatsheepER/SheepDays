@@ -77,6 +77,7 @@ struct TagListView: View {
                     Color.clear
                         .frame(height: listBottomInsetHeight)
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .animation(tagRowAnimation, value: tagIDs)
                 .animation(tagNewRowAnimation, value: isEditingTag)
 
@@ -425,7 +426,7 @@ private extension TagListView {
             try modelContext.save()
             newTagName = ""
             nameDrafts[tag.id] = tag.name
-            isNewTagNameFocused = true
+            isNewTagNameFocused = false
         } catch {
             withAnimation(tagRowAnimation) {
                 modelContext.delete(tag)
