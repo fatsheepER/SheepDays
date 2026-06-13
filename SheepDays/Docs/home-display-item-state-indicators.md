@@ -20,7 +20,7 @@
 - 事件拥有哪些状态，由 `HomeBuilder` 在构造 `HomeDisplayItem` 时投影出来。
 - 当前页面允许显示哪些状态，由调用方通过 `visibleStateIndicators` 控制。
 - 图标的种类、顺序、SF Symbol 和无障碍文案集中定义，避免散落在多个 View 中。
-- 首页默认不显示 `showOnHome` 图标；`NotebookDetailContentView` 这类页面可以选择显示。
+- 首页默认不显示 `showOnHome` 图标；事件本详情类页面可以选择显示。
 
 ## 当前实现
 
@@ -208,9 +208,9 @@ visibleStateIndicators: .home
 
 这符合首页语义：能进入首页的常规事件本身已经满足 `showOnHome` 过滤条件，重复显示星标没有信息增量。
 
-### NotebookDetailContentView
+### 事件本详情页
 
-`NotebookDetailContentView` 如果复用 `HomeDisplayItemRow`，可以传：
+事件本详情页如果复用 `HomeDisplayItemRow`，可以传：
 
 ```swift
 HomeDisplayItemRow(

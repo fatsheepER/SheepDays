@@ -18,10 +18,11 @@ struct NotebookSummaryCardFramePreferenceKey: PreferenceKey {
 struct NotebookSummaryCard: View {
     let summary: NotebookSummary
     let isEditing: Bool
+    var reportsFrame = true
+    @Binding var isExpanded: Bool
     let onAccessoryTap: () -> Void
     let onTap: () -> Void
 
-    @State private var isExpanded = false
     @State private var shouldSuppressCardTap = false
 
     private var accentColor: Color {
@@ -85,12 +86,7 @@ struct NotebookSummaryCard: View {
             }
         }
         .background {
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: NotebookSummaryCardFramePreferenceKey.self,
-                    value: [summary.id: proxy.frame(in: .global)]
-                )
-            }
+            framePreferenceReporter
         }
     }
 
@@ -110,6 +106,20 @@ struct NotebookSummaryCard: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(80))
             shouldSuppressCardTap = false
+        }
+    }
+
+    @ViewBuilder
+    var framePreferenceReporter: some View {
+        if reportsFrame {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: NotebookSummaryCardFramePreferenceKey.self,
+                    value: [summary.id: proxy.frame(in: .global)]
+                )
+            }
+        } else {
+            Color.clear
         }
     }
 }
@@ -427,6 +437,7 @@ private struct NotebookTodayTriangle: Shape {
                 today: today
             ),
             isEditing: false,
+            isExpanded: .constant(false),
             onAccessoryTap: {},
             onTap: {}
         )
@@ -447,6 +458,7 @@ private struct NotebookTodayTriangle: Shape {
                 today: today
             ),
             isEditing: true,
+            isExpanded: .constant(false),
             onAccessoryTap: {},
             onTap: {}
         )
