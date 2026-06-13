@@ -9,10 +9,16 @@ import SwiftUI
 import SwiftData
 
 struct NotebooksSheetView: View {
+    @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
 
     @State private var isEditing = false
     @State private var isShowingArchivedNotebooks = false
+    @State private var selectedNotebook: Notebook?
+    @State private var selectedNotebookSourceFrame: CGRect?
+    @State private var isNotebookCardExpanded = false
+    @State private var notebookCardFrames: [UUID: CGRect] = [:]
+    @State private var notebookTransitionTask: Task<Void, Never>?
     @State private var selectedArchivedNotebookForAction: Notebook?
 
     @Query(
@@ -26,7 +32,6 @@ struct NotebooksSheetView: View {
     let onBack: () -> Void
     var onCreateNotebook: () -> Void = {}
     var onEditNotebook: (Notebook) -> Void = { _ in }
-    var onOpenNotebook: (Notebook) -> Void = { _ in }
 
     var body: some View {
         rootContent
@@ -51,21 +56,47 @@ struct NotebooksSheetView: View {
         } message: { notebook in
             Text("你可以取消归档这个事件本，或者连同其中的事件一起删除。")
         }
+        .onDisappear {
+            notebookTransitionTask?.cancel()
+        }
     }
 }
 
 // MARK: - View State
 private extension NotebooksSheetView {
     var rootContent: some View {
-        VStack(spacing: 10) {
-            header
+        GeometryReader { rootProxy in
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 10) {
+                    notebooksListPage
+                        .allowsHitTesting(selectedNotebook == nil)
+                        .accessibilityHidden(selectedNotebook != nil)
 
-            content
+                    controls
+                        .hidden()
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 5)
+                .padding(.top, 5)
 
-            controls
+                if selectedNotebook != nil {
+                    expandedNotebookCard(in: rootProxy)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .zIndex(1)
+                }
+
+                controls
+                    .padding(.horizontal, 5)
+                    .zIndex(2)
+            }
+            .frame(width: rootProxy.size.width, height: rootProxy.size.height)
+            .onPreferenceChange(NotebookSummaryCardFramePreferenceKey.self) { frames in
+                notebookCardFrames = frames
+            }
         }
-        .padding(.horizontal, 5)
-        .padding(.top, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -98,6 +129,14 @@ private extension NotebooksSheetView {
                 }
             }
         )
+    }
+
+    var notebookZoomAnimation: Animation {
+        .snappy(duration: 0.36, extraBounce: 0.02)
+    }
+
+    var selectedNotebookID: UUID? {
+        selectedNotebook?.id
     }
 
     func activeNotebookCardID(for summary: NotebookSummary) -> String {
@@ -164,6 +203,47 @@ private extension NotebooksSheetView {
 
 // MARK: - Subviews
 private extension NotebooksSheetView {
+    func expandedNotebookCard(in rootProxy: GeometryProxy) -> some View {
+        let frame = expandedNotebookCardFrame(in: rootProxy)
+
+        return SDRoundedBackground(
+            topLeading: 30,
+            topTrailing: 30,
+            bottomLeading: 30,
+            bottomTrailing: 10,
+            color: Color(.secondarySystemGroupedBackground)
+        )
+        .frame(width: frame.width, height: frame.height)
+        .position(x: frame.midX, y: frame.midY)
+    }
+
+    func expandedNotebookCardFrame(in rootProxy: GeometryProxy) -> CGRect {
+        let expandedFrame = CGRect(origin: .zero, size: rootProxy.size)
+
+        guard !isNotebookCardExpanded,
+              let sourceFrame = selectedNotebookSourceFrame else {
+            return expandedFrame
+        }
+
+        let rootGlobalFrame = rootProxy.frame(in: .global)
+
+        return CGRect(
+            x: sourceFrame.minX - rootGlobalFrame.minX,
+            y: sourceFrame.minY - rootGlobalFrame.minY,
+            width: sourceFrame.width,
+            height: sourceFrame.height
+        )
+    }
+
+    var notebooksListPage: some View {
+        VStack(spacing: 10) {
+            header
+
+            content
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     @ViewBuilder
     var content: some View {
         if activeNotebookSummaries.isEmpty && !isEditing {
@@ -288,7 +368,7 @@ private extension NotebooksSheetView {
 
     var controls: some View {
         HStack {
-            Button(action: onBack) {
+            Button(action: handleLeadingControlTap) {
                 SDSheetActionButton(
                     iconSystemName: "arrow.left",
                     title: "返回",
@@ -298,20 +378,111 @@ private extension NotebooksSheetView {
             }
             .buttonStyle(.plain)
 
-            Button(action: onCreateNotebook) {
-                SDSheetActionButton(
-                    iconSystemName: "plus",
-                    title: "新建事件本",
-                    placement: .right,
-                    appearance: .prominent
-                )
+            Button(action: handleTrailingControlTap) {
+                trailingControlLabel
             }
             .buttonStyle(.plain)
+        }
+        .animation(.snappy(duration: 0.25), value: selectedNotebookID)
+    }
+
+    @ViewBuilder
+    var trailingControlLabel: some View {
+        if let selectedNotebook {
+            SDSheetActionButton(
+                iconSystemName: "pencil",
+                title: "编辑",
+                placement: .right,
+                backgroundColor: selectedNotebook.tintColor.opacity(0.2),
+                titleForegroundColor: selectedNotebook.tintColor
+            )
+        } else {
+            SDSheetActionButton(
+                iconSystemName: "plus",
+                title: "新建事件本",
+                placement: .right,
+                appearance: .prominent
+            )
         }
     }
 
     func openNotebookDetail(_ notebook: Notebook) {
-        onOpenNotebook(notebook)
+        guard let sourceFrame = notebookCardFrames[notebook.id] else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+        notebookTransitionTask?.cancel()
+
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            selectedNotebook = notebook
+            selectedNotebookSourceFrame = sourceFrame
+            isNotebookCardExpanded = false
+        }
+
+        notebookTransitionTask = Task { @MainActor in
+            await Task.yield()
+
+            guard selectedNotebook?.id == notebook.id else {
+                return
+            }
+
+            withAnimation(notebookZoomAnimation) {
+                isNotebookCardExpanded = true
+            }
+        }
+    }
+
+    func closeNotebookDetail() {
+        guard let selectedNotebook else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+        notebookTransitionTask?.cancel()
+
+        withAnimation(notebookZoomAnimation) {
+            isNotebookCardExpanded = false
+        }
+
+        let closingNotebookID = selectedNotebook.id
+        notebookTransitionTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(380))
+
+            guard self.selectedNotebook?.id == closingNotebookID,
+                  !isNotebookCardExpanded else {
+                return
+            }
+
+            var transaction = Transaction()
+            transaction.animation = nil
+
+            withTransaction(transaction) {
+                self.selectedNotebook = nil
+                selectedNotebookSourceFrame = nil
+            }
+        }
+    }
+
+    func handleLeadingControlTap() {
+        if selectedNotebook != nil {
+            closeNotebookDetail()
+            return
+        }
+
+        onBack()
+    }
+
+    func handleTrailingControlTap() {
+        guard let selectedNotebook else {
+            onCreateNotebook()
+            return
+        }
+
+        onEditNotebook(selectedNotebook)
     }
 
     func handleActiveNotebookAccessoryTap(for notebook: Notebook) {
@@ -320,7 +491,7 @@ private extension NotebooksSheetView {
             return
         }
 
-        onOpenNotebook(notebook)
+        openNotebookDetail(notebook)
     }
 
     func handleArchivedNotebookAccessoryTap(for notebook: Notebook) {

@@ -1,5 +1,5 @@
 //
-//  NotebookDetailView.swift
+//  NotebookDetailContentView.swift
 //  SheepDays
 //
 //  Created by 王飞扬 on 2026/6/13.
@@ -7,75 +7,69 @@
 
 import SwiftUI
 
-struct NotebookDetailView: View {
+struct NotebookDetailContentView: View {
     let notebook: Notebook
-    let onBack: () -> Void
-    var onEdit: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 10) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 15) {
-                    NotebookDetailHeader(
-                        notebook: notebook,
-                        futureEventCount: futureEventCount,
-                        accentColor: accentColor
-                    )
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 15) {
+                NotebookDetailHeader(
+                    notebook: notebook,
+                    futureEventCount: futureEventCount,
+                    accentColor: accentColor
+                )
 
-                    NotebookDetailStats(
-                        totalCount: activeEvents.count,
-                        todayCount: todayEventCount,
-                        pastCount: pastEventCount,
-                        accentColor: accentColor
-                    )
+                NotebookDetailStats(
+                    totalCount: activeEvents.count,
+                    todayCount: todayEventCount,
+                    pastCount: pastEventCount,
+                    accentColor: accentColor
+                )
 
-                    if let note = notebook.note, !note.isEmpty {
-                        Text(note)
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(Color(.secondaryLabel))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(15)
-                            .background(
-                                SDRoundedBackground(
-                                    topLeading: 20,
-                                    topTrailing: 20,
-                                    bottomLeading: 20,
-                                    bottomTrailing: 10,
-                                    color: Color(.tertiarySystemGroupedBackground)
-                                )
+                if let note = notebook.note, !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(15)
+                        .background(
+                            SDRoundedBackground(
+                                topLeading: 20,
+                                topTrailing: 20,
+                                bottomLeading: 20,
+                                bottomTrailing: 10,
+                                color: Color(.tertiarySystemGroupedBackground)
                             )
-                    }
+                        )
                 }
-                .padding(.horizontal, 15)
-                .padding(.vertical, 20)
             }
-            .background(
-                SDRoundedBackground(
-                    topLeading: 30,
-                    topTrailing: 30,
-                    bottomLeading: 15,
-                    bottomTrailing: 15,
-                    color: Color(.secondarySystemGroupedBackground)
-                )
-            )
-            .clipShape(
-                SDRoundedCornersShape(
-                    topLeading: 30,
-                    topTrailing: 30,
-                    bottomLeading: 15,
-                    bottomTrailing: 15,
-                    style: .continuous
-                )
-            )
-
-            controls
+            .padding(.horizontal, 15)
+            .padding(.vertical, 20)
         }
+        .background(
+            SDRoundedBackground(
+                topLeading: 30,
+                topTrailing: 30,
+                bottomLeading: 15,
+                bottomTrailing: 15,
+                color: Color(.secondarySystemGroupedBackground)
+            )
+        )
+        .clipShape(
+            SDRoundedCornersShape(
+                topLeading: 30,
+                topTrailing: 30,
+                bottomLeading: 15,
+                bottomTrailing: 15,
+                style: .continuous
+            )
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(.systemGroupedBackground))
     }
 }
 
-private extension NotebookDetailView {
+private extension NotebookDetailContentView {
     var accentColor: Color {
         notebook.tintColor
     }
@@ -100,31 +94,6 @@ private extension NotebookDetailView {
 
     var today: Date {
         Calendar.current.startOfDay(for: .now)
-    }
-
-    var controls: some View {
-        HStack {
-            Button(action: onBack) {
-                SDSheetActionButton(
-                    iconSystemName: "arrow.left",
-                    title: "返回",
-                    placement: .left,
-                    appearance: .plain
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button(action: onEdit) {
-                SDSheetActionButton(
-                    iconSystemName: "pencil",
-                    title: "编辑",
-                    placement: .right,
-                    backgroundColor: accentColor.opacity(0.2),
-                    titleForegroundColor: accentColor
-                )
-            }
-            .buttonStyle(.plain)
-        }
     }
 
     func normalizedDay(for date: Date) -> Date {
@@ -222,7 +191,7 @@ private struct NotebookDetailStatBadge: View {
         iconSystemName: "sportscourt"
     )
 
-    NotebookDetailView(notebook: notebook, onBack: {})
+    NotebookDetailContentView(notebook: notebook)
         .padding()
         .background(Color(.systemGroupedBackground))
 }

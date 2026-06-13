@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+struct NotebookSummaryCardFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
+    }
+}
+
 struct NotebookSummaryCard: View {
     let summary: NotebookSummary
     let isEditing: Bool
@@ -43,15 +51,9 @@ struct NotebookSummaryCard: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            SDRoundedBackground(
-                topLeading: 30,
-                topTrailing: 30,
-                bottomLeading: 30,
-                bottomTrailing: 10,
-                color: Color(.secondarySystemGroupedBackground)
-            )
-        )
+        .background {
+            baseCardBackground
+        }
         .clipShape(
             SDRoundedCornersShape(
                 topLeading: 30,
@@ -82,6 +84,24 @@ struct NotebookSummaryCard: View {
                 onTap()
             }
         }
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: NotebookSummaryCardFramePreferenceKey.self,
+                    value: [summary.id: proxy.frame(in: .global)]
+                )
+            }
+        }
+    }
+
+    var baseCardBackground: some View {
+        SDRoundedBackground(
+            topLeading: 30,
+            topTrailing: 30,
+            bottomLeading: 30,
+            bottomTrailing: 10,
+            color: Color(.secondarySystemGroupedBackground)
+        )
     }
 
     func suppressNextCardTap() {
