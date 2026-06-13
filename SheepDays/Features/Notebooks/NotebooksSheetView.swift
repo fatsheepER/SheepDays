@@ -28,6 +28,7 @@ struct NotebooksSheetView: View {
     @State private var notebookTransitionCardFrames: [UUID: CGRect] = [:]
     @State private var isNotebookStackPresented = false
     @State private var notebookStackShowsEventPreview = true
+    @State private var notebookBackgroundCardsOpacity = 1.0
     @State private var selectedNotebookCardDragOffset = 0.0
     @State private var selectedNotebookCardHeight: CGFloat?
     @State private var notebookEventsSurfaceOpacity = 0.0
@@ -254,6 +255,7 @@ private extension NotebooksSheetView {
                         visibleIndex: visibleIndex,
                         in: rootProxy
                     )
+                    let shadow = notebookStackShadow(for: summary)
 
                     NotebookSummaryCard(
                         summary: summary,
@@ -276,9 +278,9 @@ private extension NotebooksSheetView {
                         }
                     }
                     .shadow(
-                        color: .black.opacity(summary.id == selectedNotebookID ? 0.08 : 0.04),
-                        radius: summary.id == selectedNotebookID ? 18 : 10,
-                        y: summary.id == selectedNotebookID ? 10 : 4
+                        color: .black.opacity(shadow.opacity),
+                        radius: shadow.radius,
+                        y: shadow.y
                     )
                     .contentShape(
                         SDRoundedCornersShape(
@@ -290,6 +292,7 @@ private extension NotebooksSheetView {
                         )
                     )
                     .offset(x: frame.minX, y: frame.minY)
+                    .opacity(notebookStackOpacity(for: summary))
                     .zIndex(notebookStackZIndex(for: summary, visibleIndex: visibleIndex))
                     .accessibilityHidden(summary.id != selectedNotebookID)
                 }
@@ -353,25 +356,51 @@ private extension NotebooksSheetView {
             return targetFrame
         }
 
-        return CGRect(
-            x: sourceFrame.minX,
-            y: notebookBottomStackMinY(forVisibleIndex: visibleIndex, in: rootProxy),
-            width: sourceFrame.width,
-            height: sourceFrame.height
+        return notebookFrameBehindSelectedCard(
+            forVisibleIndex: visibleIndex,
+            fallbackFrame: sourceFrame,
+            in: rootProxy
         )
     }
 
-    func notebookBottomStackMinY(forVisibleIndex visibleIndex: Int, in rootProxy: GeometryProxy) -> CGFloat {
-        let bottomStackSpacing: CGFloat = 18
-        let bottomVisibleHeight: CGFloat = 86
-        let nonSelectedCount = transitionNotebookSummaries.filter { $0.id != selectedNotebook?.id }.count
+    func notebookFrameBehindSelectedCard(
+        forVisibleIndex visibleIndex: Int,
+        fallbackFrame: CGRect,
+        in rootProxy: GeometryProxy
+    ) -> CGRect {
+        var selectedTargetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+        let stackIndex = notebookBackgroundStackIndex(forVisibleIndex: visibleIndex)
+        selectedTargetFrame.origin.y += CGFloat(stackIndex + 1) * 8
+
+        return CGRect(
+            x: selectedTargetFrame.minX,
+            y: selectedTargetFrame.minY,
+            width: selectedTargetFrame.width,
+            height: fallbackFrame.height
+        )
+    }
+
+    func notebookBackgroundStackIndex(forVisibleIndex visibleIndex: Int) -> Int {
         let previousSummaries = transitionNotebookSummaries.prefix(visibleIndex)
         let selectedCorrection = previousSummaries.contains { $0.id == selectedNotebook?.id } ? 1 : 0
-        let nonSelectedIndex = visibleIndex - selectedCorrection
-        let stackHeight = CGFloat(max(0, nonSelectedCount - 1)) * bottomStackSpacing
-        let stackStart = rootProxy.size.height - bottomVisibleHeight - stackHeight
 
-        return stackStart + CGFloat(nonSelectedIndex) * bottomStackSpacing
+        return visibleIndex - selectedCorrection
+    }
+
+    func notebookStackOpacity(for summary: NotebookSummary) -> Double {
+        summary.id == selectedNotebook?.id ? 1 : notebookBackgroundCardsOpacity
+    }
+
+    func notebookStackShadow(for summary: NotebookSummary) -> (opacity: Double, radius: CGFloat, y: CGFloat) {
+        guard isNotebookStackPresented else {
+            return (0, 0, 0)
+        }
+
+        if summary.id == selectedNotebook?.id {
+            return (0.08, 18, 10)
+        }
+
+        return (0.04 * notebookBackgroundCardsOpacity, 10, 4)
     }
 
     func notebookStackZIndex(for summary: NotebookSummary, visibleIndex: Int) -> Double {
@@ -670,6 +699,7 @@ private extension NotebooksSheetView {
             notebookTransitionCardFrames = notebookCardFrames
             isNotebookStackPresented = false
             notebookStackShowsEventPreview = true
+            notebookBackgroundCardsOpacity = 1
             selectedNotebookCardDragOffset = 0
             selectedNotebookCardHeight = sourceFrame.height
             notebookEventsSurfaceOpacity = 0
@@ -690,6 +720,18 @@ private extension NotebooksSheetView {
             withAnimation(.easeOut(duration: 0.22).delay(0.08)) {
                 notebookEventsSurfaceOpacity = 1
             }
+
+            try? await Task.sleep(for: .milliseconds(180))
+
+            guard !Task.isCancelled,
+                  selectedNotebook?.id == notebook.id,
+                  isNotebookStackPresented else {
+                return
+            }
+
+            withAnimation(.easeOut(duration: 0.16)) {
+                notebookBackgroundCardsOpacity = 0
+            }
         }
     }
 
@@ -700,6 +742,10 @@ private extension NotebooksSheetView {
 
         haptics.play(.openDetailTap)
         notebookTransitionTask?.cancel()
+
+        withAnimation(.easeOut(duration: 0.12)) {
+            notebookBackgroundCardsOpacity = 1
+        }
 
         withAnimation(notebookWalletAnimation) {
             isNotebookStackPresented = false
@@ -736,6 +782,7 @@ private extension NotebooksSheetView {
         notebookTransitionCardFrames = [:]
         isNotebookStackPresented = false
         notebookStackShowsEventPreview = true
+        notebookBackgroundCardsOpacity = 1
         selectedNotebookCardDragOffset = 0
         selectedNotebookCardHeight = nil
         notebookEventsSurfaceOpacity = 0
