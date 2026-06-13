@@ -65,7 +65,10 @@ struct HomeDateView: View {
             )
             .padding(.vertical, 5)
             .clipShape(Capsule(style: .continuous))
-            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+            .glassEffect(
+                .regular.tint(.white.opacity(0.2)).interactive(),
+                in: Capsule(style: .continuous)
+            )
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -369,4 +372,7 @@ private extension Calendar {
         HomeDateView(referenceDate: Calendar.current.date(byAdding: .day, value: 4, to: .now) ?? .now)
     }
     .padding()
+    .background {
+        Color(.systemGroupedBackground)
+    }
 }

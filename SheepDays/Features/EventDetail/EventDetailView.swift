@@ -76,7 +76,7 @@ struct EventDetailView: View {
                     .padding(.vertical, 20)
                 }
                 .background(
-                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.systemBackground))
+                    SDRoundedBackground(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, cornerStyle: .continuous, color: Color(.secondarySystemGroupedBackground))
                 )
                 .clipShape(
                     SDRoundedCornersShape(topLeading: 30, topTrailing: 30, bottomLeading: 15, bottomTrailing: 15, style: .continuous)
@@ -380,12 +380,7 @@ private extension EventDetailView {
             .frame(width: checklistFloatingRowFrame(for: item).width)
             .background(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(.white)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .foregroundStyle(eventAccentColor.opacity(0.2))
-                    }
-                    
+                    .foregroundStyle(eventAccentColor.mix(with: Color(.systemBackground), by: 0.9))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)

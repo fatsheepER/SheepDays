@@ -78,6 +78,7 @@ private extension HomeDisplayItemView {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(item.isToday ? iconColor : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
