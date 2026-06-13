@@ -19,6 +19,7 @@ struct NotebookSummaryCard: View {
     let summary: NotebookSummary
     let isEditing: Bool
     var reportsFrame = true
+    var frameCoordinateSpace: CoordinateSpace = .global
     var showsEventPreview = true
     @Binding var isExpanded: Bool
     let onAccessoryTap: () -> Void
@@ -125,7 +126,7 @@ struct NotebookSummaryCard: View {
             GeometryReader { proxy in
                 Color.clear.preference(
                     key: NotebookSummaryCardFramePreferenceKey.self,
-                    value: [summary.id: proxy.frame(in: .global)]
+                    value: [summary.id: proxy.frame(in: frameCoordinateSpace)]
                 )
             }
         } else {

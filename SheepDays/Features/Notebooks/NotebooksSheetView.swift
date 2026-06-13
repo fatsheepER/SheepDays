@@ -16,6 +16,8 @@ private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
     }
 }
 
+private let notebookRootCoordinateSpaceName = "notebooks-sheet-root"
+
 struct NotebooksSheetView: View {
     @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
@@ -87,14 +89,8 @@ private extension NotebooksSheetView {
                         .opacity(notebookChromeOpacity)
 
                     content
-                        .opacity(notebookContentOpacity)
                         .allowsHitTesting(selectedNotebook == nil)
                         .accessibilityHidden(selectedNotebook != nil)
-
-                    controls
-                        .hidden()
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, 5)
@@ -110,15 +106,9 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
-                controls
-                    .padding(.horizontal, 5)
-                    .offset(y: notebookControlsOffset)
-                    .opacity(notebookChromeOpacity)
-                    .allowsHitTesting(selectedNotebook == nil)
-                    .accessibilityHidden(selectedNotebook != nil)
-                    .zIndex(3)
             }
             .frame(width: rootProxy.size.width, height: rootProxy.size.height)
+            .coordinateSpace(name: notebookRootCoordinateSpaceName)
             .onPreferenceChange(NotebookSummaryCardFramePreferenceKey.self) { frames in
                 notebookCardFrames = frames
             }
@@ -316,7 +306,7 @@ private extension NotebooksSheetView {
                     .zIndex(10_000)
                     .accessibilityAddTraits(.isButton)
             }
-            .frame(width: rootProxy.size.width, height: rootProxy.size.height)
+            .frame(width: rootProxy.size.width, height: rootProxy.size.height, alignment: .topLeading)
         }
     }
 
@@ -343,12 +333,11 @@ private extension NotebooksSheetView {
     }
 
     func notebookStackSourceFrame(for summary: NotebookSummary, in rootProxy: GeometryProxy) -> CGRect {
-        guard let globalFrame = notebookTransitionCardFrames[summary.id] else {
+        guard let frame = notebookTransitionCardFrames[summary.id] else {
             return .zero
         }
 
-        let rootGlobalFrame = rootProxy.frame(in: .global)
-        return localFrame(for: globalFrame, in: rootGlobalFrame)
+        return frame
     }
 
     func notebookStackTargetFrame(
@@ -395,12 +384,11 @@ private extension NotebooksSheetView {
 
     func selectedNotebookCardSourceFrame(in rootProxy: GeometryProxy) -> CGRect {
         guard let selectedNotebook,
-              let globalFrame = notebookTransitionCardFrames[selectedNotebook.id] else {
+              let frame = notebookTransitionCardFrames[selectedNotebook.id] else {
             return .zero
         }
 
-        let rootGlobalFrame = rootProxy.frame(in: .global)
-        return localFrame(for: globalFrame, in: rootGlobalFrame)
+        return frame
     }
 
     func selectedNotebookCardTargetFrame(in rootProxy: GeometryProxy) -> CGRect {
@@ -422,21 +410,14 @@ private extension NotebooksSheetView {
         return targetFrame.minY + selectedCardHeight + 15
     }
 
-    func localFrame(for globalFrame: CGRect, in rootGlobalFrame: CGRect) -> CGRect {
-        CGRect(
-            x: globalFrame.minX - rootGlobalFrame.minX,
-            y: globalFrame.minY - rootGlobalFrame.minY,
-            width: globalFrame.width,
-            height: globalFrame.height
-        )
-    }
-
     @ViewBuilder
     var content: some View {
-        if activeNotebookSummaries.isEmpty && !isEditing {
-            emptyState
-        } else {
-            ScrollView(.vertical, showsIndicators: false) {
+        ScrollView(.vertical, showsIndicators: false) {
+            if activeNotebookSummaries.isEmpty && !isEditing {
+                emptyState
+                    .frame(minHeight: 360)
+                    .opacity(notebookContentOpacity)
+            } else {
                 LazyVStack(spacing: 20) {
                     if activeNotebookSummaries.isEmpty {
                         emptyStateCard
@@ -445,6 +426,7 @@ private extension NotebooksSheetView {
                             NotebookSummaryCard(
                                 summary: summary,
                                 isEditing: isEditing,
+                                frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
                                 isExpanded: notebookExpansionBinding(for: summary),
                                 onAccessoryTap: {
                                     handleActiveNotebookAccessoryTap(for: summary.notebook)
@@ -470,6 +452,7 @@ private extension NotebooksSheetView {
                                 NotebookSummaryCard(
                                     summary: summary,
                                     isEditing: true,
+                                    frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
                                     isExpanded: notebookExpansionBinding(for: summary),
                                     onAccessoryTap: {
                                         handleArchivedNotebookAccessoryTap(for: summary.notebook)
@@ -482,7 +465,11 @@ private extension NotebooksSheetView {
                         }
                     }
                 }
+                .opacity(notebookContentOpacity)
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            controlsSafeAreaInset
         }
     }
 
@@ -566,12 +553,35 @@ private extension NotebooksSheetView {
                 )
             }
             .buttonStyle(.plain)
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
 
             Button(action: handleTrailingControlTap) {
                 trailingControlLabel
             }
             .buttonStyle(.plain)
+            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
         }
+    }
+
+    var controlsSafeAreaInset: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [
+                    Color(.systemGroupedBackground).opacity(0),
+                    Color(.systemGroupedBackground).opacity(0.88)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 24)
+            .allowsHitTesting(false)
+
+            controls
+        }
+        .offset(y: notebookControlsOffset)
+        .opacity(notebookChromeOpacity)
+        .allowsHitTesting(selectedNotebook == nil)
+        .accessibilityHidden(selectedNotebook != nil)
     }
 
     var trailingControlLabel: some View {
