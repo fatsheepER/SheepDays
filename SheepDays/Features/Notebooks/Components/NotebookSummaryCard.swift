@@ -19,6 +19,7 @@ struct NotebookSummaryCard: View {
     let summary: NotebookSummary
     let isEditing: Bool
     var reportsFrame = true
+    var showsEventPreview = true
     @Binding var isExpanded: Bool
     let onAccessoryTap: () -> Void
     let onTap: () -> Void
@@ -43,11 +44,19 @@ struct NotebookSummaryCard: View {
                 accentColor: accentColor
             )
 
-            NotebookSummaryEventPreviewSection(
-                summary: summary,
-                isExpanded: $isExpanded,
-                onToggleExpanded: suppressNextCardTap
-            )
+            if showsEventPreview {
+                NotebookSummaryEventPreviewSection(
+                    summary: summary,
+                    isExpanded: $isExpanded,
+                    onToggleExpanded: suppressNextCardTap
+                )
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity.combined(with: .move(edge: .top))
+                    )
+                )
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 15)
@@ -88,6 +97,7 @@ struct NotebookSummaryCard: View {
         .background {
             framePreferenceReporter
         }
+        .animation(.snappy(duration: 0.32, extraBounce: 0), value: showsEventPreview)
     }
 
     var baseCardBackground: some View {

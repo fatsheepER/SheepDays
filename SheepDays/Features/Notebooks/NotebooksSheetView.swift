@@ -8,6 +8,14 @@
 import SwiftUI
 import SwiftData
 
+private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat?
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct NotebooksSheetView: View {
     @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +25,9 @@ struct NotebooksSheetView: View {
     @State private var selectedNotebook: Notebook?
     @State private var selectedNotebookSourceFrame: CGRect?
     @State private var isNotebookCardPresented = false
+    @State private var selectedNotebookCardShowsEventPreview = true
+    @State private var selectedNotebookCardDragOffset = 0.0
+    @State private var selectedNotebookCardHeight: CGFloat?
     @State private var sheetContentOpacity = 1.0
     @State private var notebookEventsSurfaceOpacity = 0.0
     @State private var notebookCardFrames: [UUID: CGRect] = [:]
@@ -107,6 +118,9 @@ private extension NotebooksSheetView {
             .onPreferenceChange(NotebookSummaryCardFramePreferenceKey.self) { frames in
                 notebookCardFrames = frames
             }
+            .onPreferenceChange(SelectedNotebookCardHeightPreferenceKey.self) { height in
+                selectedNotebookCardHeight = height
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -144,6 +158,10 @@ private extension NotebooksSheetView {
 
     var notebookWalletAnimation: Animation {
         .snappy(duration: 0.42, extraBounce: 0.01)
+    }
+
+    var notebookCardDismissDragDistance: CGFloat {
+        115
     }
 
     var selectedNotebookSummary: NotebookSummary? {
@@ -220,31 +238,55 @@ private extension NotebooksSheetView {
            selectedNotebookSourceFrame != nil {
             let frame = selectedNotebookCardFrame(in: rootProxy)
 
-            NotebookSummaryCard(
-                summary: selectedNotebookSummary,
-                isEditing: false,
-                reportsFrame: false,
-                isExpanded: notebookExpansionBinding(for: selectedNotebookSummary),
-                onAccessoryTap: closeNotebookCard,
-                onTap: closeNotebookCard
-            )
-            .frame(width: frame.width, height: frame.height, alignment: .top)
-            .position(x: frame.midX, y: frame.midY)
-            .shadow(color: .black.opacity(0.08), radius: 18, y: 10)
-            .accessibilityAddTraits(.isButton)
+            Color.clear
+                .overlay(alignment: .topLeading) {
+                    NotebookSummaryCard(
+                        summary: selectedNotebookSummary,
+                        isEditing: false,
+                        reportsFrame: false,
+                        showsEventPreview: selectedNotebookCardShowsEventPreview,
+                        isExpanded: notebookExpansionBinding(for: selectedNotebookSummary),
+                        onAccessoryTap: {},
+                        onTap: {}
+                    )
+                    .frame(width: frame.width, alignment: .top)
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: SelectedNotebookCardHeightPreferenceKey.self,
+                                value: proxy.size.height
+                            )
+                        }
+                    }
+                    .shadow(color: .black.opacity(0.08), radius: 18, y: 10)
+                    .contentShape(
+                        SDRoundedCornersShape(
+                            topLeading: 30,
+                            topTrailing: 30,
+                            bottomLeading: 30,
+                            bottomTrailing: 10,
+                            style: .continuous
+                        )
+                    )
+                    .gesture(selectedNotebookCardDragGesture)
+                    .offset(
+                        x: frame.minX,
+                        y: frame.minY + selectedNotebookCardDragOffset
+                    )
+                    .accessibilityAddTraits(.isButton)
+                }
         }
     }
 
     @ViewBuilder
     func notebookEventsPreviewSurface(in rootProxy: GeometryProxy) -> some View {
         if selectedNotebookSourceFrame != nil {
-            let targetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
-
             NotebookEventsPreviewSurface(
-                topInset: targetFrame.maxY + 15,
-                horizontalInset: targetFrame.minX,
+                topInset: selectedNotebookEventsSurfaceTopInset(in: rootProxy),
+                horizontalInset: selectedNotebookCardTargetFrame(in: rootProxy).minX,
                 opacity: notebookEventsSurfaceOpacity
             )
+            .animation(notebookWalletAnimation, value: selectedNotebookCardHeight)
         }
     }
 
@@ -275,6 +317,13 @@ private extension NotebooksSheetView {
             width: sourceFrame.width,
             height: sourceFrame.height
         )
+    }
+
+    func selectedNotebookEventsSurfaceTopInset(in rootProxy: GeometryProxy) -> CGFloat {
+        let targetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+        let selectedCardHeight = selectedNotebookCardHeight ?? targetFrame.height
+
+        return targetFrame.minY + selectedCardHeight + 15
     }
 
     func localFrame(for globalFrame: CGRect, in rootGlobalFrame: CGRect) -> CGRect {
@@ -462,6 +511,52 @@ private extension NotebooksSheetView {
         )
     }
 
+    var selectedNotebookCardDragGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard selectedNotebook != nil,
+                      isNotebookCardPresented else {
+                    return
+                }
+
+                selectedNotebookCardDragOffset = rubberBandedNotebookCardDragOffset(
+                    for: value.translation.height
+                )
+            }
+            .onEnded { value in
+                guard selectedNotebook != nil,
+                      isNotebookCardPresented else {
+                    return
+                }
+
+                if shouldDismissNotebookCard(for: value) {
+                    closeNotebookCard()
+                    return
+                }
+
+                withAnimation(notebookWalletAnimation) {
+                    selectedNotebookCardDragOffset = 0
+                }
+            }
+    }
+
+    func rubberBandedNotebookCardDragOffset(for translation: CGFloat) -> CGFloat {
+        if translation < 0 {
+            return max(translation * 0.28, -45)
+        }
+
+        return min(translation, 260)
+    }
+
+    func shouldDismissNotebookCard(for value: DragGesture.Value) -> Bool {
+        let downwardDistance = max(
+            value.translation.height,
+            value.predictedEndTranslation.height
+        )
+
+        return downwardDistance >= notebookCardDismissDragDistance
+    }
+
     func openNotebookCard(_ notebook: Notebook) {
         guard let sourceFrame = notebookCardFrames[notebook.id] else {
             return
@@ -477,6 +572,9 @@ private extension NotebooksSheetView {
             selectedNotebook = notebook
             selectedNotebookSourceFrame = sourceFrame
             isNotebookCardPresented = false
+            selectedNotebookCardShowsEventPreview = true
+            selectedNotebookCardDragOffset = 0
+            selectedNotebookCardHeight = sourceFrame.height
             sheetContentOpacity = 1
             notebookEventsSurfaceOpacity = 0
         }
@@ -490,6 +588,7 @@ private extension NotebooksSheetView {
 
             withAnimation(notebookWalletAnimation) {
                 isNotebookCardPresented = true
+                selectedNotebookCardShowsEventPreview = false
             }
 
             withAnimation(.easeOut(duration: 0.16)) {
@@ -512,6 +611,8 @@ private extension NotebooksSheetView {
 
         withAnimation(notebookWalletAnimation) {
             isNotebookCardPresented = false
+            selectedNotebookCardShowsEventPreview = true
+            selectedNotebookCardDragOffset = 0
         }
 
         withAnimation(.easeOut(duration: 0.12)) {
@@ -533,6 +634,7 @@ private extension NotebooksSheetView {
             withTransaction(transaction) {
                 self.selectedNotebook = nil
                 selectedNotebookSourceFrame = nil
+                selectedNotebookCardHeight = nil
             }
 
             withAnimation(.easeOut(duration: 0.18)) {
@@ -545,6 +647,9 @@ private extension NotebooksSheetView {
         selectedNotebook = nil
         selectedNotebookSourceFrame = nil
         isNotebookCardPresented = false
+        selectedNotebookCardShowsEventPreview = true
+        selectedNotebookCardDragOffset = 0
+        selectedNotebookCardHeight = nil
         sheetContentOpacity = 1
         notebookEventsSurfaceOpacity = 0
     }
