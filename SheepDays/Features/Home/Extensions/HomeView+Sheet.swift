@@ -2,7 +2,7 @@
 //  HomeView+Sheet.swift
 //  SheepDays
 //
-//  Created by Codex on 2026/6/12.
+//  Created by 王飞扬 on 2026/6/12.
 //
 
 import SwiftUI
@@ -39,12 +39,17 @@ extension HomeView {
     }
 
     var sheetContainerBackgroundColor: Color {
-        sheetRoute == .eventDetail ? Color(.systemGroupedBackground) : Color.clear
+        switch sheetRoute {
+        case .eventDetail, .notebooks, .notebookDetail:
+            return Color(.systemGroupedBackground)
+        default:
+            return Color.clear
+        }
     }
 
     var sheetBackgroundInteraction: PresentationBackgroundInteraction {
         switch sheetRoute {
-        case .focus, .quickAdd, .notebooks:
+        case .focus, .quickAdd, .notebooks, .notebookDetail:
             return .disabled
         default:
             return .enabled
@@ -120,6 +125,26 @@ extension HomeView {
             )
             .transition(.blurReplace)
 
+        case .notebookDetail:
+            if let selectedNotebook {
+                NotebookDetailView(
+                    notebook: selectedNotebook,
+                    onBack: {
+                        showNotebooks()
+                    },
+                    onEdit: {
+                        showNotebookEditor(for: selectedNotebook)
+                    }
+                )
+                .transition(.blurReplace)
+            } else {
+                SheetPlaceholderPage(
+                    title: "事件本",
+                    onBack: { showNotebooks() }
+                )
+                .transition(.opacity)
+            }
+
         case .notebookEditor:
             if let notebookEditorOption {
                 NotebookEditorView(
@@ -173,7 +198,9 @@ extension HomeView {
         case .settings:
             return .height(190)
         case .notebooks:
-            return .fraction(0.9)
+            return .large
+        case .notebookDetail:
+            return .large
         case .notebookEditor:
             return .height(190)
         case .quickAdd:

@@ -28,16 +28,9 @@ struct NotebooksSheetView: View {
     var onEditNotebook: (Notebook) -> Void = { _ in }
     var onOpenNotebook: (Notebook) -> Void = { _ in }
 
-    private let previewEventLimit = 3
-
     var body: some View {
-        VStack(spacing: 5) {
-            header
-
-            content
-
-            controls
-        }
+        rootContent
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .confirmationDialog(
             selectedArchivedNotebookForAction?.name ?? "管理已归档事件本",
@@ -63,6 +56,19 @@ struct NotebooksSheetView: View {
 
 // MARK: - View State
 private extension NotebooksSheetView {
+    var rootContent: some View {
+        VStack(spacing: 10) {
+            header
+
+            content
+
+            controls
+        }
+        .padding(.horizontal, 5)
+        .padding(.top, 5)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var activeNotebookSummaries: [NotebookSummary] {
         notebooks
             .filter { !$0.isArchived }
@@ -103,36 +109,49 @@ private extension NotebooksSheetView {
     }
 
     func makeSummary(for notebook: Notebook) -> NotebookSummary {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: today) ?? today
         let activeEvents = notebook.events
-            .filter { !$0.isArchived }
+            .filter { event in
+                !event.isArchived && event.notebook?.id == notebook.id
+            }
             .sorted { lhs, rhs in
                 notebookEventSort(lhs: lhs, rhs: rhs)
             }
-        let previewEvents = Array(activeEvents.prefix(previewEventLimit))
+        let eventDays = Set(activeEvents.map { calendar.startOfDay(for: $0.targetDate) })
+        let futureEventCount = activeEvents.filter {
+            calendar.startOfDay(for: $0.targetDate) > today
+        }
+        .count
+        let pastEventCount = activeEvents.filter {
+            calendar.startOfDay(for: $0.targetDate) < today
+        }
+        .count
+        let upcomingEvents = activeEvents.filter {
+            calendar.startOfDay(for: $0.targetDate) >= today
+        }
+        let weekEvents = upcomingEvents.filter {
+            let eventDay = calendar.startOfDay(for: $0.targetDate)
+            return eventDay <= weekEnd
+        }
 
         return NotebookSummary(
             notebook: notebook,
-            activeEventCount: activeEvents.count,
-            previewEvents: previewEvents,
-            remainingEventCount: max(0, activeEvents.count - previewEvents.count)
+            events: activeEvents,
+            futureEventCount: futureEventCount,
+            pastEventCount: pastEventCount,
+            weekEvents: weekEvents,
+            nextEvent: upcomingEvents.first,
+            eventDays: eventDays,
+            today: today
         )
     }
 
     func notebookEventSort(lhs: Event, rhs: Event) -> Bool {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
         let lhsDay = calendar.startOfDay(for: lhs.targetDate)
         let rhsDay = calendar.startOfDay(for: rhs.targetDate)
-
-        let lhsOffset = calendar.dateComponents([.day], from: today, to: lhsDay).day ?? 0
-        let rhsOffset = calendar.dateComponents([.day], from: today, to: rhsDay).day ?? 0
-
-        let lhsDistance = abs(lhsOffset)
-        let rhsDistance = abs(rhsOffset)
-
-        if lhsDistance != rhsDistance {
-            return lhsDistance < rhsDistance
-        }
 
         if lhsDay != rhsDay {
             return lhsDay < rhsDay
@@ -140,6 +159,7 @@ private extension NotebooksSheetView {
 
         return lhs.createdAt < rhs.createdAt
     }
+
 }
 
 // MARK: - Subviews
@@ -150,9 +170,7 @@ private extension NotebooksSheetView {
             emptyState
         } else {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 15) {
-                    Color.clear.frame(height: 10)
-                    
+                LazyVStack(spacing: 20) {
                     if activeNotebookSummaries.isEmpty {
                         emptyStateCard
                     } else {
@@ -168,7 +186,7 @@ private extension NotebooksSheetView {
                                         return
                                     }
 
-                                    onOpenNotebook(summary.notebook)
+                                    openNotebookDetail(summary.notebook)
                                 }
                             )
                             .id(activeNotebookCardID(for: summary))
@@ -200,49 +218,22 @@ private extension NotebooksSheetView {
     }
 
     var header: some View {
-        HStack {
+        HStack(spacing: 10) {
             SDSheetTitleView(iconSystemName: "list.bullet", title: "事件本")
+                .frame(maxWidth: .infinity, alignment: .leading)
             
-            // badge
             Text("\(activeNotebookSummaries.count)")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .contentTransition(.numericText())
                 .foregroundStyle(Color(.secondaryLabel))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .fill(.quinary)
+                        .fill(Color(.quaternarySystemFill))
                 )
-            
-            Spacer()
-            
-            Button {
-                withAnimation(.spring(duration: 0.2)) {
-                    isEditing.toggle()
-                    if !isEditing {
-                        isShowingArchivedNotebooks = false
-                    }
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: isEditing ? "checkmark" : "pencil")
-                        .contentTransition(.symbolEffect)
-                    
-                    Text(isEditing ? "完成" : "编辑")
-                        .contentTransition(.numericText())
-                }
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color(.secondaryLabel))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(.quinary)
-                )
-            }
-            .buttonStyle(.plain)
         }
+        .frame(height: 30)
     }
 
     var emptyStateCard: some View {
@@ -310,14 +301,17 @@ private extension NotebooksSheetView {
             Button(action: onCreateNotebook) {
                 SDSheetActionButton(
                     iconSystemName: "plus",
-                    title: "新建",
+                    title: "新建事件本",
                     placement: .right,
                     appearance: .prominent
                 )
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, 5)
+    }
+
+    func openNotebookDetail(_ notebook: Notebook) {
+        onOpenNotebook(notebook)
     }
 
     func handleActiveNotebookAccessoryTap(for notebook: Notebook) {

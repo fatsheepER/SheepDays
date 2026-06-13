@@ -13,6 +13,7 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = false
             selectedEvent = nil
+            selectedNotebook = nil
             notebookEditorOption = nil
             sheetRoute = .home
         }
@@ -21,6 +22,7 @@ extension HomeView {
     func showFocus() {
         haptics.play(.openDetailTap)
         selectedEvent = nil
+        selectedNotebook = nil
         notebookEditorOption = nil
         sheetRoute = .focus
     }
@@ -30,6 +32,7 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = true
             selectedEvent = nil
+            selectedNotebook = nil
             notebookEditorOption = nil
             sheetRoute = .quickAdd
         }
@@ -39,6 +42,7 @@ extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation {
             selectedEvent = nil
+            selectedNotebook = nil
             notebookEditorOption = nil
             sheetRoute = .notebooks
         }
@@ -46,6 +50,7 @@ extension HomeView {
 
     func showSettings() {
         selectedEvent = nil
+        selectedNotebook = nil
         notebookEditorOption = nil
         sheetRoute = .settings
     }
@@ -55,6 +60,7 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = .create
             selectedEvent = nil
+            selectedNotebook = nil
             sheetRoute = .notebookEditor
         }
     }
@@ -64,12 +70,18 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = .edit(notebook)
             selectedEvent = nil
+            selectedNotebook = nil
             sheetRoute = .notebookEditor
         }
     }
 
     func showNotebookDetail(for notebook: Notebook) {
-        _ = notebook
-        // Notebook detail feature will be wired here later.
+        haptics.play(.openDetailTap)
+        withAnimation(.spring(duration: 0.2)) {
+            selectedNotebook = notebook
+            selectedEvent = nil
+            notebookEditorOption = nil
+            sheetRoute = .notebookDetail
+        }
     }
 }

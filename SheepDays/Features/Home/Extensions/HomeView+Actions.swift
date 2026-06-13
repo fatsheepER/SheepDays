@@ -53,6 +53,7 @@ extension HomeView {
             descriptor.fetchLimit = 1
             if let event = try modelContext.fetch(descriptor).first {
                 selectedEvent = event
+                selectedNotebook = nil
                 notebookEditorOption = nil
                 sheetRoute = .eventDetail
             }
@@ -243,6 +244,7 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             sheetRoute = .home
             selectedEvent = nil
+            selectedNotebook = nil
             notebookEditorOption = nil
         }
         refreshHomeContent()
@@ -256,6 +258,7 @@ extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = nil
+            selectedNotebook = nil
             sheetRoute = .notebooks
         }
         refreshHomeContent()
