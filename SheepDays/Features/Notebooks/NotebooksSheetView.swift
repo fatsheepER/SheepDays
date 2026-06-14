@@ -92,10 +92,13 @@ private extension NotebooksSheetView {
                     .zIndex(0)
 
                 bottomGradientMask
-                    .opacity(notebookChromeOpacity)
+                    .opacity(notebookChromeBackdropOpacity)
+                    .transaction { transaction in
+                        transaction.animation = nil
+                    }
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-                    .zIndex(1)
+                    .zIndex(3)
 
                 if selectedNotebook != nil {
                     notebookEventsPreviewSurface(in: rootProxy)
@@ -106,6 +109,15 @@ private extension NotebooksSheetView {
                     notebookCardStack(in: rootProxy)
                         .zIndex(2)
                 }
+
+                headerBackgroundMask
+                    .opacity(notebookChromeBackdropOpacity)
+                    .transaction { transaction in
+                        transaction.animation = nil
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .zIndex(3)
 
                 headerLayer
                     .zIndex(4)
@@ -173,6 +185,10 @@ private extension NotebooksSheetView {
     }
 
     var notebookChromeOpacity: Double {
+        isNotebookStackPresented ? 0 : 1
+    }
+
+    var notebookChromeBackdropOpacity: Double {
         isNotebookStackPresented ? 0 : 1
     }
 
@@ -652,6 +668,27 @@ private extension NotebooksSheetView {
         .frame(height: 125)
         .frame(maxWidth: .infinity, alignment: .bottom)
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    var headerBackgroundMask: some View {
+        VStack(spacing: 0) {
+            Color(.systemGroupedBackground)
+                .frame(height: 48)
+
+            LinearGradient(
+                colors: [
+                    Color(.systemGroupedBackground),
+                    Color(.systemGroupedBackground).opacity(0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 18)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .ignoresSafeArea(edges: .top)
     }
 
     var trailingControlLabel: some View {
