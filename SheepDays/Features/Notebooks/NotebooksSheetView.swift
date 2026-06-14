@@ -84,18 +84,18 @@ private extension NotebooksSheetView {
     var rootContent: some View {
         GeometryReader { rootProxy in
             ZStack(alignment: .bottom) {
-                VStack(spacing: 10) {
-                    header
-                        .offset(y: notebookHeaderOffset)
-                        .opacity(notebookChromeOpacity)
+                content
+                    .padding(.horizontal, 5)
+                    .padding(.top, 45)
+                    .allowsHitTesting(selectedNotebook == nil)
+                    .accessibilityHidden(selectedNotebook != nil)
+                    .zIndex(0)
 
-                    content
-                        .allowsHitTesting(selectedNotebook == nil)
-                        .accessibilityHidden(selectedNotebook != nil)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 5)
-                .padding(.top, 5)
+                bottomGradientMask
+                    .opacity(notebookChromeOpacity)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .zIndex(1)
 
                 if selectedNotebook != nil {
                     notebookEventsPreviewSurface(in: rootProxy)
@@ -107,6 +107,11 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
+                headerLayer
+                    .zIndex(4)
+
+                controlsLayer
+                    .zIndex(4)
             }
             .frame(width: rootProxy.size.width, height: rootProxy.size.height)
             .coordinateSpace(name: notebookRootCoordinateSpaceName)
@@ -445,6 +450,7 @@ private extension NotebooksSheetView {
             if activeNotebookSummaries.isEmpty && !isEditing {
                 emptyState
                     .frame(minHeight: 360)
+                    .padding(.bottom, 75)
                     .opacity(notebookContentOpacity)
             } else {
                 LazyVStack(spacing: 20) {
@@ -494,11 +500,9 @@ private extension NotebooksSheetView {
                         }
                     }
                 }
+                .padding(.bottom, 75)
                 .opacity(notebookContentOpacity)
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            controlsSafeAreaInset
         }
     }
 
@@ -519,6 +523,21 @@ private extension NotebooksSheetView {
                 )
         }
         .frame(height: 30)
+    }
+
+    var headerLayer: some View {
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 5)
+                .padding(.top, 5)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .offset(y: notebookHeaderOffset)
+        .opacity(notebookChromeOpacity)
+        .allowsHitTesting(selectedNotebook == nil)
+        .accessibilityHidden(selectedNotebook != nil)
     }
 
     var emptyStateCard: some View {
@@ -582,35 +601,57 @@ private extension NotebooksSheetView {
                 )
             }
             .buttonStyle(.plain)
-            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+            .background {
+                controlButtonBackdrop(for: .left)
+            }
 
             Button(action: handleTrailingControlTap) {
                 trailingControlLabel
             }
             .buttonStyle(.plain)
-            .shadow(color: .black.opacity(0.08), radius: 14, y: 6)
+            .background {
+                controlButtonBackdrop(for: .right)
+            }
         }
     }
 
-    var controlsSafeAreaInset: some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                colors: [
-                    Color(.systemGroupedBackground).opacity(0),
-                    Color(.systemGroupedBackground).opacity(0.88)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 24)
-            .allowsHitTesting(false)
+    func controlButtonBackdrop(for placement: SDSheetActionButtonPlacement) -> some View {
+        controlButtonShape(for: placement)
+            .fill(Color(.systemGroupedBackground))
+    }
 
-            controls
-        }
-        .offset(y: notebookControlsOffset)
-        .opacity(notebookChromeOpacity)
-        .allowsHitTesting(selectedNotebook == nil)
-        .accessibilityHidden(selectedNotebook != nil)
+    func controlButtonShape(for placement: SDSheetActionButtonPlacement) -> SDRoundedCornersShape {
+        SDRoundedCornersShape(
+            topLeading: 10,
+            topTrailing: 10,
+            bottomLeading: placement == .left ? 35 : 10,
+            bottomTrailing: placement == .right ? 35 : 10,
+            style: .continuous
+        )
+    }
+
+    var controlsLayer: some View {
+        controls
+            .padding(.horizontal, 5)
+            .offset(y: notebookControlsOffset)
+            .opacity(notebookChromeOpacity)
+            .allowsHitTesting(selectedNotebook == nil)
+            .accessibilityHidden(selectedNotebook != nil)
+    }
+
+    var bottomGradientMask: some View {
+        LinearGradient(
+            colors: [
+                Color(.systemGroupedBackground).opacity(0),
+                Color(.systemGroupedBackground).opacity(0.9),
+                Color(.systemGroupedBackground)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 125)
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .ignoresSafeArea(edges: .bottom)
     }
 
     var trailingControlLabel: some View {
