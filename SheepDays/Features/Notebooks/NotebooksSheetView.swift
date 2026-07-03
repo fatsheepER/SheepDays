@@ -24,6 +24,16 @@ private let notebookHeaderMaskGradientHeight: CGFloat = 18
 private let notebookBottomMaskHeight: CGFloat = 125
 private let notebookScrollChromeClearance: CGFloat = 10
 
+private enum NotebookCardTransitionPhase: Equatable {
+    case idle
+    case openingPrepared
+    case opening
+    case presented
+    case closingPrepared
+    case closing
+    case settling
+}
+
 struct NotebooksSheetView: View {
     @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
@@ -32,12 +42,9 @@ struct NotebooksSheetView: View {
     @State private var isShowingArchivedNotebooks = false
     @State private var selectedNotebook: Notebook?
     @State private var notebookTransitionCardFrames: [UUID: CGRect] = [:]
-    @State private var isNotebookStackPresented = false
-    @State private var notebookStackShowsEventPreview = true
-    @State private var notebookBackgroundCardsOpacity = 1.0
+    @State private var notebookTransitionPhase: NotebookCardTransitionPhase = .idle
     @State private var selectedNotebookCardDragOffset = 0.0
     @State private var selectedNotebookCardHeight: CGFloat?
-    @State private var notebookEventsSurfaceOpacity = 0.0
     @State private var notebookCardFrames: [UUID: CGRect] = [:]
     @State private var expandedNotebookIDs: Set<UUID> = []
     @State private var notebookTransitionTask: Task<Void, Never>?
@@ -93,20 +100,11 @@ private extension NotebooksSheetView {
                 content
                     .padding(.horizontal, 5)
                     .padding(.top, notebookContentTopPadding)
-                    .allowsHitTesting(selectedNotebook == nil)
-                    .accessibilityHidden(selectedNotebook != nil)
+                    .allowsHitTesting(notebookListAllowsHitTesting)
+                    .accessibilityHidden(!notebookListAllowsHitTesting)
                     .zIndex(0)
 
-                bottomGradientMask
-                    .opacity(notebookChromeBackdropOpacity)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                    }
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                    .zIndex(3)
-
-                if selectedNotebook != nil {
+                if notebookShowsTransitionLayers {
                     notebookEventsPreviewSurface(in: rootProxy)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -116,11 +114,7 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
-                headerBackgroundMask
-                    .opacity(notebookChromeBackdropOpacity)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                    }
+                notebookChromeOcclusionLayer
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .zIndex(3)
@@ -182,24 +176,87 @@ private extension NotebooksSheetView {
         115
     }
 
+    var notebookShowsTransitionLayers: Bool {
+        selectedNotebook != nil && notebookTransitionPhase != .idle
+    }
+
+    var notebookListAllowsHitTesting: Bool {
+        notebookTransitionPhase == .idle
+    }
+
+    var notebookTransitionUsesTargetFrames: Bool {
+        switch notebookTransitionPhase {
+        case .opening, .presented, .closingPrepared:
+            return true
+        case .idle, .openingPrepared, .closing, .settling:
+            return false
+        }
+    }
+
+    var notebookTransitionCardsShowEventPreview: Bool {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closing, .settling:
+            return true
+        case .opening, .presented, .closingPrepared:
+            return false
+        }
+    }
+
+    var selectedNotebookSourceCardIsHidden: Bool {
+        selectedNotebook != nil && notebookTransitionPhase != .idle
+    }
+
     var notebookHeaderOffset: CGFloat {
-        isNotebookStackPresented ? -58 : 0
+        notebookChromeOpacity == 0 ? -58 : 0
     }
 
     var notebookControlsOffset: CGFloat {
-        isNotebookStackPresented ? 85 : 0
+        notebookChromeOpacity == 0 ? 85 : 0
     }
 
     var notebookChromeOpacity: Double {
-        isNotebookStackPresented ? 0 : 1
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented, .closingPrepared:
+            return 0
+        }
     }
 
-    var notebookChromeBackdropOpacity: Double {
-        isNotebookStackPresented ? 0 : 1
+    var notebookChromeOcclusionOpacity: Double {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented:
+            return 0
+        }
     }
 
-    var notebookContentOpacity: Double {
-        selectedNotebook == nil ? 1 : 0
+    var notebookListOpacity: Double {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented:
+            return 0
+        }
+    }
+
+    var notebookDetailBackdropOpacity: Double {
+        switch notebookTransitionPhase {
+        case .opening, .presented, .closingPrepared:
+            return 1
+        case .idle, .openingPrepared, .closing, .settling:
+            return 0
+        }
+    }
+
+    var notebookBackgroundCardsOpacity: Double {
+        switch notebookTransitionPhase {
+        case .openingPrepared, .opening:
+            return 1
+        case .idle, .presented, .closingPrepared, .closing, .settling:
+            return 0
+        }
     }
 
     var notebookScrollTopSafeInset: CGFloat {
@@ -307,7 +364,7 @@ private extension NotebooksSheetView {
                         summary: summary,
                         isEditing: false,
                         reportsFrame: false,
-                        showsEventPreview: notebookStackShowsEventPreview,
+                        showsEventPreview: notebookTransitionCardsShowEventPreview,
                         isExpanded: notebookExpansionBinding(for: summary),
                         onAccessoryTap: {},
                         onTap: {}
@@ -365,7 +422,7 @@ private extension NotebooksSheetView {
             NotebookEventsPreviewSurface(
                 topInset: selectedNotebookEventsSurfaceTopInset(in: rootProxy),
                 horizontalInset: selectedNotebookCardTargetFrame(in: rootProxy).minX,
-                opacity: notebookEventsSurfaceOpacity
+                opacity: notebookDetailBackdropOpacity
             )
             .animation(notebookWalletAnimation, value: selectedNotebookCardHeight)
         }
@@ -376,7 +433,7 @@ private extension NotebooksSheetView {
         visibleIndex: Int,
         in rootProxy: GeometryProxy
     ) -> CGRect {
-        isNotebookStackPresented
+        notebookTransitionUsesTargetFrames
             ? notebookStackTargetFrame(for: summary, visibleIndex: visibleIndex, in: rootProxy)
             : notebookStackSourceFrame(for: summary, in: rootProxy)
     }
@@ -438,7 +495,7 @@ private extension NotebooksSheetView {
     }
 
     func notebookStackShadow(for summary: NotebookSummary) -> (opacity: Double, radius: CGFloat, y: CGFloat) {
-        guard isNotebookStackPresented else {
+        guard notebookTransitionUsesTargetFrames else {
             return (0, 0, 0)
         }
 
@@ -492,7 +549,7 @@ private extension NotebooksSheetView {
                 emptyState
                     .frame(minHeight: 360)
                     .padding(.bottom, notebookContentBottomPadding)
-                    .opacity(notebookContentOpacity)
+                    .opacity(notebookListOpacity)
             } else {
                 LazyVStack(spacing: 20) {
                     if activeNotebookSummaries.isEmpty {
@@ -516,6 +573,7 @@ private extension NotebooksSheetView {
                                 }
                             )
                             .id(activeNotebookCardID(for: summary))
+                            .opacity(notebookSourceCardOpacity(for: summary))
                         }
                         .transition(.move(edge: .trailing))
                     }
@@ -542,7 +600,7 @@ private extension NotebooksSheetView {
                     }
                 }
                 .padding(.bottom, notebookContentBottomPadding)
-                .opacity(notebookContentOpacity)
+                .opacity(notebookListOpacity)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -587,8 +645,8 @@ private extension NotebooksSheetView {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .offset(y: notebookHeaderOffset)
         .opacity(notebookChromeOpacity)
-        .allowsHitTesting(selectedNotebook == nil)
-        .accessibilityHidden(selectedNotebook != nil)
+        .allowsHitTesting(notebookListAllowsHitTesting)
+        .accessibilityHidden(!notebookListAllowsHitTesting)
     }
 
     var emptyStateCard: some View {
@@ -686,8 +744,17 @@ private extension NotebooksSheetView {
             .padding(.horizontal, 5)
             .offset(y: notebookControlsOffset)
             .opacity(notebookChromeOpacity)
-            .allowsHitTesting(selectedNotebook == nil)
-            .accessibilityHidden(selectedNotebook != nil)
+            .allowsHitTesting(notebookListAllowsHitTesting)
+            .accessibilityHidden(!notebookListAllowsHitTesting)
+    }
+
+    var notebookChromeOcclusionLayer: some View {
+        ZStack(alignment: .bottom) {
+            bottomGradientMask
+
+            headerBackgroundMask
+        }
+        .opacity(notebookChromeOcclusionOpacity)
     }
 
     var bottomGradientMask: some View {
@@ -735,6 +802,15 @@ private extension NotebooksSheetView {
         )
     }
 
+    func notebookSourceCardOpacity(for summary: NotebookSummary) -> Double {
+        guard selectedNotebookSourceCardIsHidden,
+              summary.id == selectedNotebook?.id else {
+            return 1
+        }
+
+        return 0
+    }
+
     func notebookExpansionBinding(for summary: NotebookSummary) -> Binding<Bool> {
         Binding(
             get: {
@@ -754,7 +830,7 @@ private extension NotebooksSheetView {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 guard selectedNotebook != nil,
-                      isNotebookStackPresented else {
+                      notebookTransitionPhase == .presented else {
                     return
                 }
 
@@ -764,7 +840,7 @@ private extension NotebooksSheetView {
             }
             .onEnded { value in
                 guard selectedNotebook != nil,
-                      isNotebookStackPresented else {
+                      notebookTransitionPhase == .presented else {
                     return
                 }
 
@@ -810,40 +886,33 @@ private extension NotebooksSheetView {
         withTransaction(transaction) {
             selectedNotebook = notebook
             notebookTransitionCardFrames = notebookCardFrames
-            isNotebookStackPresented = false
-            notebookStackShowsEventPreview = true
-            notebookBackgroundCardsOpacity = 1
+            notebookTransitionPhase = .openingPrepared
             selectedNotebookCardDragOffset = 0
             selectedNotebookCardHeight = sourceFrame.height
-            notebookEventsSurfaceOpacity = 0
         }
 
         notebookTransitionTask = Task { @MainActor in
             await Task.yield()
 
-            guard selectedNotebook?.id == notebook.id else {
+            guard selectedNotebook?.id == notebook.id,
+                  notebookTransitionPhase == .openingPrepared else {
                 return
             }
 
             withAnimation(notebookWalletAnimation) {
-                isNotebookStackPresented = true
-                notebookStackShowsEventPreview = false
-            }
-
-            withAnimation(.easeOut(duration: 0.22).delay(0.08)) {
-                notebookEventsSurfaceOpacity = 1
+                notebookTransitionPhase = .opening
             }
 
             try? await Task.sleep(for: .milliseconds(180))
 
             guard !Task.isCancelled,
                   selectedNotebook?.id == notebook.id,
-                  isNotebookStackPresented else {
+                  notebookTransitionPhase == .opening else {
                 return
             }
 
             withAnimation(.easeOut(duration: 0.16)) {
-                notebookBackgroundCardsOpacity = 0
+                notebookTransitionPhase = .presented
             }
         }
     }
@@ -856,18 +925,16 @@ private extension NotebooksSheetView {
         haptics.play(.openDetailTap)
         notebookTransitionTask?.cancel()
 
-        withAnimation(.easeOut(duration: 0.12)) {
-            notebookBackgroundCardsOpacity = 1
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            notebookTransitionPhase = .closingPrepared
         }
 
         withAnimation(notebookWalletAnimation) {
-            isNotebookStackPresented = false
-            notebookStackShowsEventPreview = true
+            notebookTransitionPhase = .closing
             selectedNotebookCardDragOffset = 0
-        }
-
-        withAnimation(.easeOut(duration: 0.12)) {
-            notebookEventsSurfaceOpacity = 0
         }
 
         let closingNotebookID = selectedNotebook.id
@@ -875,7 +942,7 @@ private extension NotebooksSheetView {
             try? await Task.sleep(for: .milliseconds(430))
 
             guard self.selectedNotebook?.id == closingNotebookID,
-                  !isNotebookStackPresented else {
+                  notebookTransitionPhase == .closing else {
                 return
             }
 
@@ -883,9 +950,22 @@ private extension NotebooksSheetView {
             transaction.animation = nil
 
             withTransaction(transaction) {
+                notebookTransitionPhase = .settling
+            }
+
+            await Task.yield()
+
+            guard self.selectedNotebook?.id == closingNotebookID,
+                  notebookTransitionPhase == .settling else {
+                return
+            }
+
+            withTransaction(transaction) {
                 self.selectedNotebook = nil
                 notebookTransitionCardFrames = [:]
                 selectedNotebookCardHeight = nil
+                selectedNotebookCardDragOffset = 0
+                notebookTransitionPhase = .idle
             }
         }
     }
@@ -893,12 +973,9 @@ private extension NotebooksSheetView {
     func resetNotebookCardPresentation() {
         selectedNotebook = nil
         notebookTransitionCardFrames = [:]
-        isNotebookStackPresented = false
-        notebookStackShowsEventPreview = true
-        notebookBackgroundCardsOpacity = 1
+        notebookTransitionPhase = .idle
         selectedNotebookCardDragOffset = 0
         selectedNotebookCardHeight = nil
-        notebookEventsSurfaceOpacity = 0
     }
 
     func handleLeadingControlTap() {
