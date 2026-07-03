@@ -17,10 +17,7 @@ private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
 }
 
 private let notebookRootCoordinateSpaceName = "notebooks-sheet-root"
-private let notebookContentTopPadding: CGFloat = 45
 private let notebookContentBottomPadding: CGFloat = 75
-private let notebookHeaderMaskSolidHeight: CGFloat = 48
-private let notebookHeaderMaskGradientHeight: CGFloat = 18
 private let notebookBottomMaskHeight: CGFloat = 125
 private let notebookScrollChromeClearance: CGFloat = 10
 
@@ -99,7 +96,6 @@ private extension NotebooksSheetView {
             ZStack(alignment: .bottom) {
                 content
                     .padding(.horizontal, 5)
-                    .padding(.top, notebookContentTopPadding)
                     .allowsHitTesting(notebookListAllowsHitTesting)
                     .accessibilityHidden(!notebookListAllowsHitTesting)
                     .zIndex(0)
@@ -114,13 +110,10 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
-                notebookChromeOcclusionLayer
+                notebookBottomOcclusionLayer
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .zIndex(3)
-
-                headerLayer
-                    .zIndex(4)
 
                 controlsLayer
                     .zIndex(4)
@@ -223,7 +216,7 @@ private extension NotebooksSheetView {
         }
     }
 
-    var notebookChromeOcclusionOpacity: Double {
+    var notebookBottomOcclusionOpacity: Double {
         switch notebookTransitionPhase {
         case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
             return 1
@@ -257,16 +250,6 @@ private extension NotebooksSheetView {
         case .idle, .presented, .closingPrepared, .closing, .settling:
             return 0
         }
-    }
-
-    var notebookScrollTopSafeInset: CGFloat {
-        max(
-            0,
-            notebookHeaderMaskSolidHeight
-                + notebookHeaderMaskGradientHeight
-                - notebookContentTopPadding
-                + notebookScrollChromeClearance
-        )
     }
 
     var notebookScrollBottomSafeInset: CGFloat {
@@ -545,35 +528,18 @@ private extension NotebooksSheetView {
     @ViewBuilder
     var content: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            if activeNotebookSummaries.isEmpty && !isEditing {
-                emptyState
-                    .frame(minHeight: 360)
-                    .padding(.bottom, notebookContentBottomPadding)
-                    .opacity(notebookListOpacity)
-            } else {
-                LazyVStack(spacing: 20) {
+            LazyVStack(spacing: 20) {
+                scrollHeader
+
+                if activeNotebookSummaries.isEmpty && !isEditing {
+                    emptyState
+                        .frame(minHeight: 360)
+                } else {
                     if activeNotebookSummaries.isEmpty {
                         emptyStateCard
                     } else {
                         ForEach(activeNotebookSummaries) { summary in
-                            NotebookSummaryCard(
-                                summary: summary,
-                                isEditing: isEditing,
-                                frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
-                                isExpanded: notebookExpansionBinding(for: summary),
-                                onAccessoryTap: {
-                                    handleActiveNotebookAccessoryTap(for: summary.notebook)
-                                },
-                                onTap: {
-                                    guard !isEditing else {
-                                        return
-                                    }
-
-                                    openNotebookCard(summary.notebook)
-                                }
-                            )
-                            .id(activeNotebookCardID(for: summary))
-                            .opacity(notebookSourceCardOpacity(for: summary))
+                            activeNotebookCard(for: summary)
                         }
                         .transition(.move(edge: .trailing))
                     }
@@ -581,37 +547,65 @@ private extension NotebooksSheetView {
                     if isEditing {
                         archivedToggleButton
 
-                        if isShowingArchivedNotebooks {
-                            ForEach(archivedNotebookSummaries) { summary in
-                                NotebookSummaryCard(
-                                    summary: summary,
-                                    isEditing: true,
-                                    frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
-                                    isExpanded: notebookExpansionBinding(for: summary),
-                                    onAccessoryTap: {
-                                        handleArchivedNotebookAccessoryTap(for: summary.notebook)
-                                    },
-                                    onTap: {}
-                                )
-                                .id(archivedNotebookCardID(for: summary))
-                                .transition(.move(edge: .trailing))
-                            }
-                        }
+                        archivedNotebookCards
                     }
                 }
-                .padding(.bottom, notebookContentBottomPadding)
-                .opacity(notebookListOpacity)
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear
-                .frame(height: notebookScrollTopSafeInset)
-                .accessibilityHidden(true)
+            .padding(.bottom, notebookContentBottomPadding)
+            .opacity(notebookListOpacity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear
                 .frame(height: notebookScrollBottomSafeInset)
                 .accessibilityHidden(true)
+        }
+    }
+
+    var scrollHeader: some View {
+        header
+            .padding(.top, 5)
+            .offset(y: notebookHeaderOffset)
+            .opacity(notebookChromeOpacity)
+    }
+
+    func activeNotebookCard(for summary: NotebookSummary) -> some View {
+        NotebookSummaryCard(
+            summary: summary,
+            isEditing: isEditing,
+            frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
+            isExpanded: notebookExpansionBinding(for: summary),
+            onAccessoryTap: {
+                handleActiveNotebookAccessoryTap(for: summary.notebook)
+            },
+            onTap: {
+                guard !isEditing else {
+                    return
+                }
+
+                openNotebookCard(summary.notebook)
+            }
+        )
+        .id(activeNotebookCardID(for: summary))
+        .opacity(notebookSourceCardOpacity(for: summary))
+    }
+
+    @ViewBuilder
+    var archivedNotebookCards: some View {
+        if isShowingArchivedNotebooks {
+            ForEach(archivedNotebookSummaries) { summary in
+                NotebookSummaryCard(
+                    summary: summary,
+                    isEditing: true,
+                    frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
+                    isExpanded: notebookExpansionBinding(for: summary),
+                    onAccessoryTap: {
+                        handleArchivedNotebookAccessoryTap(for: summary.notebook)
+                    },
+                    onTap: {}
+                )
+                .id(archivedNotebookCardID(for: summary))
+                .transition(.move(edge: .trailing))
+            }
         }
     }
 
@@ -632,21 +626,6 @@ private extension NotebooksSheetView {
                 )
         }
         .frame(height: 30)
-    }
-
-    var headerLayer: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 5)
-                .padding(.top, 5)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .offset(y: notebookHeaderOffset)
-        .opacity(notebookChromeOpacity)
-        .allowsHitTesting(notebookListAllowsHitTesting)
-        .accessibilityHidden(!notebookListAllowsHitTesting)
     }
 
     var emptyStateCard: some View {
@@ -748,13 +727,9 @@ private extension NotebooksSheetView {
             .accessibilityHidden(!notebookListAllowsHitTesting)
     }
 
-    var notebookChromeOcclusionLayer: some View {
-        ZStack(alignment: .bottom) {
-            bottomGradientMask
-
-            headerBackgroundMask
-        }
-        .opacity(notebookChromeOcclusionOpacity)
+    var notebookBottomOcclusionLayer: some View {
+        bottomGradientMask
+            .opacity(notebookBottomOcclusionOpacity)
     }
 
     var bottomGradientMask: some View {
@@ -770,27 +745,6 @@ private extension NotebooksSheetView {
         .frame(height: notebookBottomMaskHeight)
         .frame(maxWidth: .infinity, alignment: .bottom)
         .ignoresSafeArea(edges: .bottom)
-    }
-
-    var headerBackgroundMask: some View {
-        VStack(spacing: 0) {
-            Color(.systemGroupedBackground)
-                .frame(height: notebookHeaderMaskSolidHeight)
-
-            LinearGradient(
-                colors: [
-                    Color(.systemGroupedBackground),
-                    Color(.systemGroupedBackground).opacity(0)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: notebookHeaderMaskGradientHeight)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ignoresSafeArea(edges: .top)
     }
 
     var trailingControlLabel: some View {
