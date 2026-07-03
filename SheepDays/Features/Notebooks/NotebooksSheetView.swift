@@ -17,6 +17,12 @@ private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
 }
 
 private let notebookRootCoordinateSpaceName = "notebooks-sheet-root"
+private let notebookContentTopPadding: CGFloat = 45
+private let notebookContentBottomPadding: CGFloat = 75
+private let notebookHeaderMaskSolidHeight: CGFloat = 48
+private let notebookHeaderMaskGradientHeight: CGFloat = 18
+private let notebookBottomMaskHeight: CGFloat = 125
+private let notebookScrollChromeClearance: CGFloat = 10
 
 struct NotebooksSheetView: View {
     @Environment(\.haptics) private var haptics
@@ -86,7 +92,7 @@ private extension NotebooksSheetView {
             ZStack(alignment: .bottom) {
                 content
                     .padding(.horizontal, 5)
-                    .padding(.top, 45)
+                    .padding(.top, notebookContentTopPadding)
                     .allowsHitTesting(selectedNotebook == nil)
                     .accessibilityHidden(selectedNotebook != nil)
                     .zIndex(0)
@@ -194,6 +200,25 @@ private extension NotebooksSheetView {
 
     var notebookContentOpacity: Double {
         selectedNotebook == nil ? 1 : 0
+    }
+
+    var notebookScrollTopSafeInset: CGFloat {
+        max(
+            0,
+            notebookHeaderMaskSolidHeight
+                + notebookHeaderMaskGradientHeight
+                - notebookContentTopPadding
+                + notebookScrollChromeClearance
+        )
+    }
+
+    var notebookScrollBottomSafeInset: CGFloat {
+        max(
+            0,
+            notebookBottomMaskHeight
+                - notebookContentBottomPadding
+                + notebookScrollChromeClearance
+        )
     }
 
     var transitionNotebookSummaries: [NotebookSummary] {
@@ -466,7 +491,7 @@ private extension NotebooksSheetView {
             if activeNotebookSummaries.isEmpty && !isEditing {
                 emptyState
                     .frame(minHeight: 360)
-                    .padding(.bottom, 75)
+                    .padding(.bottom, notebookContentBottomPadding)
                     .opacity(notebookContentOpacity)
             } else {
                 LazyVStack(spacing: 20) {
@@ -516,9 +541,19 @@ private extension NotebooksSheetView {
                         }
                     }
                 }
-                .padding(.bottom, 75)
+                .padding(.bottom, notebookContentBottomPadding)
                 .opacity(notebookContentOpacity)
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear
+                .frame(height: notebookScrollTopSafeInset)
+                .accessibilityHidden(true)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear
+                .frame(height: notebookScrollBottomSafeInset)
+                .accessibilityHidden(true)
         }
     }
 
@@ -665,7 +700,7 @@ private extension NotebooksSheetView {
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 125)
+        .frame(height: notebookBottomMaskHeight)
         .frame(maxWidth: .infinity, alignment: .bottom)
         .ignoresSafeArea(edges: .bottom)
     }
@@ -673,7 +708,7 @@ private extension NotebooksSheetView {
     var headerBackgroundMask: some View {
         VStack(spacing: 0) {
             Color(.systemGroupedBackground)
-                .frame(height: 48)
+                .frame(height: notebookHeaderMaskSolidHeight)
 
             LinearGradient(
                 colors: [
@@ -683,7 +718,7 @@ private extension NotebooksSheetView {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 18)
+            .frame(height: notebookHeaderMaskGradientHeight)
 
             Spacer(minLength: 0)
         }
