@@ -21,6 +21,7 @@ struct NotebookSummaryCard: View {
     var reportsFrame = true
     var frameCoordinateSpace: CoordinateSpace = .global
     var showsEventPreview = true
+    var dailyGraphHeight: CGFloat?
     @Binding var isExpanded: Bool
     let onAccessoryTap: () -> Void
     let onTap: () -> Void
@@ -42,7 +43,8 @@ struct NotebookSummaryCard: View {
             NotebookDailyGraph(
                 eventDays: summary.eventDays,
                 today: summary.today,
-                accentColor: accentColor
+                accentColor: accentColor,
+                height: dailyGraphHeight
             )
 
             if showsEventPreview {
@@ -60,28 +62,16 @@ struct NotebookSummaryCard: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 15)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             baseCardBackground
         }
         .clipShape(
-            SDRoundedCornersShape(
-                topLeading: 30,
-                topTrailing: 30,
-                bottomLeading: 30,
-                bottomTrailing: 10,
-                style: .continuous
-            )
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
         )
         .contentShape(
-            SDRoundedCornersShape(
-                topLeading: 30,
-                topTrailing: 30,
-                bottomLeading: 30,
-                bottomTrailing: 10,
-                style: .continuous
-            )
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
         )
         .onTapGesture {
             guard !shouldSuppressCardTap else {
@@ -102,13 +92,8 @@ struct NotebookSummaryCard: View {
     }
 
     var baseCardBackground: some View {
-        SDRoundedBackground(
-            topLeading: 30,
-            topTrailing: 30,
-            bottomLeading: 30,
-            bottomTrailing: 10,
-            color: Color(.secondarySystemGroupedBackground)
-        )
+        RoundedRectangle(cornerRadius: 30, style: .continuous)
+            .foregroundStyle(Color(.secondarySystemGroupedBackground))
     }
 
     func suppressNextCardTap() {
@@ -144,12 +129,12 @@ private struct NotebookSummaryCardHeader: View {
         HStack(alignment: .center, spacing: 5) {
             HStack(spacing: 5) {
                 Image(systemName: notebook.iconSystemName ?? "book.closed")
-                    .font(.system(size: 30, weight: .medium, design: .rounded))
-                    .frame(width: 43, height: 35)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .frame(width: 40)
                     .accessibilityHidden(true)
 
                 Text(notebook.name)
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -162,8 +147,11 @@ private struct NotebookSummaryCardHeader: View {
             )
         }
         .padding(.horizontal, 5)
-        .padding(.vertical, 10)
+        .padding(.vertical, 15)
         .frame(minHeight: 55)
+        .background(
+            SDRoundedBackground(topLeading: 20, topTrailing: 20, bottomLeading: 20, bottomTrailing: 10, cornerStyle: .continuous, color: accentColor.opacity(0.2))
+        )
     }
 }
 
@@ -192,41 +180,56 @@ private struct NotebookDailyGraph: View {
     let eventDays: Set<Date>
     let today: Date
     let accentColor: Color
+    let height: CGFloat?
 
     private let indicatorWidth: CGFloat = 3
-    private let indicatorHeight: CGFloat = 30
+    private let indicatorHeight: CGFloat = 19
     private let indicatorSpacing: CGFloat = 7
-    private let triangleSize: CGFloat = 10
+    private let horizontalInset: CGFloat = 13.5
+    private let triangleWidth: CGFloat = 10
+    private let triangleHeight: CGFloat = 5
+    private let verticalInset: CGFloat = 5
+    private let verticalSpacing: CGFloat = 3
+
+    @State private var availableWidth: CGFloat = 0
 
     var body: some View {
-        GeometryReader { geometry in
-            let indicatorOffsets = indicatorOffsets(for: geometry.size.width)
+        VStack(spacing: verticalSpacing) {
+            NotebookTodayTriangle(direction: .down)
+                .fill(Color(.tertiaryLabel))
+                .frame(width: triangleWidth, height: triangleHeight)
 
-            VStack(spacing: 3) {
-                NotebookTodayTriangle(direction: .down)
-                    .fill(Color(.tertiaryLabel))
-                    .frame(width: triangleSize, height: triangleSize)
-
-                HStack(spacing: indicatorSpacing) {
-                    ForEach(indicatorOffsets, id: \.self) { dayOffset in
-                        indicator(for: dayOffset)
-                    }
+            HStack(spacing: indicatorSpacing) {
+                ForEach(indicatorOffsets(for: availableWidth), id: \.self) { dayOffset in
+                    indicator(for: dayOffset)
                 }
-                .frame(maxWidth: .infinity)
-
-                NotebookTodayTriangle(direction: .up)
-                    .fill(Color(.tertiaryLabel))
-                    .frame(width: triangleSize, height: triangleSize)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
+            .frame(maxWidth: .infinity)
+
+            NotebookTodayTriangle(direction: .up)
+                .fill(Color(.tertiaryLabel))
+                .frame(width: triangleWidth, height: triangleHeight)
         }
-        .frame(height: 66)
-        .padding(.vertical, 5)
+        .padding(.vertical, verticalInset)
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        availableWidth = geometry.size.width
+                    }
+                    .onChange(of: geometry.size.width) { _, newWidth in
+                        availableWidth = newWidth
+                    }
+            }
+        }
     }
 
     func indicatorOffsets(for width: CGFloat) -> [Int] {
-        let pitch = indicatorWidth + indicatorSpacing + 0.5
-        let rawCount = max(7, Int((width / pitch).rounded(.down)))
+        let pitch = indicatorWidth + indicatorSpacing
+        let availableIndicatorWidth = max(0, width - horizontalInset * 2)
+        let rawCount = max(7, Int(((availableIndicatorWidth + indicatorSpacing) / pitch).rounded(.down)))
         let oddCount = rawCount.isMultiple(of: 2) ? rawCount - 1 : rawCount
         let radius = max(3, oddCount / 2)
 
@@ -234,23 +237,14 @@ private struct NotebookDailyGraph: View {
     }
 
     func indicator(for dayOffset: Int) -> some View {
-        let isToday = dayOffset == 0
-
         return Capsule()
             .fill(indicatorFill(for: dayOffset))
             .frame(width: indicatorWidth, height: indicatorHeight)
-            .overlay {
-                if isToday {
-                    Capsule()
-                        .stroke(Color(.secondaryLabel), lineWidth: 1)
-                }
-            }
             .accessibilityHidden(true)
     }
 
     func indicatorFill(for dayOffset: Int) -> Color {
-        guard dayOffset != 0,
-              let date = Calendar.current.date(byAdding: .day, value: dayOffset, to: today),
+        guard let date = Calendar.current.date(byAdding: .day, value: dayOffset, to: today),
               eventDays.contains(Calendar.current.startOfDay(for: date)) else {
             return Color(.quaternaryLabel)
         }
