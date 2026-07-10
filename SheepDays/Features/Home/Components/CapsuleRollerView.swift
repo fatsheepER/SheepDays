@@ -1,6 +1,6 @@
 //
-//  CapsuleRoller.swift
-//  Sheep Days
+//  CapsuleRollerView.swift
+//  SheepDays
 //
 //  Created by 王飞扬 on 2025/5/9.
 //
@@ -9,167 +9,275 @@ import SwiftUI
 
 struct CapsuleRollerView: View {
     @Environment(\.haptics) private var haptics
-    @Binding var adjustedDate: Date
+    @Binding private var adjustedDate: Date
 
-    let lineSpacing: CGFloat
-    let lineHeight: CGFloat
+    private let scrubState: HomeDateScrubState?
+    private let scale: CapsuleRollerScale
+    private let lineSpacing: CGFloat
+    private let lineHeight: CGFloat
+    private let calendar: Calendar
 
-    private let centerIndex = 149
+    private let centerDayIndex = 40
     private let lineWidth: CGFloat = 5
-    private let baselineVisibleLineCount = 24.0
-    private let baselineAdjustmentFactor = 1.5
 
-    @State private var scrollIndex: Int?
-    @State private var resetTask: DispatchWorkItem?
-    @State private var dateStepTask: Task<Void, Never>?
-    @State private var isResetting = false
+    @State private var scrollDayIndex: Int?
+    @State private var anchorDate: Date
+    @State private var currentContentOffset: CGFloat = 0
+    @State private var scrollPhase: ScrollPhase = .idle
+    @State private var lastAppliedDayOffset = 0
+    @State private var internallyAppliedDate: Date?
+    @State private var isScrubbing = false
+    @State private var isRecentering = true
 
-    init(adjustedDate: Binding<Date>, lineSpacing: CGFloat = 5, lineHeight: CGFloat = 60) {
+    init(
+        adjustedDate: Binding<Date>,
+        scrubState: HomeDateScrubState? = nil,
+        ticksPerDay: Int = 4,
+        lineSpacing: CGFloat = 5,
+        lineHeight: CGFloat = 60,
+        calendar: Calendar = .current
+    ) {
         _adjustedDate = adjustedDate
+        self.scrubState = scrubState
+        self.scale = CapsuleRollerScale(ticksPerDay: ticksPerDay)
         self.lineSpacing = lineSpacing
         self.lineHeight = lineHeight
+        self.calendar = calendar
+        _anchorDate = State(initialValue: calendar.startOfDay(for: adjustedDate.wrappedValue))
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let visibleLineCount = self.visibleLineCount(for: proxy.size.width)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .center, spacing: lineSpacing) {
-                    ForEach(0..<(centerIndex * 2), id: \.self) { index in
-                        Capsule()
-                            .frame(width: lineWidth, height: lineHeight)
-                            .foregroundStyle(Color(.secondarySystemFill))
-                            .id(index)
-                            .scrollTransition { content, phase in
-                                content
-                                    .opacity(phase.isIdentity ? 1.0 : 0.1)
-                                    .scaleEffect(x: phase.isIdentity ? 1.0 : 0.3,
-                                                 y: phase.isIdentity ? 1.0 : 0.3)
-                            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .center, spacing: lineSpacing) {
+                ForEach(0...(centerDayIndex * 2), id: \.self) { dayIndex in
+                    HStack(alignment: .center, spacing: lineSpacing) {
+                        ForEach(0..<scale.ticksPerDay, id: \.self) { _ in
+                            Capsule()
+                                .frame(width: lineWidth, height: lineHeight)
+                                .foregroundStyle(Color(.secondarySystemFill))
+                                .scrollTransition { content, phase in
+                                    content
+                                        .opacity(phase.isIdentity ? 1.0 : 0.1)
+                                        .scaleEffect(
+                                            x: phase.isIdentity ? 1.0 : 0.3,
+                                            y: phase.isIdentity ? 1.0 : 0.3
+                                        )
+                                }
+                        }
                     }
+                    .id(dayIndex)
                 }
-                .frame(height: lineHeight)
-                .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $scrollIndex, anchor: .leading)
-            .onAppear {
-                scrollIndex = centerIndex
-                haptics.prepare(.selectionStep)
-            }
-            .onChange(of: scrollIndex) { previousValue, newValue in
-                guard let unwrappedPreviousValue = previousValue, let unwrappedNewValue = newValue else {
-                    return
-                }
-
-                // 1. 拦截复位操作触发的 onChange
-                if isResetting {
-                    // 当发现确实回到了中心点时，消耗掉这个标志位
-                    if unwrappedNewValue == centerIndex {
-                        isResetting = false
-                    }
-                    return // 直接返回，不参与后面的计算和计时器重置
-                }
-                
-                // 2. 处理正常的用户滑动操作
-                if unwrappedPreviousValue != unwrappedNewValue {
-                    haptics.play(.selectionStep)
-                    
-                    let delta = adjustedDateDelta(
-                        from: unwrappedPreviousValue,
-                        to: unwrappedNewValue,
-                        visibleLineCount: visibleLineCount
-                    )
-                    moveAdjustedDate(by: delta)
-                }
-                
-                // 3. 防抖策略：重置静默复位计时器
-                resetTask?.cancel()
-                
-                let task = DispatchWorkItem {
-                    // 仅当当前不在中心点时，才需要发起复位操作，防止标志位被错误锁定
-                    guard self.scrollIndex != self.centerIndex else { return }
-                    
-                    self.isResetting = true
-                    self.scrollIndex = self.centerIndex
-                }
-                self.resetTask = task
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: task)
-            }
-            .onDisappear {
-                resetTask?.cancel()
-                dateStepTask?.cancel()
-            }
+            .frame(height: lineHeight)
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
+        .scrollPosition(id: $scrollDayIndex, anchor: .leading)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.x
+        } action: { _, newContentOffset in
+            handleContentOffsetChange(newContentOffset)
+        }
+        .onScrollPhaseChange { _, newPhase, context in
+            handleScrollPhaseChange(
+                newPhase,
+                contentOffset: context.geometry.contentOffset.x
+            )
+        }
+        .onAppear {
+            anchorDate = calendar.startOfDay(for: adjustedDate)
+            haptics.prepare(.selectionStep)
+            recenter()
+        }
+        .onChange(of: adjustedDate) { _, newDate in
+            synchronizeExternalDateChange(newDate)
         }
         .frame(maxWidth: .infinity, maxHeight: lineHeight)
+        .accessibilityLabel("调整日期")
     }
 }
 
 private extension CapsuleRollerView {
-    var baselineDaysPerScreen: Double {
-        baselineVisibleLineCount / baselineAdjustmentFactor
+    var tickStride: CGFloat {
+        max(lineWidth + lineSpacing, 1)
     }
 
-    func visibleLineCount(for availableWidth: CGFloat) -> Double {
-        let stride = max(lineWidth + lineSpacing, 1)
-        return max(Double(availableWidth / stride), 1)
+    var dayStride: CGFloat {
+        CGFloat(scale.ticksPerDay) * tickStride
     }
 
-    func adjustmentFactor(for visibleLineCount: Double) -> Double {
-        max(visibleLineCount / baselineDaysPerScreen, 1)
+    var centerContentOffset: CGFloat {
+        CGFloat(centerDayIndex) * dayStride
     }
 
-    func adjustedDateDelta(from previousIndex: Int, to newIndex: Int, visibleLineCount: Double) -> Int {
-        let rawDelta = newIndex - previousIndex
-        let factor = adjustmentFactor(for: visibleLineCount)
-        let adjusted = (Double(abs(rawDelta)) / factor).rounded(.up)
-
-        return Int(adjusted) * rawDelta.signum()
+    var recenteringTolerance: CGFloat {
+        max(tickStride * 0.1, 0.5)
     }
 
-    func moveAdjustedDate(by delta: Int) {
-        guard delta != 0 else {
+    func handleScrollPhaseChange(_ newPhase: ScrollPhase, contentOffset: CGFloat) {
+        currentContentOffset = contentOffset
+        scrollPhase = newPhase
+
+        switch newPhase {
+        case .tracking, .interacting, .decelerating:
+            beginScrubbingIfNeeded()
+        case .idle:
+            guard !isRecentering else {
+                return
+            }
+
+            finishScrubbing()
+        case .animating:
+            break
+        }
+    }
+
+    func handleContentOffsetChange(_ contentOffset: CGFloat) {
+        currentContentOffset = contentOffset
+
+        if isRecentering {
+            guard abs(contentOffset - centerContentOffset) <= recenteringTolerance else {
+                return
+            }
+
+            completeRecentering()
             return
         }
 
-        dateStepTask?.cancel()
-        dateStepTask = Task { @MainActor in
-            let step = delta.signum()
-            let stepCount = abs(delta)
-
-            for stepIndex in 0..<stepCount {
-                guard !Task.isCancelled else {
-                    return
-                }
-
-                withAnimation {
-                    if let updatedDate = Calendar.current.date(byAdding: .day, value: step, to: adjustedDate) {
-                        adjustedDate = updatedDate
-                    }
-                }
-
-                if stepIndex < stepCount - 1 {
-                    try? await Task.sleep(for: .milliseconds(220))
-                }
-            }
+        guard scrollPhase.isScrolling else {
+            return
         }
+
+        beginScrubbingIfNeeded()
+        apply(dayProgress: dayProgress(for: contentOffset))
+    }
+
+    func dayProgress(for contentOffset: CGFloat) -> Double {
+        scale.dayProgress(
+            contentOffsetDelta: Double(contentOffset - centerContentOffset),
+            tickStride: Double(tickStride)
+        )
+    }
+
+    func beginScrubbingIfNeeded() {
+        guard !isRecentering, !isScrubbing else {
+            return
+        }
+
+        anchorDate = calendar.startOfDay(for: adjustedDate)
+        lastAppliedDayOffset = 0
+        isScrubbing = true
+        scrubState?.begin()
+    }
+
+    func apply(dayProgress: Double) {
+        let components = scale.split(dayProgress: dayProgress)
+        scrubState?.update(residualDayOffset: components.residualDayOffset)
+
+        guard components.dayOffset != lastAppliedDayOffset,
+              let targetDate = calendar.date(
+                byAdding: .day,
+                value: components.dayOffset,
+                to: anchorDate
+              ) else {
+            return
+        }
+
+        lastAppliedDayOffset = components.dayOffset
+        publish(targetDate)
+        haptics.play(.selectionStep)
+    }
+
+    func finishScrubbing() {
+        guard isScrubbing else {
+            recenter()
+            return
+        }
+
+        let finalDayOffset = scale.split(
+            dayProgress: dayProgress(for: currentContentOffset)
+        ).dayOffset
+        scrubState?.update(residualDayOffset: 0)
+
+        if finalDayOffset != lastAppliedDayOffset,
+           let targetDate = calendar.date(
+               byAdding: .day,
+               value: finalDayOffset,
+               to: anchorDate
+           ) {
+            lastAppliedDayOffset = finalDayOffset
+            publish(targetDate)
+            haptics.play(.selectionStep)
+        }
+
+        anchorDate = calendar.startOfDay(for: adjustedDate)
+        lastAppliedDayOffset = 0
+        isScrubbing = false
+        recenter()
+    }
+
+    func publish(_ date: Date) {
+        let normalizedDate = calendar.startOfDay(for: date)
+
+        guard !calendar.isDate(normalizedDate, inSameDayAs: adjustedDate) else {
+            return
+        }
+
+        internallyAppliedDate = normalizedDate
+        withAnimation {
+            adjustedDate = normalizedDate
+        }
+    }
+
+    func synchronizeExternalDateChange(_ date: Date) {
+        let normalizedDate = calendar.startOfDay(for: date)
+
+        if let internallyAppliedDate,
+           calendar.isDate(normalizedDate, inSameDayAs: internallyAppliedDate) {
+            self.internallyAppliedDate = nil
+            return
+        }
+
+        internallyAppliedDate = nil
+        anchorDate = normalizedDate
+        lastAppliedDayOffset = 0
+        isScrubbing = false
+        scrubState?.end()
+        recenter()
+    }
+
+    func recenter() {
+        isRecentering = true
+
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+
+        withTransaction(transaction) {
+            scrollDayIndex = centerDayIndex
+        }
+
+        if abs(currentContentOffset - centerContentOffset) <= recenteringTolerance {
+            completeRecentering()
+        }
+    }
+
+    func completeRecentering() {
+        isRecentering = false
+        scrubState?.end()
     }
 }
 
-private let dateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .medium
-    return formatter
-}()
-
 #Preview {
     @Previewable @State var date = Date()
+
     VStack {
-        Text("\(date.formatted(date: .abbreviated, time: .omitted))")
+        Text(date.formatted(date: .abbreviated, time: .omitted))
 
-        CapsuleRollerView(adjustedDate: $date, lineSpacing: 5, lineHeight: 60)
+        CapsuleRollerView(
+            adjustedDate: $date,
+            ticksPerDay: 4,
+            lineSpacing: 5,
+            lineHeight: 60
+        )
     }
-
 }

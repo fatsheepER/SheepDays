@@ -11,20 +11,35 @@ struct HomeDateView: View {
     @Environment(\.sheepDaysTheme) private var theme
     @Binding private var referenceDate: Date
 
+    private let dateScrubState: HomeDateScrubState?
     private let today: Date
     private let calendar: Calendar
     private let locale: Locale
 
-    init(referenceDate: Binding<Date>, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
+    init(
+        referenceDate: Binding<Date>,
+        dateScrubState: HomeDateScrubState? = nil,
+        today: Date = .now,
+        calendar: Calendar = .current,
+        locale: Locale = .current
+    ) {
         _referenceDate = referenceDate
+        self.dateScrubState = dateScrubState
         self.today = today
         self.calendar = calendar
         self.locale = locale
     }
 
-    init(referenceDate: Date, today: Date = .now, calendar: Calendar = .current, locale: Locale = .current) {
+    init(
+        referenceDate: Date,
+        dateScrubState: HomeDateScrubState? = nil,
+        today: Date = .now,
+        calendar: Calendar = .current,
+        locale: Locale = .current
+    ) {
         self.init(
             referenceDate: .constant(referenceDate),
+            dateScrubState: dateScrubState,
             today: today,
             calendar: calendar,
             locale: locale
@@ -60,6 +75,7 @@ struct HomeDateView: View {
             HomeDateStripView(
                 content: dateStripContent,
                 calendar: calendar,
+                dateScrubState: dateScrubState,
                 selectDate: selectDate
             )
             .padding(.vertical, 5)
@@ -157,6 +173,7 @@ private struct HomeDateStripDay: Identifiable, Equatable {
 private struct HomeDateStripView: View {
     let content: HomeDateStripDisplayContent
     let calendar: Calendar
+    let dateScrubState: HomeDateScrubState?
     let selectDate: (Date) -> Void
 
     @State private var displayedContent: HomeDateStripDisplayContent
@@ -166,15 +183,19 @@ private struct HomeDateStripView: View {
     init(
         content: HomeDateStripDisplayContent,
         calendar: Calendar,
+        dateScrubState: HomeDateScrubState?,
         selectDate: @escaping (Date) -> Void
     ) {
         self.content = content
         self.calendar = calendar
+        self.dateScrubState = dateScrubState
         self.selectDate = selectDate
         _displayedContent = State(initialValue: content)
     }
 
     var body: some View {
+        let scrubSnapshot = dateScrubState?.snapshot ?? .idle
+
         ZStack {
             HomeDateStripSelectionBackground()
 
@@ -194,7 +215,10 @@ private struct HomeDateStripView: View {
                 }
                 .frame(width: stripWidth, height: geometry.size.height)
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                .offset(x: -CGFloat(animatedDayOffset) * (dayWidth + HomeDateStripLayout.spacing))
+                .offset(
+                    x: -CGFloat(displayedDayOffset(for: scrubSnapshot))
+                        * (dayWidth + HomeDateStripLayout.spacing)
+                )
                 .id(displayedContent.selectedDate)
             }
         }
@@ -202,9 +226,36 @@ private struct HomeDateStripView: View {
 //        .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(height: 60)
-        .onChange(of: content.selectedDate) { _, _ in
-            move(to: content)
+        .transaction { transaction in
+            guard scrubSnapshot.isActive else {
+                return
+            }
+
+            transaction.animation = nil
+            transaction.disablesAnimations = true
         }
+        .onChange(of: content.selectedDate) { _, _ in
+            if scrubSnapshot.isActive {
+                cancelAnimationAndReset(to: content)
+            } else {
+                move(to: content)
+            }
+        }
+        .onChange(of: scrubSnapshot.isActive) { _, isActive in
+            guard isActive else {
+                return
+            }
+
+            cancelAnimationAndReset(to: content)
+        }
+    }
+
+    private func displayedDayOffset(for scrubSnapshot: HomeDateScrubSnapshot) -> Double {
+        if scrubSnapshot.isActive {
+            return scrubSnapshot.residualDayOffset
+        }
+
+        return Double(animatedDayOffset)
     }
 
     private func dayWidth(in availableWidth: CGFloat) -> CGFloat {
@@ -257,6 +308,11 @@ private struct HomeDateStripView: View {
             displayedContent = newContent
             animatedDayOffset = 0
         }
+    }
+
+    private func cancelAnimationAndReset(to newContent: HomeDateStripDisplayContent) {
+        animationGeneration += 1
+        reset(to: newContent)
     }
 }
 

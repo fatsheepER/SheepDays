@@ -15,6 +15,7 @@ struct HomeView: View {
     @Environment(\.appOverlayCoordinator) var overlayCoordinator
 
     @State var referenceDate = HomeReferenceDate.normalized(.now)
+    @State var dateScrubState = HomeDateScrubState()
     @State var dateRestoreTask: Task<Void, Never>?
     @State var dateRestoreToken = 0
     @State var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
@@ -203,7 +204,10 @@ extension HomeView {
                 .offset(y: Self.floatingDateFadeOffset)
                 .allowsHitTesting(false)
 
-            HomeDateView(referenceDate: interactiveReferenceDate)
+            HomeDateView(
+                referenceDate: interactiveReferenceDate,
+                dateScrubState: dateScrubState
+            )
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
