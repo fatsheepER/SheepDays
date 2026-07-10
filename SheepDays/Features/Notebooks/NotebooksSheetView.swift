@@ -8,11 +8,43 @@
 import SwiftUI
 import SwiftData
 
+private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat?
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        value = nextValue() ?? value
+    }
+}
+
+private let notebookRootCoordinateSpaceName = "notebooks-sheet-root"
+private let notebookContentBottomPadding: CGFloat = 75
+private let notebookBottomMaskHeight: CGFloat = 125
+private let notebookScrollChromeClearance: CGFloat = 10
+
+private enum NotebookCardTransitionPhase: Equatable {
+    case idle
+    case openingPrepared
+    case opening
+    case presented
+    case closingPrepared
+    case closing
+    case settling
+}
+
 struct NotebooksSheetView: View {
+    @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
 
     @State private var isEditing = false
     @State private var isShowingArchivedNotebooks = false
+    @State private var selectedNotebook: Notebook?
+    @State private var notebookTransitionCardFrames: [UUID: CGRect] = [:]
+    @State private var notebookTransitionPhase: NotebookCardTransitionPhase = .idle
+    @State private var selectedNotebookCardDragOffset = 0.0
+    @State private var selectedNotebookCardHeight: CGFloat?
+    @State private var notebookCardFrames: [UUID: CGRect] = [:]
+    @State private var expandedNotebookIDs: Set<UUID> = []
+    @State private var notebookTransitionTask: Task<Void, Never>?
     @State private var selectedArchivedNotebookForAction: Notebook?
 
     @Query(
@@ -26,7 +58,6 @@ struct NotebooksSheetView: View {
     let onBack: () -> Void
     var onCreateNotebook: () -> Void = {}
     var onEditNotebook: (Notebook) -> Void = { _ in }
-    var onOpenNotebook: (Notebook) -> Void = { _ in }
 
     var body: some View {
         rootContent
@@ -51,21 +82,51 @@ struct NotebooksSheetView: View {
         } message: { notebook in
             Text("你可以取消归档这个事件本，或者连同其中的事件一起删除。")
         }
+        .onDisappear {
+            notebookTransitionTask?.cancel()
+            resetNotebookCardPresentation()
+        }
     }
 }
 
 // MARK: - View State
 private extension NotebooksSheetView {
     var rootContent: some View {
-        VStack(spacing: 10) {
-            header
+        GeometryReader { rootProxy in
+            ZStack(alignment: .bottom) {
+                content
+                    .padding(.horizontal, 5)
+                    .allowsHitTesting(notebookListAllowsHitTesting)
+                    .accessibilityHidden(!notebookListAllowsHitTesting)
+                    .zIndex(0)
 
-            content
+                if notebookShowsTransitionLayers {
+                    notebookEventsPreviewSurface(in: rootProxy)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .zIndex(1)
 
-            controls
+                    notebookCardStack(in: rootProxy)
+                        .zIndex(2)
+                }
+
+                notebookBottomOcclusionLayer
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .zIndex(3)
+
+                controlsLayer
+                    .zIndex(4)
+            }
+            .frame(width: rootProxy.size.width, height: rootProxy.size.height)
+            .coordinateSpace(name: notebookRootCoordinateSpaceName)
+            .onPreferenceChange(NotebookSummaryCardFramePreferenceKey.self) { frames in
+                notebookCardFrames = frames
+            }
+            .onPreferenceChange(SelectedNotebookCardHeightPreferenceKey.self) { height in
+                selectedNotebookCardHeight = height
+            }
         }
-        .padding(.horizontal, 5)
-        .padding(.top, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -98,6 +159,112 @@ private extension NotebooksSheetView {
                 }
             }
         )
+    }
+
+    var notebookWalletAnimation: Animation {
+        .snappy(duration: 0.42, extraBounce: 0.01)
+    }
+
+    var notebookCardDismissDragDistance: CGFloat {
+        115
+    }
+
+    var notebookShowsTransitionLayers: Bool {
+        selectedNotebook != nil && notebookTransitionPhase != .idle
+    }
+
+    var notebookListAllowsHitTesting: Bool {
+        notebookTransitionPhase == .idle
+    }
+
+    var notebookTransitionUsesTargetFrames: Bool {
+        switch notebookTransitionPhase {
+        case .opening, .presented, .closingPrepared:
+            return true
+        case .idle, .openingPrepared, .closing, .settling:
+            return false
+        }
+    }
+
+    var notebookTransitionCardsShowEventPreview: Bool {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closing, .settling:
+            return true
+        case .opening, .presented, .closingPrepared:
+            return false
+        }
+    }
+
+    var selectedNotebookSourceCardIsHidden: Bool {
+        selectedNotebook != nil && notebookTransitionPhase != .idle
+    }
+
+    var notebookHeaderOffset: CGFloat {
+        notebookChromeOpacity == 0 ? -58 : 0
+    }
+
+    var notebookControlsOffset: CGFloat {
+        notebookChromeOpacity == 0 ? 85 : 0
+    }
+
+    var notebookChromeOpacity: Double {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented, .closingPrepared:
+            return 0
+        }
+    }
+
+    var notebookBottomOcclusionOpacity: Double {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented:
+            return 0
+        }
+    }
+
+    var notebookListOpacity: Double {
+        switch notebookTransitionPhase {
+        case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
+            return 1
+        case .opening, .presented:
+            return 0
+        }
+    }
+
+    var notebookDetailBackdropOpacity: Double {
+        switch notebookTransitionPhase {
+        case .opening, .presented, .closingPrepared:
+            return 1
+        case .idle, .openingPrepared, .closing, .settling:
+            return 0
+        }
+    }
+
+    var notebookBackgroundCardsOpacity: Double {
+        switch notebookTransitionPhase {
+        case .openingPrepared, .opening:
+            return 1
+        case .idle, .presented, .closingPrepared, .closing, .settling:
+            return 0
+        }
+    }
+
+    var notebookScrollBottomSafeInset: CGFloat {
+        max(
+            0,
+            notebookBottomMaskHeight
+                - notebookContentBottomPadding
+                + notebookScrollChromeClearance
+        )
+    }
+
+    var transitionNotebookSummaries: [NotebookSummary] {
+        activeNotebookSummaries.filter { summary in
+            notebookTransitionCardFrames[summary.id] != nil
+        }
     }
 
     func activeNotebookCardID(for summary: NotebookSummary) -> String {
@@ -165,31 +332,214 @@ private extension NotebooksSheetView {
 // MARK: - Subviews
 private extension NotebooksSheetView {
     @ViewBuilder
+    func notebookCardStack(in rootProxy: GeometryProxy) -> some View {
+        if let selectedNotebookID = selectedNotebook?.id {
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(transitionNotebookSummaries.enumerated()), id: \.element.id) { visibleIndex, summary in
+                    let frame = notebookStackFrame(
+                        for: summary,
+                        visibleIndex: visibleIndex,
+                        in: rootProxy
+                    )
+                    let shadow = notebookStackShadow(for: summary)
+
+                    NotebookSummaryCard(
+                        summary: summary,
+                        isEditing: false,
+                        reportsFrame: false,
+                        showsEventPreview: notebookTransitionCardsShowEventPreview,
+                        isExpanded: notebookExpansionBinding(for: summary),
+                        onAccessoryTap: {},
+                        onTap: {}
+                    )
+                    .frame(width: frame.width, alignment: .top)
+                    .background {
+                        if summary.id == selectedNotebookID {
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: SelectedNotebookCardHeightPreferenceKey.self,
+                                    value: proxy.size.height
+                                )
+                            }
+                        }
+                    }
+                    .shadow(
+                        color: .black.opacity(shadow.opacity),
+                        radius: shadow.radius,
+                        y: shadow.y
+                    )
+                    .contentShape(
+                        SDRoundedCornersShape(
+                            topLeading: 30,
+                            topTrailing: 30,
+                            bottomLeading: 30,
+                            bottomTrailing: 10,
+                            style: .continuous
+                        )
+                    )
+                    .offset(x: frame.minX, y: frame.minY)
+                    .opacity(notebookStackOpacity(for: summary))
+                    .zIndex(notebookStackZIndex(for: summary, visibleIndex: visibleIndex))
+                    .accessibilityHidden(summary.id != selectedNotebookID)
+                }
+
+                let selectedFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+                Color.clear
+                    .frame(
+                        width: selectedFrame.width,
+                        height: selectedNotebookCardHeight ?? selectedFrame.height
+                    )
+                    .contentShape(Rectangle())
+                    .offset(x: selectedFrame.minX, y: selectedFrame.minY)
+                    .gesture(selectedNotebookCardDragGesture)
+                    .zIndex(10_000)
+                    .accessibilityAddTraits(.isButton)
+            }
+            .frame(width: rootProxy.size.width, height: rootProxy.size.height, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder
+    func notebookEventsPreviewSurface(in rootProxy: GeometryProxy) -> some View {
+        if selectedNotebook != nil {
+            NotebookEventsPreviewSurface(
+                topInset: selectedNotebookEventsSurfaceTopInset(in: rootProxy),
+                horizontalInset: selectedNotebookCardTargetFrame(in: rootProxy).minX,
+                opacity: notebookDetailBackdropOpacity
+            )
+            .animation(notebookWalletAnimation, value: selectedNotebookCardHeight)
+        }
+    }
+
+    func notebookStackFrame(
+        for summary: NotebookSummary,
+        visibleIndex: Int,
+        in rootProxy: GeometryProxy
+    ) -> CGRect {
+        notebookTransitionUsesTargetFrames
+            ? notebookStackTargetFrame(for: summary, visibleIndex: visibleIndex, in: rootProxy)
+            : notebookStackSourceFrame(for: summary, in: rootProxy)
+    }
+
+    func notebookStackSourceFrame(for summary: NotebookSummary, in rootProxy: GeometryProxy) -> CGRect {
+        guard let frame = notebookTransitionCardFrames[summary.id] else {
+            return .zero
+        }
+
+        return frame
+    }
+
+    func notebookStackTargetFrame(
+        for summary: NotebookSummary,
+        visibleIndex: Int,
+        in rootProxy: GeometryProxy
+    ) -> CGRect {
+        let sourceFrame = notebookStackSourceFrame(for: summary, in: rootProxy)
+
+        if summary.id == selectedNotebook?.id {
+            var targetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+            targetFrame.origin.y += selectedNotebookCardDragOffset
+            return targetFrame
+        }
+
+        return notebookFrameBehindSelectedCard(
+            forVisibleIndex: visibleIndex,
+            fallbackFrame: sourceFrame,
+            in: rootProxy
+        )
+    }
+
+    func notebookFrameBehindSelectedCard(
+        forVisibleIndex visibleIndex: Int,
+        fallbackFrame: CGRect,
+        in rootProxy: GeometryProxy
+    ) -> CGRect {
+        var selectedTargetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+        let stackIndex = notebookBackgroundStackIndex(forVisibleIndex: visibleIndex)
+        selectedTargetFrame.origin.y += CGFloat(stackIndex + 1) * 8
+
+        return CGRect(
+            x: selectedTargetFrame.minX,
+            y: selectedTargetFrame.minY,
+            width: selectedTargetFrame.width,
+            height: fallbackFrame.height
+        )
+    }
+
+    func notebookBackgroundStackIndex(forVisibleIndex visibleIndex: Int) -> Int {
+        let previousSummaries = transitionNotebookSummaries.prefix(visibleIndex)
+        let selectedCorrection = previousSummaries.contains { $0.id == selectedNotebook?.id } ? 1 : 0
+
+        return visibleIndex - selectedCorrection
+    }
+
+    func notebookStackOpacity(for summary: NotebookSummary) -> Double {
+        summary.id == selectedNotebook?.id ? 1 : notebookBackgroundCardsOpacity
+    }
+
+    func notebookStackShadow(for summary: NotebookSummary) -> (opacity: Double, radius: CGFloat, y: CGFloat) {
+        guard notebookTransitionUsesTargetFrames else {
+            return (0, 0, 0)
+        }
+
+        if summary.id == selectedNotebook?.id {
+            return (0.08, 18, 10)
+        }
+
+        return (0.04 * notebookBackgroundCardsOpacity, 10, 4)
+    }
+
+    func notebookStackZIndex(for summary: NotebookSummary, visibleIndex: Int) -> Double {
+        if summary.id == selectedNotebook?.id {
+            return 1_000
+        }
+
+        return Double(transitionNotebookSummaries.count - visibleIndex)
+    }
+
+    func selectedNotebookCardSourceFrame(in rootProxy: GeometryProxy) -> CGRect {
+        guard let selectedNotebook,
+              let frame = notebookTransitionCardFrames[selectedNotebook.id] else {
+            return .zero
+        }
+
+        return frame
+    }
+
+    func selectedNotebookCardTargetFrame(in rootProxy: GeometryProxy) -> CGRect {
+        let sourceFrame = selectedNotebookCardSourceFrame(in: rootProxy)
+        let topInset = max(5, rootProxy.safeAreaInsets.top + 5)
+
+        return CGRect(
+            x: sourceFrame.minX,
+            y: topInset,
+            width: sourceFrame.width,
+            height: sourceFrame.height
+        )
+    }
+
+    func selectedNotebookEventsSurfaceTopInset(in rootProxy: GeometryProxy) -> CGFloat {
+        let targetFrame = selectedNotebookCardTargetFrame(in: rootProxy)
+        let selectedCardHeight = selectedNotebookCardHeight ?? targetFrame.height
+
+        return targetFrame.minY + selectedCardHeight + 15
+    }
+
+    @ViewBuilder
     var content: some View {
-        if activeNotebookSummaries.isEmpty && !isEditing {
-            emptyState
-        } else {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 20) {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: 20) {
+                scrollHeader
+
+                if activeNotebookSummaries.isEmpty && !isEditing {
+                    emptyState
+                        .frame(minHeight: 360)
+                } else {
                     if activeNotebookSummaries.isEmpty {
                         emptyStateCard
                     } else {
                         ForEach(activeNotebookSummaries) { summary in
-                            NotebookSummaryCard(
-                                summary: summary,
-                                isEditing: isEditing,
-                                onAccessoryTap: {
-                                    handleActiveNotebookAccessoryTap(for: summary.notebook)
-                                },
-                                onTap: {
-                                    guard !isEditing else {
-                                        return
-                                    }
-
-                                    openNotebookDetail(summary.notebook)
-                                }
-                            )
-                            .id(activeNotebookCardID(for: summary))
+                            activeNotebookCard(for: summary)
                         }
                         .transition(.move(edge: .trailing))
                     }
@@ -197,22 +547,64 @@ private extension NotebooksSheetView {
                     if isEditing {
                         archivedToggleButton
 
-                        if isShowingArchivedNotebooks {
-                            ForEach(archivedNotebookSummaries) { summary in
-                                NotebookSummaryCard(
-                                    summary: summary,
-                                    isEditing: true,
-                                    onAccessoryTap: {
-                                        handleArchivedNotebookAccessoryTap(for: summary.notebook)
-                                    },
-                                    onTap: {}
-                                )
-                                .id(archivedNotebookCardID(for: summary))
-                                .transition(.move(edge: .trailing))
-                            }
-                        }
+                        archivedNotebookCards
                     }
                 }
+            }
+            .padding(.bottom, notebookContentBottomPadding)
+            .opacity(notebookListOpacity)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear
+                .frame(height: notebookScrollBottomSafeInset)
+                .accessibilityHidden(true)
+        }
+    }
+
+    var scrollHeader: some View {
+        header
+            .padding(.top, 5)
+            .offset(y: notebookHeaderOffset)
+            .opacity(notebookChromeOpacity)
+    }
+
+    func activeNotebookCard(for summary: NotebookSummary) -> some View {
+        NotebookSummaryCard(
+            summary: summary,
+            isEditing: isEditing,
+            frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
+            isExpanded: notebookExpansionBinding(for: summary),
+            onAccessoryTap: {
+                handleActiveNotebookAccessoryTap(for: summary.notebook)
+            },
+            onTap: {
+                guard !isEditing else {
+                    return
+                }
+
+                openNotebookCard(summary.notebook)
+            }
+        )
+        .id(activeNotebookCardID(for: summary))
+        .opacity(notebookSourceCardOpacity(for: summary))
+    }
+
+    @ViewBuilder
+    var archivedNotebookCards: some View {
+        if isShowingArchivedNotebooks {
+            ForEach(archivedNotebookSummaries) { summary in
+                NotebookSummaryCard(
+                    summary: summary,
+                    isEditing: true,
+                    frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
+                    isExpanded: notebookExpansionBinding(for: summary),
+                    onAccessoryTap: {
+                        handleArchivedNotebookAccessoryTap(for: summary.notebook)
+                    },
+                    onTap: {}
+                )
+                .id(archivedNotebookCardID(for: summary))
+                .transition(.move(edge: .trailing))
             }
         }
     }
@@ -221,7 +613,7 @@ private extension NotebooksSheetView {
         HStack(spacing: 10) {
             SDSheetTitleView(iconSystemName: "list.bullet", title: "事件本")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             Text("\(activeNotebookSummaries.count)")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .contentTransition(.numericText())
@@ -288,7 +680,7 @@ private extension NotebooksSheetView {
 
     var controls: some View {
         HStack {
-            Button(action: onBack) {
+            Button(action: handleLeadingControlTap) {
                 SDSheetActionButton(
                     iconSystemName: "arrow.left",
                     title: "返回",
@@ -297,21 +689,260 @@ private extension NotebooksSheetView {
                 )
             }
             .buttonStyle(.plain)
+            .background {
+                controlButtonBackdrop(for: .left)
+            }
 
-            Button(action: onCreateNotebook) {
-                SDSheetActionButton(
-                    iconSystemName: "plus",
-                    title: "新建事件本",
-                    placement: .right,
-                    appearance: .prominent
-                )
+            Button(action: handleTrailingControlTap) {
+                trailingControlLabel
             }
             .buttonStyle(.plain)
+            .background {
+                controlButtonBackdrop(for: .right)
+            }
         }
     }
 
-    func openNotebookDetail(_ notebook: Notebook) {
-        onOpenNotebook(notebook)
+    func controlButtonBackdrop(for placement: SDSheetActionButtonPlacement) -> some View {
+        controlButtonShape(for: placement)
+            .fill(Color(.systemGroupedBackground))
+    }
+
+    func controlButtonShape(for placement: SDSheetActionButtonPlacement) -> SDRoundedCornersShape {
+        SDRoundedCornersShape(
+            topLeading: 10,
+            topTrailing: 10,
+            bottomLeading: placement == .left ? 35 : 10,
+            bottomTrailing: placement == .right ? 35 : 10,
+            style: .continuous
+        )
+    }
+
+    var controlsLayer: some View {
+        controls
+            .padding(.horizontal, 5)
+            .offset(y: notebookControlsOffset)
+            .opacity(notebookChromeOpacity)
+            .allowsHitTesting(notebookListAllowsHitTesting)
+            .accessibilityHidden(!notebookListAllowsHitTesting)
+    }
+
+    var notebookBottomOcclusionLayer: some View {
+        bottomGradientMask
+            .opacity(notebookBottomOcclusionOpacity)
+    }
+
+    var bottomGradientMask: some View {
+        LinearGradient(
+            colors: [
+                Color(.systemGroupedBackground).opacity(0),
+                Color(.systemGroupedBackground).opacity(0.9),
+                Color(.systemGroupedBackground)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: notebookBottomMaskHeight)
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    var trailingControlLabel: some View {
+        SDSheetActionButton(
+            iconSystemName: "plus",
+            title: "新建事件本",
+            placement: .right,
+            appearance: .prominent
+        )
+    }
+
+    func notebookSourceCardOpacity(for summary: NotebookSummary) -> Double {
+        guard selectedNotebookSourceCardIsHidden,
+              summary.id == selectedNotebook?.id else {
+            return 1
+        }
+
+        return 0
+    }
+
+    func notebookExpansionBinding(for summary: NotebookSummary) -> Binding<Bool> {
+        Binding(
+            get: {
+                expandedNotebookIDs.contains(summary.id)
+            },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedNotebookIDs.insert(summary.id)
+                } else {
+                    expandedNotebookIDs.remove(summary.id)
+                }
+            }
+        )
+    }
+
+    var selectedNotebookCardDragGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { value in
+                guard selectedNotebook != nil,
+                      notebookTransitionPhase == .presented else {
+                    return
+                }
+
+                selectedNotebookCardDragOffset = rubberBandedNotebookCardDragOffset(
+                    for: value.translation.height
+                )
+            }
+            .onEnded { value in
+                guard selectedNotebook != nil,
+                      notebookTransitionPhase == .presented else {
+                    return
+                }
+
+                if shouldDismissNotebookCard(for: value) {
+                    closeNotebookCard()
+                    return
+                }
+
+                withAnimation(notebookWalletAnimation) {
+                    selectedNotebookCardDragOffset = 0
+                }
+            }
+    }
+
+    func rubberBandedNotebookCardDragOffset(for translation: CGFloat) -> CGFloat {
+        if translation < 0 {
+            return max(translation * 0.28, -45)
+        }
+
+        return min(translation, 260)
+    }
+
+    func shouldDismissNotebookCard(for value: DragGesture.Value) -> Bool {
+        let downwardDistance = max(
+            value.translation.height,
+            value.predictedEndTranslation.height
+        )
+
+        return downwardDistance >= notebookCardDismissDragDistance
+    }
+
+    func openNotebookCard(_ notebook: Notebook) {
+        guard let sourceFrame = notebookCardFrames[notebook.id] else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+        notebookTransitionTask?.cancel()
+
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            selectedNotebook = notebook
+            notebookTransitionCardFrames = notebookCardFrames
+            notebookTransitionPhase = .openingPrepared
+            selectedNotebookCardDragOffset = 0
+            selectedNotebookCardHeight = sourceFrame.height
+        }
+
+        notebookTransitionTask = Task { @MainActor in
+            await Task.yield()
+
+            guard selectedNotebook?.id == notebook.id,
+                  notebookTransitionPhase == .openingPrepared else {
+                return
+            }
+
+            withAnimation(notebookWalletAnimation) {
+                notebookTransitionPhase = .opening
+            }
+
+            try? await Task.sleep(for: .milliseconds(180))
+
+            guard !Task.isCancelled,
+                  selectedNotebook?.id == notebook.id,
+                  notebookTransitionPhase == .opening else {
+                return
+            }
+
+            withAnimation(.easeOut(duration: 0.16)) {
+                notebookTransitionPhase = .presented
+            }
+        }
+    }
+
+    func closeNotebookCard() {
+        guard let selectedNotebook else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+        notebookTransitionTask?.cancel()
+
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            notebookTransitionPhase = .closingPrepared
+        }
+
+        withAnimation(notebookWalletAnimation) {
+            notebookTransitionPhase = .closing
+            selectedNotebookCardDragOffset = 0
+        }
+
+        let closingNotebookID = selectedNotebook.id
+        notebookTransitionTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(430))
+
+            guard self.selectedNotebook?.id == closingNotebookID,
+                  notebookTransitionPhase == .closing else {
+                return
+            }
+
+            var transaction = Transaction()
+            transaction.animation = nil
+
+            withTransaction(transaction) {
+                notebookTransitionPhase = .settling
+            }
+
+            await Task.yield()
+
+            guard self.selectedNotebook?.id == closingNotebookID,
+                  notebookTransitionPhase == .settling else {
+                return
+            }
+
+            withTransaction(transaction) {
+                self.selectedNotebook = nil
+                notebookTransitionCardFrames = [:]
+                selectedNotebookCardHeight = nil
+                selectedNotebookCardDragOffset = 0
+                notebookTransitionPhase = .idle
+            }
+        }
+    }
+
+    func resetNotebookCardPresentation() {
+        selectedNotebook = nil
+        notebookTransitionCardFrames = [:]
+        notebookTransitionPhase = .idle
+        selectedNotebookCardDragOffset = 0
+        selectedNotebookCardHeight = nil
+    }
+
+    func handleLeadingControlTap() {
+        if selectedNotebook != nil {
+            closeNotebookCard()
+            return
+        }
+
+        onBack()
+    }
+
+    func handleTrailingControlTap() {
+        onCreateNotebook()
     }
 
     func handleActiveNotebookAccessoryTap(for notebook: Notebook) {
@@ -320,7 +951,7 @@ private extension NotebooksSheetView {
             return
         }
 
-        onOpenNotebook(notebook)
+        openNotebookCard(notebook)
     }
 
     func handleArchivedNotebookAccessoryTap(for notebook: Notebook) {
@@ -354,6 +985,28 @@ private extension NotebooksSheetView {
         } catch {
             assertionFailure("Failed to persist notebook changes: \(error.localizedDescription)")
         }
+    }
+}
+
+private struct NotebookEventsPreviewSurface: View {
+    let topInset: CGFloat
+    let horizontalInset: CGFloat
+    let opacity: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .frame(height: max(220, proxy.size.height - topInset - 25))
+                    .padding(.horizontal, max(5, horizontalInset))
+                    .padding(.top, topInset)
+                    .padding(.bottom, 25)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .background(Color(.systemGroupedBackground))
+        }
+        .opacity(opacity)
     }
 }
 

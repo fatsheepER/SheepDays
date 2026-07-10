@@ -40,7 +40,7 @@ extension HomeView {
 
     var sheetContainerBackgroundColor: Color {
         switch sheetRoute {
-        case .eventDetail, .notebooks, .notebookDetail:
+        case .eventDetail, .notebooks:
             return Color(.systemGroupedBackground)
         default:
             return Color.clear
@@ -49,7 +49,7 @@ extension HomeView {
 
     var sheetBackgroundInteraction: PresentationBackgroundInteraction {
         switch sheetRoute {
-        case .focus, .quickAdd, .notebooks, .notebookDetail:
+        case .focus, .quickAdd, .notebooks:
             return .disabled
         default:
             return .enabled
@@ -118,32 +118,9 @@ extension HomeView {
                 onCreateNotebook: { showNotebookCreator() },
                 onEditNotebook: { notebook in
                     showNotebookEditor(for: notebook)
-                },
-                onOpenNotebook: { notebook in
-                    showNotebookDetail(for: notebook)
                 }
             )
             .transition(.blurReplace)
-
-        case .notebookDetail:
-            if let selectedNotebook {
-                NotebookDetailView(
-                    notebook: selectedNotebook,
-                    onBack: {
-                        showNotebooks()
-                    },
-                    onEdit: {
-                        showNotebookEditor(for: selectedNotebook)
-                    }
-                )
-                .transition(.blurReplace)
-            } else {
-                SheetPlaceholderPage(
-                    title: "事件本",
-                    onBack: { showNotebooks() }
-                )
-                .transition(.opacity)
-            }
 
         case .notebookEditor:
             if let notebookEditorOption {
@@ -198,8 +175,6 @@ extension HomeView {
         case .settings:
             return .height(190)
         case .notebooks:
-            return .large
-        case .notebookDetail:
             return .large
         case .notebookEditor:
             return .height(190)
