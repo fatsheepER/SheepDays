@@ -71,7 +71,7 @@ extension HomeView {
     static let homePageDragSuppressionResetDelay: Duration = .milliseconds(180)
     static let homeThemeTransitionAnimation = Animation.easeInOut(duration: 0.24)
     // 分步回到 today 动画
-    static let todayRestoreStepDelay: Duration = .milliseconds(220)
+    static let todayRestoreStepDelay: Duration = .milliseconds(400)
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
 

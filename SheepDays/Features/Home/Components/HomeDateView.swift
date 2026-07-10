@@ -177,7 +177,10 @@ private struct HomeDateStripView: View {
     let selectDate: (Date) -> Void
 
     @State private var displayedContent: HomeDateStripDisplayContent
+    @State private var displayedSelectedDate: Date
     @State private var animatedDayOffset = 0
+    @State private var incomingContent: HomeDateStripDisplayContent?
+    @State private var incomingDayOffset = 0
     @State private var animationGeneration = 0
 
     init(
@@ -191,6 +194,7 @@ private struct HomeDateStripView: View {
         self.dateScrubState = dateScrubState
         self.selectDate = selectDate
         _displayedContent = State(initialValue: content)
+        _displayedSelectedDate = State(initialValue: content.selectedDate)
     }
 
     var body: some View {
@@ -203,23 +207,40 @@ private struct HomeDateStripView: View {
                 let dayWidth = dayWidth(in: geometry.size.width)
                 let stripWidth = stripWidth(dayWidth: dayWidth)
 
-                HStack(spacing: HomeDateStripLayout.spacing) {
-                    ForEach(displayedContent.days) { day in
-                        HomeDateBlock(
-                            day: day,
-                            isSelected: calendar.isDate(day.date, inSameDayAs: content.selectedDate),
+                ZStack {
+                    HomeDateStripDaysLayer(
+                        content: displayedContent,
+                        selectedDate: displayedSelectedDate,
+                        calendar: calendar,
+                        dayWidth: dayWidth,
+                        selectDate: selectDate
+                    )
+                    .frame(width: stripWidth, height: geometry.size.height)
+                    .offset(
+                        x: -CGFloat(displayedDayOffset(for: scrubSnapshot))
+                            * (dayWidth + HomeDateStripLayout.spacing)
+                    )
+                    .id(displayedContent.selectedDate)
+
+                    if let incomingContent {
+                        HomeDateStripDaysLayer(
+                            content: incomingContent,
+                            selectedDate: incomingContent.selectedDate,
+                            calendar: calendar,
+                            dayWidth: dayWidth,
                             selectDate: selectDate
                         )
-                        .frame(width: dayWidth)
+                        .frame(width: stripWidth, height: geometry.size.height)
+                        .offset(
+                            x: -CGFloat(incomingDayOffset)
+                                * (dayWidth + HomeDateStripLayout.spacing)
+                        )
+                        .id(incomingContent.selectedDate)
                     }
                 }
                 .frame(width: stripWidth, height: geometry.size.height)
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                .offset(
-                    x: -CGFloat(displayedDayOffset(for: scrubSnapshot))
-                        * (dayWidth + HomeDateStripLayout.spacing)
-                )
-                .id(displayedContent.selectedDate)
+                .allowsHitTesting(incomingContent == nil)
             }
         }
         .padding(.horizontal, 10)
@@ -270,6 +291,10 @@ private struct HomeDateStripView: View {
     }
 
     private func move(to newContent: HomeDateStripDisplayContent) {
+        if let incomingContent {
+            reset(to: incomingContent)
+        }
+
         animationGeneration += 1
         let generation = animationGeneration
 
@@ -285,12 +310,46 @@ private struct HomeDateStripView: View {
         }
 
         guard abs(dayOffset) <= HomeDateStripLayout.visibleDayRadius else {
-            reset(to: newContent)
+            moveAcrossPage(
+                to: newContent,
+                direction: dayOffset.signum(),
+                generation: generation
+            )
             return
         }
 
+        displayedSelectedDate = newContent.selectedDate
+
         withAnimation(.default, completionCriteria: .logicallyComplete) {
             animatedDayOffset = dayOffset
+        } completion: {
+            guard animationGeneration == generation else {
+                return
+            }
+
+            reset(to: newContent)
+        }
+    }
+
+    private func moveAcrossPage(
+        to newContent: HomeDateStripDisplayContent,
+        direction: Int,
+        generation: Int
+    ) {
+        let pageDayOffset = direction * HomeDateStripLayout.visibleDayCount
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+
+        withTransaction(transaction) {
+            displayedSelectedDate = displayedContent.selectedDate
+            animatedDayOffset = 0
+            incomingContent = newContent
+            incomingDayOffset = -pageDayOffset
+        }
+
+        withAnimation(.default, completionCriteria: .logicallyComplete) {
+            animatedDayOffset = pageDayOffset
+            incomingDayOffset = 0
         } completion: {
             guard animationGeneration == generation else {
                 return
@@ -306,13 +365,37 @@ private struct HomeDateStripView: View {
 
         withTransaction(transaction) {
             displayedContent = newContent
+            displayedSelectedDate = newContent.selectedDate
             animatedDayOffset = 0
+            incomingContent = nil
+            incomingDayOffset = 0
         }
     }
 
     private func cancelAnimationAndReset(to newContent: HomeDateStripDisplayContent) {
         animationGeneration += 1
         reset(to: newContent)
+    }
+}
+
+private struct HomeDateStripDaysLayer: View {
+    let content: HomeDateStripDisplayContent
+    let selectedDate: Date
+    let calendar: Calendar
+    let dayWidth: CGFloat
+    let selectDate: (Date) -> Void
+
+    var body: some View {
+        HStack(spacing: HomeDateStripLayout.spacing) {
+            ForEach(content.days) { day in
+                HomeDateBlock(
+                    day: day,
+                    isSelected: calendar.isDate(day.date, inSameDayAs: selectedDate),
+                    selectDate: selectDate
+                )
+                .frame(width: dayWidth)
+            }
+        }
     }
 }
 
