@@ -9,7 +9,6 @@ import SwiftUI
 
 struct HomeDateView: View {
     @Environment(\.sheepDaysTheme) private var theme
-    @Environment(\.haptics) private var haptics
     @Binding private var referenceDate: Date
 
     private let today: Date
@@ -34,7 +33,7 @@ struct HomeDateView: View {
 
     var body: some View {
         let content = self.content
-        let weekContent = self.weekContent
+        let dateStripContent = self.dateStripContent
 
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
@@ -58,15 +57,15 @@ struct HomeDateView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HomeWeekStripView(
-                week: weekContent,
+            HomeDateStripView(
+                content: dateStripContent,
                 calendar: calendar,
                 selectDate: selectDate
             )
             .padding(.vertical, 5)
             .clipShape(Capsule(style: .continuous))
             .glassEffect(
-                .regular.tint(.white.opacity(0.2)).interactive(),
+                .regular.interactive(),
                 in: Capsule(style: .continuous)
             )
 
@@ -83,8 +82,8 @@ struct HomeDateView: View {
         )
     }
 
-    private var weekContent: HomeWeekDisplayContent {
-        HomeWeekDisplayContent(
+    private var dateStripContent: HomeDateStripDisplayContent {
+        HomeDateStripDisplayContent(
             referenceDate: referenceDate,
             today: today,
             calendar: calendar
@@ -108,38 +107,23 @@ private extension Locale {
     }
 }
 
-private enum HomeWeekPageDirection {
-    case forward
-    case backward
+private enum HomeDateStripLayout {
+    static let visibleDayRadius = 3
+    static let renderedDayRadius = 6
+    static let spacing: CGFloat = 5
 
-    var insertionEdge: Edge {
-        switch self {
-        case .forward:
-            return .trailing
-        case .backward:
-            return .leading
-        }
-    }
-
-    var removalEdge: Edge {
-        switch self {
-        case .forward:
-            return .leading
-        case .backward:
-            return .trailing
-        }
+    static var visibleDayCount: Int {
+        visibleDayRadius * 2 + 1
     }
 }
 
-private struct HomeWeekDisplayContent: Equatable {
-    let weekStartDate: Date
+private struct HomeDateStripDisplayContent: Equatable {
     let selectedDate: Date
-    let days: [HomeWeekDay]
+    let days: [HomeDateStripDay]
 
     init(referenceDate: Date, today: Date = .now, calendar: Calendar) {
         let selectedDate = calendar.startOfDay(for: referenceDate)
         let today = calendar.startOfDay(for: today)
-        let weekStartDate = calendar.startOfNaturalWeek(containing: selectedDate)
         let weekdayFormatter = DateFormatter()
 
         weekdayFormatter.calendar = calendar
@@ -147,167 +131,155 @@ private struct HomeWeekDisplayContent: Equatable {
         weekdayFormatter.timeZone = calendar.timeZone
         weekdayFormatter.dateFormat = "EEE"
 
-        self.weekStartDate = weekStartDate
         self.selectedDate = selectedDate
-        self.days = (0..<7).map { offset in
-            let date = calendar.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        self.days = (-HomeDateStripLayout.renderedDayRadius...HomeDateStripLayout.renderedDayRadius).map { dayOffset in
+            let date = calendar.date(byAdding: .day, value: dayOffset, to: selectedDate) ?? selectedDate
 
-            return HomeWeekDay(
+            return HomeDateStripDay(
                 date: date,
                 dayText: String(calendar.component(.day, from: date)),
                 weekdayText: weekdayFormatter.string(from: date).uppercased(),
-                isToday: calendar.isDate(date, inSameDayAs: today),
-                isSelected: calendar.isDate(date, inSameDayAs: selectedDate)
+                isToday: calendar.isDate(date, inSameDayAs: today)
             )
         }
     }
 }
 
-private struct HomeWeekDay: Identifiable, Equatable {
+private struct HomeDateStripDay: Identifiable, Equatable {
     let date: Date
     let dayText: String
     let weekdayText: String
     let isToday: Bool
-    let isSelected: Bool
 
     var id: Date { date }
 }
 
-private struct HomeWeekStripView: View {
-    let week: HomeWeekDisplayContent
+private struct HomeDateStripView: View {
+    let content: HomeDateStripDisplayContent
     let calendar: Calendar
     let selectDate: (Date) -> Void
 
-    @Environment(\.haptics) private var haptics
-    
-    @Namespace private var selectionNamespace
-    @State private var displayedWeek: HomeWeekDisplayContent
-    @State private var pageDirection: HomeWeekPageDirection = .forward
-    @GestureState private var dragOffset: CGFloat = 0
+    @State private var displayedContent: HomeDateStripDisplayContent
+    @State private var animatedDayOffset = 0
+    @State private var animationGeneration = 0
 
-    private static let swipeActivationDistance: CGFloat = 36
-    private static let horizontalDominance: CGFloat = 1.15
-    private static let maximumPageDragOffset: CGFloat = 56
-
-    init(week: HomeWeekDisplayContent, calendar: Calendar, selectDate: @escaping (Date) -> Void) {
-        self.week = week
+    init(
+        content: HomeDateStripDisplayContent,
+        calendar: Calendar,
+        selectDate: @escaping (Date) -> Void
+    ) {
+        self.content = content
         self.calendar = calendar
         self.selectDate = selectDate
-        _displayedWeek = State(initialValue: week)
+        _displayedContent = State(initialValue: content)
     }
 
     var body: some View {
         ZStack {
-            HomeWeekPageView(
-                week: displayedWeek,
-                selectionNamespace: selectionNamespace,
-                selectDate: selectDate
-            )
-            .id(displayedWeek.weekStartDate)
-            .offset(x: dragOffset)
-            .transition(pageTransition)
-        }
-        .frame(height: 60)
-        .clipped()
-        .contentShape(Capsule())
-        .simultaneousGesture(pageDragGesture)
-        .onChange(of: week) { oldWeek, newWeek in
-            updateDisplayedWeek(from: oldWeek, to: newWeek)
-        }
-    }
+            HomeDateStripSelectionBackground()
 
-    private var pageTransition: AnyTransition {
-        .asymmetric(
-            insertion: .move(edge: pageDirection.insertionEdge).combined(with: .opacity),
-            removal: .move(edge: pageDirection.removalEdge).combined(with: .opacity)
-        )
-    }
+            GeometryReader { geometry in
+                let dayWidth = dayWidth(in: geometry.size.width)
+                let stripWidth = stripWidth(dayWidth: dayWidth)
 
-    private func updateDisplayedWeek(from oldWeek: HomeWeekDisplayContent, to newWeek: HomeWeekDisplayContent) {
-        pageDirection = newWeek.selectedDate >= oldWeek.selectedDate ? .forward : .backward
-
-        withAnimation {
-            displayedWeek = newWeek
-        }
-    }
-
-    private var pageDragGesture: some Gesture {
-        DragGesture(minimumDistance: 14)
-            .updating($dragOffset) { value, state, _ in
-                guard Self.hasHorizontalIntent(value) else {
-                    return
+                HStack(spacing: HomeDateStripLayout.spacing) {
+                    ForEach(displayedContent.days) { day in
+                        HomeDateBlock(
+                            day: day,
+                            isSelected: calendar.isDate(day.date, inSameDayAs: content.selectedDate),
+                            selectDate: selectDate
+                        )
+                        .frame(width: dayWidth)
+                    }
                 }
-
-                state = min(
-                    max(value.translation.width, -Self.maximumPageDragOffset),
-                    Self.maximumPageDragOffset
-                )
-            }
-            .onEnded { value in
-                guard Self.hasHorizontalIntent(value) else {
-                    return
-                }
-
-                let translation = dominantHorizontalTranslation(for: value)
-                guard abs(translation) >= Self.swipeActivationDistance else {
-                    return
-                }
-
-                haptics.play(.openDetailTap)
-                moveToAdjacentWeek(translation < 0 ? 1 : -1)
-            }
-    }
-
-    private static func hasHorizontalIntent(_ value: DragGesture.Value) -> Bool {
-        abs(value.translation.width) > abs(value.translation.height) * horizontalDominance
-    }
-
-    private func dominantHorizontalTranslation(for value: DragGesture.Value) -> CGFloat {
-        if abs(value.predictedEndTranslation.width) > abs(value.translation.width) {
-            return value.predictedEndTranslation.width
-        }
-
-        return value.translation.width
-    }
-
-    private func moveToAdjacentWeek(_ weekOffset: Int) {
-        guard let targetDate = calendar.date(
-            byAdding: .day,
-            value: weekOffset * 7,
-            to: displayedWeek.weekStartDate
-        ) else {
-            return
-        }
-
-        selectDate(calendar.startOfDay(for: targetDate))
-    }
-}
-
-private struct HomeWeekPageView: View {
-    let week: HomeWeekDisplayContent
-    let selectionNamespace: Namespace.ID
-    let selectDate: (Date) -> Void
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(week.days) { day in
-                HomeWeekDayBlock(
-                    day: day,
-                    selectionNamespace: selectionNamespace,
-                    selectDate: selectDate
-                )
+                .frame(width: stripWidth, height: geometry.size.height)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                .offset(x: -CGFloat(animatedDayOffset) * (dayWidth + HomeDateStripLayout.spacing))
+                .id(displayedContent.selectedDate)
             }
         }
         .padding(.horizontal, 10)
+//        .padding(.vertical, 5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(height: 60)
+        .onChange(of: content.selectedDate) { _, _ in
+            move(to: content)
+        }
+    }
+
+    private func dayWidth(in availableWidth: CGFloat) -> CGFloat {
+        let totalSpacing = CGFloat(HomeDateStripLayout.visibleDayCount - 1) * HomeDateStripLayout.spacing
+        return max((availableWidth - totalSpacing) / CGFloat(HomeDateStripLayout.visibleDayCount), 0)
+    }
+
+    private func stripWidth(dayWidth: CGFloat) -> CGFloat {
+        let dayCount = displayedContent.days.count
+        let totalSpacing = CGFloat(dayCount - 1) * HomeDateStripLayout.spacing
+        return CGFloat(dayCount) * dayWidth + totalSpacing
+    }
+
+    private func move(to newContent: HomeDateStripDisplayContent) {
+        animationGeneration += 1
+        let generation = animationGeneration
+
+        let dayOffset = calendar.dateComponents(
+            [.day],
+            from: displayedContent.selectedDate,
+            to: newContent.selectedDate
+        ).day ?? 0
+
+        guard dayOffset != 0 else {
+            reset(to: newContent)
+            return
+        }
+
+        guard abs(dayOffset) <= HomeDateStripLayout.visibleDayRadius else {
+            reset(to: newContent)
+            return
+        }
+
+        withAnimation(.default, completionCriteria: .logicallyComplete) {
+            animatedDayOffset = dayOffset
+        } completion: {
+            guard animationGeneration == generation else {
+                return
+            }
+
+            reset(to: newContent)
+        }
+    }
+
+    private func reset(to newContent: HomeDateStripDisplayContent) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+
+        withTransaction(transaction) {
+            displayedContent = newContent
+            animatedDayOffset = 0
+        }
     }
 }
 
-private struct HomeWeekDayBlock: View {
+private struct HomeDateStripSelectionBackground: View {
+    private static let selectedOffset = 0
+
+    var body: some View {
+        HStack(spacing: HomeDateStripLayout.spacing) {
+            ForEach(-HomeDateStripLayout.visibleDayRadius...HomeDateStripLayout.visibleDayRadius, id: \.self) { dayOffset in
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(dayOffset == Self.selectedOffset ? Color(.quaternarySystemFill) : .clear)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct HomeDateBlock: View {
     @Environment(\.sheepDaysTheme) private var theme
 
-    let day: HomeWeekDay
-    let selectionNamespace: Namespace.ID
+    let day: HomeDateStripDay
+    let isSelected: Bool
     let selectDate: (Date) -> Void
 
     var body: some View {
@@ -316,7 +288,6 @@ private struct HomeWeekDayBlock: View {
         } label: {
             VStack(spacing: 3) {
                 Text(day.dayText)
-                    .contentTransition(.numericText())
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(dayTextColor)
                     .lineLimit(1)
@@ -330,15 +301,7 @@ private struct HomeWeekDayBlock: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(5)
-            .background(alignment: .center) {
-                if day.isSelected {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color(.quaternarySystemFill))
-                        .matchedGeometryEffect(id: "selected-week-day-background", in: selectionNamespace)
-                }
-            }
-//            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -350,17 +313,7 @@ private struct HomeWeekDayBlock: View {
             return theme.accentColor
         }
 
-        return day.isSelected ? .primary : .secondary
-    }
-}
-
-private extension Calendar {
-    func startOfNaturalWeek(containing date: Date) -> Date {
-        let normalizedDate = startOfDay(for: date)
-        let weekday = component(.weekday, from: normalizedDate)
-        let daysFromWeekStart = (weekday - firstWeekday + 7) % 7
-
-        return self.date(byAdding: .day, value: -daysFromWeekStart, to: normalizedDate) ?? normalizedDate
+        return isSelected ? .primary : .secondary
     }
 }
 
