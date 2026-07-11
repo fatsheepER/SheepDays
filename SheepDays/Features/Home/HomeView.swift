@@ -15,6 +15,7 @@ struct HomeView: View {
     @Environment(\.appOverlayCoordinator) var overlayCoordinator
 
     @State var referenceDate = HomeReferenceDate.normalized(.now)
+    @State var dateScrubState = HomeDateScrubState()
     @State var dateRestoreTask: Task<Void, Never>?
     @State var dateRestoreToken = 0
     @State var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
@@ -70,7 +71,7 @@ extension HomeView {
     static let homePageDragSuppressionResetDelay: Duration = .milliseconds(180)
     static let homeThemeTransitionAnimation = Animation.easeInOut(duration: 0.24)
     // 分步回到 today 动画
-    static let todayRestoreStepDelay: Duration = .milliseconds(220)
+    static let todayRestoreStepDelay: Duration = .milliseconds(400)
     static let todayRestoreStepCount = 3
     static let todayRestoreMinimumSegmentedDayOffset = 10
 
@@ -203,7 +204,10 @@ extension HomeView {
                 .offset(y: Self.floatingDateFadeOffset)
                 .allowsHitTesting(false)
 
-            HomeDateView(referenceDate: interactiveReferenceDate)
+            HomeDateView(
+                referenceDate: interactiveReferenceDate,
+                dateScrubState: dateScrubState
+            )
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }

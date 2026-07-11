@@ -13,6 +13,7 @@ struct HomeSheetView: View {
     @Binding var referenceDate: Date
     let badgeDisplayMode: HomeItemBadgeDisplayMode
     let isCompact: Bool
+    var dateScrubState: HomeDateScrubState? = nil
 
     var onTapFocus: () -> Void = {}
     var onTapQuickAdd: () -> Void = {}
@@ -60,8 +61,14 @@ private extension HomeSheetView {
             }
             .buttonStyle(.plain)
             
-            CapsuleRollerView(adjustedDate: $referenceDate, lineSpacing: 8, lineHeight: 30)
-                .frame(maxWidth: .infinity)
+            CapsuleRollerView(
+                adjustedDate: $referenceDate,
+                scrubState: dateScrubState,
+                ticksPerDay: 4,
+                lineSpacing: 8,
+                lineHeight: 30
+            )
+            .frame(maxWidth: .infinity)
 
             Button(action: onTapToday) {
                 Image(systemName: "smallcircle.filled.circle")

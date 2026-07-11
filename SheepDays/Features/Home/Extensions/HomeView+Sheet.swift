@@ -64,6 +64,7 @@ extension HomeView {
                 referenceDate: interactiveReferenceDate,
                 badgeDisplayMode: itemBadgeDisplayMode,
                 isCompact: selectedSheetDetent == HomeSheetDetents.compact,
+                dateScrubState: dateScrubState,
                 onTapFocus: { showFocus() },
                 onTapQuickAdd: { showQuickAdd() },
                 onTapNotebooks: { showNotebooks() },
