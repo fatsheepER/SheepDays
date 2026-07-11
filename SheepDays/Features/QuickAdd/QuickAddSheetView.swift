@@ -11,6 +11,7 @@ import SwiftData
 struct QuickAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.haptics) private var haptics
+    @Environment(\.sheepDaysTheme) private var theme
 
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
@@ -58,31 +59,10 @@ struct QuickAddSheetView: View {
         VStack(spacing: 10) {
             header
 
-            VStack(spacing: 3) {
-                basicInfo
-                    .frame(height: 70)
-
-                advancedInfo
-                    .frame(height: 40)
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(Color(.quaternarySystemFill))
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-
-            if !isTitleFieldFocused {
-                Spacer()
-            }
-
-            controls
-
-            if isTitleFieldFocused {
-                Spacer()
-            }
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+//        .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
             prepareFormIfNeeded()
         }
@@ -118,34 +98,39 @@ struct QuickAddSheetView: View {
 // MARK: - Subviews
 private extension QuickAddSheetView {
     var header: some View {
-        HStack(spacing: 10) {
-            SDSheetTitleView(iconSystemName: "plus", title: "创建新事件")
+        HStack(spacing: 5) {
+            SDSheetTitleView(iconSystemName: "plus", title: "新事件")
 
-            Spacer()
-            
-            // date
-            DatePicker(
-                "事件日期",
-                selection: dateSelection,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            .fixedSize()
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    isTitleFieldFocused = false
-                    haptics.play(.openDetailTap)
-                }
-            )
-            
-//            Text(offsetText)
-//                .font(.system(size: 18, weight: .medium))
-//                .foregroundStyle(Color(.secondaryLabel))
-//                .contentTransition(.numericText())
-//                .padding(.horizontal, 10)
+            Text("· \(offsetText)")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(Color(.secondaryLabel))
+                .contentTransition(.numericText())
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
+            Button(action: cancel) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .frame(width: 38, height: 38)
+                    .background(Color(.quaternarySystemFill), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isCancelling)
         }
+        .padding(.horizontal, 10)
+    }
+
+    var content: some View {
+        VStack(spacing: 10) {
+            basicInfo
+                .frame(height: 70)
+
+            advancedInfo
+                .frame(height: 40)
+        }
+        .padding(.horizontal, 10)
     }
     
     var basicInfo: some View {
@@ -163,102 +148,151 @@ private extension QuickAddSheetView {
             TextField("请输入事件名称", text: $title)
                 .font(.system(size: 18, weight: .medium))
                 .frame(maxWidth: .infinity)
+                .padding(.leading, 20)
+                .padding(.trailing, 10)
+                .frame(height: 60)
+                .background(
+                    Color(.quaternarySystemFill),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
                 .focused($isTitleFieldFocused)
-
-            
         }
     }
     
     var advancedInfo: some View {
         HStack(spacing: 10) {
-            // notebook
-            Menu {
-                if notebooks.isEmpty {
-                    Text("暂无事件本")
-                } else {
-                    Section("选择事件本") {
-                        ForEach(notebooks) { notebook in
-                            Button {
-                                selectedNotebook = notebook
-                            } label: {
-                                notebookMenuLabel(
-                                    for: notebook,
-                                    isSelected: notebook.id == selectedNotebook?.id
-                                )
-                            }
-                        }
-                    }
-                }
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    notebookControl
+                    dateBadge
 
-                Section {
+                    // tag
+                    Button(action: presentTagList) {
+                        tagSelectionIcon
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 30)
+
+                    // show on home
                     Button {
-                        isNotebookCreatorPresented = true
+                        showOnHome.toggle()
                     } label: {
-                        Label("新建事件本…", systemImage: "plus")
+                        Image(systemName: showOnHome ? "star.fill" : "star")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.yellow)
+                            .frame(width: 30)
                     }
+                    .buttonStyle(.plain)
+
+                    // pin to top
+                    Button {
+                        pinToTop.toggle()
+                    } label: {
+                        Image(systemName: pinToTop ? "pin.fill" : "pin")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .frame(width: 30)
+                    }
+                    .buttonStyle(.plain)
                 }
-            } label: {
-                SDNotebookBadge(notebook: selectedNotebook)
-                    .frame(height: 40)
             }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            // tag
-            Button(action: presentTagList) {
-                tagSelectionIcon
-            }
-            .buttonStyle(.plain)
-            .frame(width: 30)
-
-            // show on home
-            Image(systemName: showOnHome ? "star.fill" : "star")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .onTapGesture {
-                    showOnHome.toggle()
-                }
-                .foregroundStyle(.yellow)
-                .frame(width: 30)
-
-            // pin to top
-            Image(systemName: pinToTop ? "pin.fill" : "pin")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .onTapGesture {
-                    pinToTop.toggle()
-                }
-                .foregroundStyle(Color(.secondaryLabel))
-                .frame(width: 30)
-            
-            
-        }
-    }
-    
-    var controls: some View {
-        HStack {
-            Button(action: cancel) {
-                SDSheetActionButton(
-                    iconSystemName: "arrow.left",
-                    title: "返回",
-                    placement: .left,
-                    appearance: .plain
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(isCancelling)
+            .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .horizontal)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(action: submit) {
-                SDSheetActionButton(
-                    iconSystemName: "checkmark",
-                    title: "保存",
-                    placement: .right,
-                    appearance: .prominent
-                )
+                Image(systemName: "checkmark")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.accentColor)
+                    .frame(width: 70, height: 40)
+                    .background(theme.secondaryAccentColor, in: Capsule())
             }
             .buttonStyle(.plain)
             .disabled(!canSubmit)
             .opacity(canSubmit ? 1 : 0.6)
+            .fixedSize()
         }
+    }
+
+    var notebookControl: some View {
+        Menu {
+            if notebooks.isEmpty {
+                Text("暂无事件本")
+            } else {
+                Section("选择事件本") {
+                    ForEach(notebooks) { notebook in
+                        Button {
+                            selectedNotebook = notebook
+                        } label: {
+                            notebookMenuLabel(
+                                for: notebook,
+                                isSelected: notebook.id == selectedNotebook?.id
+                            )
+                        }
+                    }
+                }
+            }
+
+            Section {
+                Button {
+                    isNotebookCreatorPresented = true
+                } label: {
+                    Label("新建事件本…", systemImage: "plus")
+                }
+            }
+        } label: {
+            SDNotebookBadge(notebook: selectedNotebook)
+                .frame(height: 40)
+        }
+        .buttonStyle(.plain)
+    }
+
+    var dateBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "calendar")
+
+            Text(dateBadgeText)
+                .contentTransition(.numericText())
+        }
+        .font(.system(size: 15, weight: .semibold, design: .rounded))
+        .foregroundStyle(Color(.secondaryLabel))
+        .padding(.horizontal, 10)
+        .frame(height: 40)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+        .overlay {
+            DatePicker(
+                "事件日期",
+                selection: dateSelection,
+                displayedComponents: [.date]
+            )
+            .datePickerStyle(.compact)
+            .labelsHidden()
+            .opacity(0.02)
+            .clipped()
+        }
+        .contentShape(Capsule())
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                isTitleFieldFocused = false
+                haptics.play(.openDetailTap)
+            }
+        )
+
+        // iOS 27 的 DatePicker 行为如果再次出现问题，可以恢复原来的实现：
+//        DatePicker(
+//            "事件日期",
+//            selection: dateSelection,
+//            displayedComponents: [.date]
+//        )
+//        .datePickerStyle(.compact)
+//        .labelsHidden()
+//        .fixedSize()
+//        .simultaneousGesture(
+//            TapGesture().onEnded {
+//                isTitleFieldFocused = false
+//                haptics.play(.openDetailTap)
+//            }
+//        )
     }
 
     var tagSelectionIcon: some View {
@@ -327,6 +361,21 @@ extension QuickAddSheetView {
         default:
             return "\(abs(dayOffset)) Days Ago"
         }
+    }
+
+    var dateBadgeText: String {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let currentYear = calendar.component(.year, from: .now)
+        let year = components.year ?? currentYear
+        let month = components.month ?? 1
+        let day = components.day ?? 1
+
+        if year == currentYear {
+            return "\(month)/\(day)"
+        }
+
+        return "\(year % 100)/\(month)/\(day)"
     }
 
     var canCreateNotebook: Bool {

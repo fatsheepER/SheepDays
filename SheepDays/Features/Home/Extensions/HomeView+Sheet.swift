@@ -180,7 +180,7 @@ extension HomeView {
         case .notebookEditor:
             return .height(190)
         case .quickAdd:
-            return .height(240)
+            return .height(265)
         case .eventDetail:
             return .large
         }
