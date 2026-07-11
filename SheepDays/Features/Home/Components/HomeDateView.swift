@@ -54,7 +54,7 @@ struct HomeDateView: View {
             HStack(alignment: .center, spacing: 10) {
                 Text(content.dayText)
                     .contentTransition(.numericText())
-                    .font(.system(size: 55, weight: .bold))
+                    .font(.system(size: 55, weight: .bold, design: .rounded))
                     .foregroundStyle(theme.accentColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
