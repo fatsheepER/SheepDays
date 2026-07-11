@@ -10,10 +10,12 @@ import SwiftUI
 struct SDDatePicker: UIViewRepresentable {
     @Binding var date: Date
     var range: ClosedRange<Date>
+    var preferredStyle: UIDatePickerStyle = .automatic
 
     func makeUIView(context: Context) -> UIDatePicker {
         let datePicker = UIDatePicker()
         datePicker.datePickerMode = .date
+        datePicker.preferredDatePickerStyle = preferredStyle
         datePicker.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
         datePicker.minimumDate = range.lowerBound
         datePicker.maximumDate = range.upperBound
@@ -21,7 +23,16 @@ struct SDDatePicker: UIViewRepresentable {
     }
 
     func updateUIView(_ datePicker: UIDatePicker, context: Context) {
-        datePicker.date = date
+        if datePicker.preferredDatePickerStyle != preferredStyle {
+            datePicker.preferredDatePickerStyle = preferredStyle
+        }
+
+        datePicker.minimumDate = range.lowerBound
+        datePicker.maximumDate = range.upperBound
+
+        if datePicker.date != date {
+            datePicker.date = date
+        }
     }
 
     func makeCoordinator() -> SDDatePicker.Coordinator {

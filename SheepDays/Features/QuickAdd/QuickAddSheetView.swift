@@ -47,6 +47,7 @@ struct QuickAddSheetView: View {
     @State private var newNotebookIconSystemName = ""
     @State private var newNotebookColorHex = ""
     @State private var isCancelling = false
+    @State private var isDatePickerPresented = false
     @FocusState private var isTitleFieldFocused: Bool
 
     var shouldAutoFocusTitle = false
@@ -248,35 +249,38 @@ private extension QuickAddSheetView {
     }
 
     var dateBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "calendar")
+        Button {
+            isTitleFieldFocused = false
+            haptics.play(.openDetailTap)
+            isDatePickerPresented = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "calendar")
 
-            Text(dateBadgeText)
-                .contentTransition(.numericText())
-        }
-        .font(.system(size: 15, weight: .semibold, design: .rounded))
-        .foregroundStyle(Color(.secondaryLabel))
-        .padding(.horizontal, 10)
-        .frame(height: 40)
-        .background(Color(.tertiarySystemFill), in: Capsule())
-        .overlay {
-            DatePicker(
-                "事件日期",
-                selection: dateSelection,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            .opacity(0.02)
-            .clipped()
-        }
-        .contentShape(Capsule())
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                isTitleFieldFocused = false
-                haptics.play(.openDetailTap)
+                Text(dateBadgeText)
+                    .contentTransition(.numericText())
             }
-        )
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color(.secondaryLabel))
+            .padding(.horizontal, 10)
+            .frame(height: 40)
+            .background(Color(.tertiarySystemFill), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .popover(
+            isPresented: $isDatePickerPresented,
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .bottom
+        ) {
+            SDDatePicker(
+                date: dateSelection,
+                range: Date.distantPast...Date.distantFuture,
+                preferredStyle: .inline
+            )
+            .frame(width: 320, height: 340)
+            .padding()
+            .presentationCompactAdaptation(.popover)
+        }
 
         // iOS 27 的 DatePicker 行为如果再次出现问题，可以恢复原来的实现：
 //        DatePicker(
