@@ -179,8 +179,9 @@ private struct HomeDateStripView: View {
     @State private var displayedContent: HomeDateStripDisplayContent
     @State private var displayedSelectedDate: Date
     @State private var animatedDayOffset = 0
+    @State private var displayedPageOffset: CGFloat = 0
     @State private var incomingContent: HomeDateStripDisplayContent?
-    @State private var incomingDayOffset = 0
+    @State private var incomingPageOffset: CGFloat = 0
     @State private var animationGeneration = 0
 
     init(
@@ -208,37 +209,37 @@ private struct HomeDateStripView: View {
                 let stripWidth = stripWidth(dayWidth: dayWidth)
 
                 ZStack {
-                    HomeDateStripDaysLayer(
+                    HomeDateStripPage(
                         content: displayedContent,
                         selectedDate: displayedSelectedDate,
                         calendar: calendar,
                         dayWidth: dayWidth,
+                        stripWidth: stripWidth,
+                        viewportWidth: geometry.size.width,
+                        viewportHeight: geometry.size.height,
+                        dayOffset: displayedDayOffset(for: scrubSnapshot),
+                        pageOffset: displayedPageOffset,
                         selectDate: selectDate
-                    )
-                    .frame(width: stripWidth, height: geometry.size.height)
-                    .offset(
-                        x: -CGFloat(displayedDayOffset(for: scrubSnapshot))
-                            * (dayWidth + HomeDateStripLayout.spacing)
                     )
                     .id(displayedContent.selectedDate)
 
                     if let incomingContent {
-                        HomeDateStripDaysLayer(
+                        HomeDateStripPage(
                             content: incomingContent,
                             selectedDate: incomingContent.selectedDate,
                             calendar: calendar,
                             dayWidth: dayWidth,
+                            stripWidth: stripWidth,
+                            viewportWidth: geometry.size.width,
+                            viewportHeight: geometry.size.height,
+                            dayOffset: 0,
+                            pageOffset: incomingPageOffset,
                             selectDate: selectDate
-                        )
-                        .frame(width: stripWidth, height: geometry.size.height)
-                        .offset(
-                            x: -CGFloat(incomingDayOffset)
-                                * (dayWidth + HomeDateStripLayout.spacing)
                         )
                         .id(incomingContent.selectedDate)
                     }
                 }
-                .frame(width: stripWidth, height: geometry.size.height)
+                .frame(width: geometry.size.width, height: geometry.size.height)
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                 .allowsHitTesting(incomingContent == nil)
             }
@@ -336,20 +337,21 @@ private struct HomeDateStripView: View {
         direction: Int,
         generation: Int
     ) {
-        let pageDayOffset = direction * HomeDateStripLayout.visibleDayCount
+        let pageDirection = CGFloat(direction)
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
 
         withTransaction(transaction) {
             displayedSelectedDate = displayedContent.selectedDate
             animatedDayOffset = 0
+            displayedPageOffset = 0
             incomingContent = newContent
-            incomingDayOffset = -pageDayOffset
+            incomingPageOffset = pageDirection
         }
 
         withAnimation(.default, completionCriteria: .logicallyComplete) {
-            animatedDayOffset = pageDayOffset
-            incomingDayOffset = 0
+            displayedPageOffset = -pageDirection
+            incomingPageOffset = 0
         } completion: {
             guard animationGeneration == generation else {
                 return
@@ -367,14 +369,48 @@ private struct HomeDateStripView: View {
             displayedContent = newContent
             displayedSelectedDate = newContent.selectedDate
             animatedDayOffset = 0
+            displayedPageOffset = 0
             incomingContent = nil
-            incomingDayOffset = 0
+            incomingPageOffset = 0
         }
     }
 
     private func cancelAnimationAndReset(to newContent: HomeDateStripDisplayContent) {
         animationGeneration += 1
         reset(to: newContent)
+    }
+}
+
+private struct HomeDateStripPage: View {
+    let content: HomeDateStripDisplayContent
+    let selectedDate: Date
+    let calendar: Calendar
+    let dayWidth: CGFloat
+    let stripWidth: CGFloat
+    let viewportWidth: CGFloat
+    let viewportHeight: CGFloat
+    let dayOffset: Double
+    let pageOffset: CGFloat
+    let selectDate: (Date) -> Void
+
+    var body: some View {
+        ZStack {
+            HomeDateStripDaysLayer(
+                content: content,
+                selectedDate: selectedDate,
+                calendar: calendar,
+                dayWidth: dayWidth,
+                selectDate: selectDate
+            )
+            .frame(width: stripWidth, height: viewportHeight)
+            .offset(
+                x: -CGFloat(dayOffset)
+                    * (dayWidth + HomeDateStripLayout.spacing)
+            )
+        }
+        .frame(width: viewportWidth, height: viewportHeight)
+        .clipped()
+        .offset(x: pageOffset * viewportWidth)
     }
 }
 
