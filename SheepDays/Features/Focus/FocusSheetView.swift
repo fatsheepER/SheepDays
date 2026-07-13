@@ -147,9 +147,10 @@ private extension FocusSheetView {
                 .padding(.vertical, 5)
                 .background(
                     Capsule()
-                        .foregroundStyle(Color(.secondarySystemBackground))
+                        .foregroundStyle(Color(.quaternarySystemFill))
                 )
         }
+        .padding(.horizontal, 5)
         .animation(.snappy(duration: 0.18), value: selectedPresetID)
     }
 

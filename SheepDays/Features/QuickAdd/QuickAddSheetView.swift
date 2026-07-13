@@ -62,7 +62,6 @@ struct QuickAddSheetView: View {
 
             content
         }
-//        .padding(10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
             prepareFormIfNeeded()
@@ -114,13 +113,14 @@ private extension QuickAddSheetView {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color(.secondaryLabel))
-                    .frame(width: 38, height: 38)
-                    .background(Color(.quaternarySystemFill), in: Circle())
+                    .frame(width: 40, height: 40)
+//                    .background(Color(.quaternarySystemFill), in: Circle())
             }
-            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive())
             .disabled(isCancelling)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 5)
+        .padding(.top, 5)
     }
 
     var content: some View {
@@ -130,8 +130,8 @@ private extension QuickAddSheetView {
 
             advancedInfo
                 .frame(height: 40)
+                .padding(.horizontal, 10)
         }
-        .padding(.horizontal, 10)
     }
     
     var basicInfo: some View {
@@ -142,26 +142,27 @@ private extension QuickAddSheetView {
                 Image(systemName: displayedIconSystemName)
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundStyle(selectedNotebookTintColor)
-                    .frame(width: 50)
+                    .frame(width: 60)
+//                    .background(.red)
             }
             .buttonStyle(.plain)
 
             TextField("请输入事件名称", text: $title)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 20, weight: .regular))
                 .frame(maxWidth: .infinity)
-                .padding(.leading, 20)
+                .padding(.leading, 0)
                 .padding(.trailing, 10)
                 .frame(height: 60)
-                .background(
-                    Color(.quaternarySystemFill),
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
                 .focused($isTitleFieldFocused)
         }
+        .background(
+            Color(.quaternarySystemFill),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
     }
     
     var advancedInfo: some View {
-        HStack(spacing: 10) {
+        ZStack {
             ScrollView(.horizontal) {
                 HStack(spacing: 10) {
                     notebookControl
@@ -200,18 +201,21 @@ private extension QuickAddSheetView {
             .scrollIndicators(.hidden)
             .scrollEdgeEffectStyle(.soft, for: .horizontal)
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: submit) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(theme.accentColor)
-                    .frame(width: 70, height: 40)
-                    .background(theme.secondaryAccentColor, in: Capsule())
+            
+            HStack {
+                Spacer()
+                
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(canSubmit ? theme.accentColor : Color(.secondaryLabel))
+                        .frame(width: 80, height: 50)
+                        .background(canSubmit ? theme.accentColor.opacity(0.3) : Color(.quaternarySystemFill), in: Capsule(style: .continuous))
+                }
+                .glassEffect(.regular.interactive())
+                .disabled(!canSubmit)
+                .fixedSize()
             }
-            .buttonStyle(.plain)
-            .disabled(!canSubmit)
-            .opacity(canSubmit ? 1 : 0.6)
-            .fixedSize()
         }
     }
 
