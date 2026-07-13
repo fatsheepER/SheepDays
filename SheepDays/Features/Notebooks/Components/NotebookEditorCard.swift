@@ -190,12 +190,22 @@ private struct NotebookEditorCardPreview: View {
     @FocusState private var isNameFocused: Bool
 
     var body: some View {
-        NotebookEditorCard(
-            draft: $draft,
-            nameFocus: $isNameFocused,
-            onRequestSymbolPicker: {}
-        )
-        .padding()
+        VStack(alignment: .leading, spacing: 10) {
+            NotebookEditorControls(
+                canSave: !draft.trimmedName.isEmpty,
+                onBack: {},
+                onSave: {}
+            )
+
+            NotebookEditorCard(
+                draft: $draft,
+                nameFocus: $isNameFocused,
+                onRequestSymbolPicker: {}
+            )
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .background(Color(.systemGroupedBackground))
     }
 }

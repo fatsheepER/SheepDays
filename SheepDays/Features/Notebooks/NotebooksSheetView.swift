@@ -182,6 +182,7 @@ private extension NotebooksSheetView {
                 controlsLayer
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
+                    .padding(.bottom, 28) // to lift above the detail card
                     .zIndex(4)
             }
             .frame(width: rootProxy.size.width, height: rootProxy.size.height)
