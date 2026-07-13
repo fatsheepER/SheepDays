@@ -34,7 +34,6 @@ struct HomeView: View {
     @State var contentRefreshToken = 0
     @State var shouldFocusQuickAddTitle = false
     @State var selectedEvent: Event?
-    @State var notebookEditorOption: NotebookEditorOption?
     @State var activeHomeContentPage: HomeContentPage? = .upcoming
     @State var activeHomeThemeKind: HomeThemeKind = .standard
     @State var suppressHomeRowActions = false

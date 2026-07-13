@@ -129,25 +129,29 @@ struct NotebookEditorControls: View {
     let onSave: () -> Void
 
     var body: some View {
-        GlassEffectContainer(spacing: 10) {
-            HStack(spacing: 0) {
-                editorButton(
-                    systemName: "chevron.left",
-                    fontSize: 25,
-                    accessibilityLabel: "返回",
-                    action: onBack
-                )
+        HStack {
+            Spacer()
+            
+            GlassEffectContainer(spacing: 10) {
+                HStack(spacing: 0) {
+                    editorButton(
+                        systemName: "chevron.left",
+                        fontSize: 22,
+                        accessibilityLabel: "返回",
+                        action: onBack
+                    )
 
-                editorButton(
-                    systemName: "checkmark",
-                    fontSize: 23,
-                    accessibilityLabel: "保存",
-                    action: onSave
-                )
-                .disabled(!canSave)
-                .opacity(canSave ? 1 : 0.35)
+                    editorButton(
+                        systemName: "checkmark",
+                        fontSize: 22,
+                        accessibilityLabel: "保存",
+                        action: onSave
+                    )
+                    .disabled(!canSave)
+                    .opacity(canSave ? 1 : 0.35)
+                }
+                .glassEffect(.regular.interactive())
             }
-            .glassEffect(.regular.interactive())
         }
     }
 
@@ -161,7 +165,7 @@ struct NotebookEditorControls: View {
             Image(systemName: systemName)
                 .font(.system(size: fontSize))
                 .foregroundStyle(Color(.label))
-                .frame(width: 50, height: 50)
+                .frame(width: 40, height: 40)
                 .padding(5)
                 .contentShape(Circle())
         }
@@ -174,4 +178,28 @@ private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
+}
+
+private struct NotebookEditorCardPreview: View {
+    @State private var draft = NotebookEditDraft(
+        sourceNotebookID: nil,
+        name: "生活",
+        iconSystemName: "leaf.fill",
+        colorHex: "FF8A65"
+    )
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        NotebookEditorCard(
+            draft: $draft,
+            nameFocus: $isNameFocused,
+            onRequestSymbolPicker: {}
+        )
+        .padding()
+        .background(Color(.systemGroupedBackground))
+    }
+}
+
+#Preview {
+    NotebookEditorCardPreview()
 }

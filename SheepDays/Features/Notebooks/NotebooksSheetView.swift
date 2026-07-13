@@ -29,15 +29,9 @@ private enum NotebookCardTransitionPhase: Equatable {
     case settling
 }
 
-private enum NotebookEditorOrigin: Equatable {
-    case overview(UUID)
-    case detail(UUID)
-}
-
 private enum NotebookEditorTransitionPhase: Equatable {
     case idle
     case prepared
-    case stacking
     case presented
     case dismissing
 }
@@ -55,7 +49,6 @@ struct NotebooksSheetView: View {
     @Environment(\.haptics) private var haptics
     @Environment(\.modelContext) private var modelContext
 
-    @State private var isEditing = false
     @State private var isShowingArchivedNotebooks = false
     @State private var selectedNotebook: Notebook?
     @State private var notebookTransitionCardFrames: [UUID: CGRect] = [:]
@@ -67,11 +60,10 @@ struct NotebooksSheetView: View {
     @State private var notebookTransitionTask: Task<Void, Never>?
     @State private var selectedArchivedNotebookForAction: Notebook?
     @State private var isShowingArchivedEvents = false
-    @State private var notebookEditorOrigin: NotebookEditorOrigin?
+    @State private var notebookEditorNotebookID: UUID?
     @State private var notebookEditorDraft = NotebookEditDraft.empty
     @State private var notebookEditorTransitionPhase: NotebookEditorTransitionPhase = .idle
     @State private var notebookEditorSourceFrame = CGRect.zero
-    @State private var notebookEditorBackgroundCardFrames: [UUID: CGRect] = [:]
     @State private var notebookEditorTransitionTask: Task<Void, Never>?
     @State private var notebookCreationDraft = NotebookEditDraft.empty
     @State private var notebookCreationTransitionPhase: NotebookCreationTransitionPhase = .idle
@@ -158,13 +150,6 @@ private extension NotebooksSheetView {
                     .accessibilityHidden(!notebookListAllowsHitTesting)
                     .zIndex(0)
 
-                if notebookEditorUsesOverviewCardStack {
-                    notebookEditorOverviewCardStack(in: rootProxy)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                        .zIndex(1)
-                }
-
                 if notebookCreationUsesOverviewCardStack {
                     notebookCreationOverviewCardStack(in: rootProxy)
                         .allowsHitTesting(false)
@@ -184,7 +169,7 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
-                if notebookEditorOrigin != nil {
+                if notebookEditorNotebookID != nil {
                     notebookEditorSurface(in: rootProxy)
                         .zIndex(3)
                 }
@@ -266,18 +251,18 @@ private extension NotebooksSheetView {
 
     var notebookListAllowsHitTesting: Bool {
         notebookTransitionPhase == .idle
-            && notebookEditorOrigin == nil
+            && notebookEditorNotebookID == nil
             && notebookCreationTransitionPhase == .idle
     }
 
     var notebookDetailAllowsHitTesting: Bool {
         notebookTransitionPhase == .presented
-            && notebookEditorOrigin == nil
+            && notebookEditorNotebookID == nil
             && notebookCreationTransitionPhase == .idle
     }
 
     var notebookControlsAllowHitTesting: Bool {
-        guard notebookEditorOrigin == nil,
+        guard notebookEditorNotebookID == nil,
               notebookCreationTransitionPhase == .idle else {
             return false
         }
@@ -286,29 +271,11 @@ private extension NotebooksSheetView {
     }
 
     var notebookEditorBackgroundOpacity: Double {
-        if notebookEditorUsesOverviewCardStack {
-            return 0
-        }
-
         switch notebookEditorTransitionPhase {
-        case .idle, .prepared, .stacking, .dismissing:
+        case .idle, .prepared, .dismissing:
             return 1
         case .presented:
             return 0
-        }
-    }
-
-    var notebookEditorUsesOverviewCardStack: Bool {
-        guard selectedNotebook == nil,
-              notebookEditorOrigin != nil else {
-            return false
-        }
-
-        switch notebookEditorOrigin {
-        case .overview:
-            return true
-        case .detail, nil:
-            return false
         }
     }
 
@@ -691,84 +658,6 @@ private extension NotebooksSheetView {
         return targetFrame.minY + selectedCardHeight + 15
     }
 
-    func notebookEditorOverviewCardStack(in rootProxy: GeometryProxy) -> some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(Array(notebookEditorOverviewSummaries.enumerated()), id: \.element.id) { index, summary in
-                let frame = notebookEditorOverviewFrame(
-                    for: summary,
-                    index: index,
-                    in: rootProxy
-                )
-
-                NotebookSummaryCard(
-                    summary: summary,
-                    isEditing: false,
-                    reportsFrame: false,
-                    showsEventPreview: notebookEditorOverviewCardsShowEventPreview,
-                    isExpanded: notebookExpansionBinding(for: summary),
-                    onAccessoryTap: {},
-                    onTap: {}
-                )
-                .frame(width: frame.width, alignment: .top)
-                .shadow(
-                    color: .black.opacity(notebookEditorOverviewCardShadowOpacity),
-                    radius: 10,
-                    y: 4
-                )
-                .offset(x: frame.minX, y: frame.minY)
-                .opacity(notebookEditorOverviewCardStackOpacity)
-                .zIndex(Double(notebookEditorOverviewSummaries.count - index))
-            }
-        }
-        .frame(width: rootProxy.size.width, height: rootProxy.size.height, alignment: .topLeading)
-    }
-
-    var notebookEditorOverviewSummaries: [NotebookSummary] {
-        activeNotebookSummaries.filter { summary in
-            notebookEditorBackgroundCardFrames[summary.id] != nil
-        }
-    }
-
-    var notebookEditorOverviewCardsShowEventPreview: Bool {
-        notebookEditorTransitionPhase == .prepared
-    }
-
-    var notebookEditorOverviewCardStackOpacity: Double {
-        notebookEditorTransitionPhase == .presented ? 0 : 1
-    }
-
-    var notebookEditorOverviewCardShadowOpacity: Double {
-        switch notebookEditorTransitionPhase {
-        case .stacking, .presented:
-            return 0.04
-        case .idle, .prepared, .dismissing:
-            return 0
-        }
-    }
-
-    func notebookEditorOverviewFrame(
-        for summary: NotebookSummary,
-        index: Int,
-        in rootProxy: GeometryProxy
-    ) -> CGRect {
-        guard let sourceFrame = notebookEditorBackgroundCardFrames[summary.id] else {
-            return .zero
-        }
-
-        guard notebookEditorTransitionPhase != .prepared else {
-            return sourceFrame
-        }
-
-        let topFrame = notebookEditorTopFrame(in: rootProxy)
-
-        return CGRect(
-            x: topFrame.minX,
-            y: topFrame.minY + CGFloat(index + 1) * 8,
-            width: topFrame.width,
-            height: sourceFrame.height
-        )
-    }
-
     func notebookEditorTopFrame(in rootProxy: GeometryProxy) -> CGRect {
         CGRect(
             x: notebookEditorSourceFrame.minX,
@@ -817,7 +706,7 @@ private extension NotebooksSheetView {
             let sourceMaxY = notebookEditorSourceFrame.maxY
             let fallbackMaxY = max(160, rootProxy.safeAreaInsets.top + 150)
             return -max(0, rootProxy.size.height - max(sourceMaxY, fallbackMaxY) - 10)
-        case .idle, .stacking, .dismissing:
+        case .idle, .dismissing:
             let sourceMaxY = notebookEditorTopFrame(in: rootProxy).maxY
             let fallbackMaxY = max(160, rootProxy.safeAreaInsets.top + 150)
             return -max(0, rootProxy.size.height - max(sourceMaxY, fallbackMaxY) - 10)
@@ -971,25 +860,19 @@ private extension NotebooksSheetView {
             LazyVStack(spacing: 20) {
                 scrollHeader
 
-                if activeNotebookSummaries.isEmpty && !isEditing {
+                if activeNotebookSummaries.isEmpty {
                     emptyState
                         .frame(minHeight: 360)
                 } else {
-                    if activeNotebookSummaries.isEmpty {
-                        emptyStateCard
-                    } else {
-                        ForEach(activeNotebookSummaries) { summary in
-                            activeNotebookCard(for: summary)
-                        }
-                        .transition(.move(edge: .trailing))
+                    ForEach(activeNotebookSummaries) { summary in
+                        activeNotebookCard(for: summary)
                     }
-
-                    if isEditing {
-                        archivedToggleButton
-
-                        archivedNotebookCards
-                    }
+                    .transition(.move(edge: .trailing))
                 }
+
+                archivedNotebookCards
+
+                archivedToggleButton
             }
             .padding(.bottom, notebookContentBottomPadding)
             .opacity(notebookListOpacity)
@@ -1007,17 +890,11 @@ private extension NotebooksSheetView {
     func activeNotebookCard(for summary: NotebookSummary) -> some View {
         NotebookSummaryCard(
             summary: summary,
-            isEditing: isEditing,
+            isEditing: false,
             frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
             isExpanded: notebookExpansionBinding(for: summary),
-            onAccessoryTap: {
-                handleActiveNotebookAccessoryTap(for: summary.notebook)
-            },
+            onAccessoryTap: {},
             onTap: {
-                guard !isEditing else {
-                    return
-                }
-
                 openNotebookCard(summary.notebook)
             }
         )
@@ -1031,13 +908,13 @@ private extension NotebooksSheetView {
             ForEach(archivedNotebookSummaries) { summary in
                 NotebookSummaryCard(
                     summary: summary,
-                    isEditing: true,
+                    isEditing: false,
                     frameCoordinateSpace: .named(notebookRootCoordinateSpaceName),
                     isExpanded: notebookExpansionBinding(for: summary),
-                    onAccessoryTap: {
+                    onAccessoryTap: {},
+                    onTap: {
                         handleArchivedNotebookAccessoryTap(for: summary.notebook)
-                    },
-                    onTap: {}
+                    }
                 )
                 .id(archivedNotebookCardID(for: summary))
                 .transition(.move(edge: .trailing))
@@ -1062,13 +939,6 @@ private extension NotebooksSheetView {
                 )
         }
         .frame(height: 30)
-    }
-
-    var emptyStateCard: some View {
-        emptyStateContent
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 220)
-            .padding(24)
     }
 
     var emptyState: some View {
@@ -1122,7 +992,7 @@ private extension NotebooksSheetView {
                 proxy.size.width
                     - notebookToolbarPlusButtonWidth
                     - notebookToolbarGroupSpacing
-                    - notebookToolbarOverviewCapsuleWidth
+                    - notebookToolbarOverviewControlWidth
             )
 
             GlassEffectContainer(spacing: 10) {
@@ -1146,22 +1016,27 @@ private extension NotebooksSheetView {
     func notebookPrimaryControls(progress: CGFloat) -> some View {
         HStack(spacing: 0) {
             notebookToolbarButton(
-                systemName: "chevron.left",
-                fontSize: 25,
+                systemName: "chevron.down",
+                fontSize: 22,
                 accessibilityLabel: selectedNotebook == nil ? "返回" : "返回事件本列表",
                 action: handleBackControlTap
             )
 
             notebookToolbarButton(
-                systemName: "pencil",
-                fontSize: 22,
-                accessibilityLabel: notebookEditControlAccessibilityLabel,
-                action: handleNotebookEditControlTap
+                systemName: "square.and.pencil",
+                fontSize: 20,
+                accessibilityLabel: "编辑事件本",
+                action: beginEditingSelectedNotebook
             )
+            .frame(width: notebookToolbarButtonWidth * progress, alignment: .leading)
+            .opacity(progress)
+            .clipped()
+            .allowsHitTesting(progress == 1)
+            .accessibilityHidden(progress != 1)
 
             notebookToolbarButton(
                 systemName: "arrow.up.arrow.down",
-                fontSize: 21,
+                fontSize: 20,
                 accessibilityLabel: "排序事件",
                 action: {
                     // Sorting behavior is intentionally deferred.
@@ -1216,14 +1091,6 @@ private extension NotebooksSheetView {
         .accessibilityLabel(selectedNotebook == nil ? "新建事件本" : "在当前事件本中新建事件")
     }
 
-    var notebookEditControlAccessibilityLabel: LocalizedStringKey {
-        if selectedNotebook != nil {
-            return "编辑事件本"
-        }
-
-        return isEditing ? "结束编辑" : "管理事件本"
-    }
-
     var notebookDetailControlsProgress: CGFloat {
         switch notebookTransitionPhase {
         case .opening, .presented, .closingPrepared:
@@ -1237,8 +1104,8 @@ private extension NotebooksSheetView {
         60
     }
 
-    var notebookToolbarOverviewCapsuleWidth: CGFloat {
-        notebookToolbarButtonWidth * 2
+    var notebookToolbarOverviewControlWidth: CGFloat {
+        notebookToolbarButtonWidth
     }
 
     var notebookToolbarPlusButtonWidth: CGFloat {
@@ -1247,14 +1114,6 @@ private extension NotebooksSheetView {
 
     var notebookToolbarGroupSpacing: CGFloat {
         15
-    }
-
-    func handleNotebookEditControlTap() {
-        if selectedNotebook != nil {
-            beginEditingSelectedNotebook()
-        } else {
-            handleEditModeControlTap()
-        }
     }
 
     func handleCreateControlTap() {
@@ -1290,12 +1149,12 @@ private extension NotebooksSheetView {
             .allowsHitTesting(notebookControlsAllowHitTesting)
             .accessibilityHidden(!notebookControlsAllowHitTesting)
             .animation(notebookWalletAnimation, value: notebookTransitionPhase)
-            .animation(.easeOut(duration: 0.18), value: notebookEditorOrigin)
+            .animation(.easeOut(duration: 0.18), value: notebookEditorNotebookID)
             .animation(notebookWalletAnimation, value: notebookCreationTransitionPhase)
     }
 
     var notebookControlsOpacity: Double {
-        guard notebookEditorOrigin == nil else {
+        guard notebookEditorNotebookID == nil else {
             return 0
         }
 
@@ -1335,7 +1194,7 @@ private extension NotebooksSheetView {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 guard selectedNotebook != nil,
-                      notebookEditorOrigin == nil,
+                      notebookEditorNotebookID == nil,
                       notebookCreationTransitionPhase == .idle,
                       notebookTransitionPhase == .presented else {
                     return
@@ -1347,7 +1206,7 @@ private extension NotebooksSheetView {
             }
             .onEnded { value in
                 guard selectedNotebook != nil,
-                      notebookEditorOrigin == nil,
+                      notebookEditorNotebookID == nil,
                       notebookCreationTransitionPhase == .idle,
                       notebookTransitionPhase == .presented else {
                     return
@@ -1428,7 +1287,7 @@ private extension NotebooksSheetView {
     }
 
     func closeNotebookCard() {
-        guard notebookEditorOrigin == nil,
+        guard notebookEditorNotebookID == nil,
               notebookCreationTransitionPhase == .idle,
               let selectedNotebook else {
             return
@@ -1501,29 +1360,14 @@ private extension NotebooksSheetView {
         onBack()
     }
 
-    func handleEditModeControlTap() {
-        withAnimation(.spring(duration: 0.2)) {
-            isEditing.toggle()
-        }
-    }
-
     func handleCreateNotebookControlTap() {
         beginCreatingNotebook()
-    }
-
-    func handleActiveNotebookAccessoryTap(for notebook: Notebook) {
-        if isEditing {
-            beginEditingNotebookFromOverview(notebook)
-            return
-        }
-
-        openNotebookCard(notebook)
     }
 
     func beginCreatingNotebook() {
         guard selectedNotebook == nil,
               notebookTransitionPhase == .idle,
-              notebookEditorOrigin == nil,
+              notebookEditorNotebookID == nil,
               notebookCreationTransitionPhase == .idle else {
             return
         }
@@ -1574,16 +1418,6 @@ private extension NotebooksSheetView {
         }
     }
 
-    func beginEditingNotebookFromOverview(_ notebook: Notebook) {
-        let sourceFrame = notebookCardFrames[notebook.id] ?? notebookEditorTopSourceFrame()
-
-        beginNotebookEditor(
-            origin: .overview(notebook.id),
-            draft: notebookEditorDraft(for: notebook),
-            sourceFrame: sourceFrame
-        )
-    }
-
     func beginEditingSelectedNotebook() {
         guard notebookTransitionPhase == .presented,
               notebookCreationTransitionPhase == .idle,
@@ -1592,25 +1426,24 @@ private extension NotebooksSheetView {
         }
 
         beginNotebookEditor(
-            origin: .detail(selectedNotebook.id),
+            notebookID: selectedNotebook.id,
             draft: notebookEditorDraft(for: selectedNotebook),
             sourceFrame: storedSelectedNotebookTargetFrame()
         )
     }
 
     func beginNotebookEditor(
-        origin: NotebookEditorOrigin,
+        notebookID: UUID,
         draft: NotebookEditDraft,
         sourceFrame: CGRect
     ) {
-        guard notebookEditorOrigin == nil,
+        guard notebookEditorNotebookID == nil,
               notebookCreationTransitionPhase == .idle else {
             return
         }
 
         haptics.play(.openDetailTap)
         notebookEditorTransitionTask?.cancel()
-        let usesOverviewStack = notebookEditorOriginUsesOverviewStack(origin)
 
         var transaction = Transaction()
         transaction.animation = nil
@@ -1618,8 +1451,7 @@ private extension NotebooksSheetView {
         withTransaction(transaction) {
             notebookEditorDraft = draft
             notebookEditorSourceFrame = sourceFrame
-            notebookEditorBackgroundCardFrames = usesOverviewStack ? notebookCardFrames : [:]
-            notebookEditorOrigin = origin
+            notebookEditorNotebookID = notebookID
             notebookEditorTransitionPhase = .prepared
             isNotebookEditorNameFocused = false
         }
@@ -1627,23 +1459,9 @@ private extension NotebooksSheetView {
         notebookEditorTransitionTask = Task { @MainActor in
             await Task.yield()
 
-            guard notebookEditorOrigin == origin,
+            guard notebookEditorNotebookID == notebookID,
                   notebookEditorTransitionPhase == .prepared else {
                 return
-            }
-
-            if usesOverviewStack {
-                withAnimation(.snappy(duration: 0.34, extraBounce: 0.01)) {
-                    notebookEditorTransitionPhase = .stacking
-                }
-
-                try? await Task.sleep(for: .milliseconds(210))
-
-                guard !Task.isCancelled,
-                      notebookEditorOrigin == origin,
-                      notebookEditorTransitionPhase == .stacking else {
-                    return
-                }
             }
 
             withAnimation(.snappy(duration: 0.42, extraBounce: 0.01)) {
@@ -1653,21 +1471,12 @@ private extension NotebooksSheetView {
             try? await Task.sleep(for: .milliseconds(280))
 
             guard !Task.isCancelled,
-                  notebookEditorOrigin == origin,
+                  notebookEditorNotebookID == notebookID,
                   notebookEditorTransitionPhase == .presented else {
                 return
             }
 
             isNotebookEditorNameFocused = true
-        }
-    }
-
-    func notebookEditorOriginUsesOverviewStack(_ origin: NotebookEditorOrigin) -> Bool {
-        switch origin {
-        case .overview:
-            return true
-        case .detail:
-            return false
         }
     }
 
@@ -1862,18 +1671,13 @@ private extension NotebooksSheetView {
     }
 
     func dismissNotebookEditor() {
-        guard let origin = notebookEditorOrigin else {
+        guard let notebookID = notebookEditorNotebookID else {
             return
         }
 
         haptics.play(.openDetailTap)
         notebookEditorTransitionTask?.cancel()
         isNotebookEditorNameFocused = false
-
-        if notebookEditorOriginUsesOverviewStack(origin) {
-            dismissNotebookEditorToOverview(origin: origin)
-            return
-        }
 
         withAnimation(.snappy(duration: 0.38, extraBounce: 0)) {
             notebookEditorTransitionPhase = .dismissing
@@ -1883,43 +1687,8 @@ private extension NotebooksSheetView {
             try? await Task.sleep(for: .milliseconds(390))
 
             guard !Task.isCancelled,
-                  notebookEditorOrigin == origin,
+                  notebookEditorNotebookID == notebookID,
                   notebookEditorTransitionPhase == .dismissing else {
-                return
-            }
-
-            var transaction = Transaction()
-            transaction.animation = nil
-
-            withTransaction(transaction) {
-                resetNotebookEditorPresentation()
-            }
-        }
-    }
-
-    func dismissNotebookEditorToOverview(origin: NotebookEditorOrigin) {
-        withAnimation(.snappy(duration: 0.38, extraBounce: 0)) {
-            notebookEditorTransitionPhase = .stacking
-        }
-
-        notebookEditorTransitionTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(240))
-
-            guard !Task.isCancelled,
-                  notebookEditorOrigin == origin,
-                  notebookEditorTransitionPhase == .stacking else {
-                return
-            }
-
-            withAnimation(.snappy(duration: 0.4, extraBounce: 0.01)) {
-                notebookEditorTransitionPhase = .prepared
-            }
-
-            try? await Task.sleep(for: .milliseconds(410))
-
-            guard !Task.isCancelled,
-                  notebookEditorOrigin == origin,
-                  notebookEditorTransitionPhase == .prepared else {
                 return
             }
 
@@ -1936,16 +1705,12 @@ private extension NotebooksSheetView {
         let name = notebookEditorDraft.trimmedName
 
         guard !name.isEmpty,
-              let origin = notebookEditorOrigin else {
+              let notebookID = notebookEditorNotebookID else {
             return
         }
 
         haptics.play(.openDetailTap)
-
-        switch origin {
-        case let .overview(notebookID), let .detail(notebookID):
-            updateNotebookFromDraft(notebookID: notebookID, name: name)
-        }
+        updateNotebookFromDraft(notebookID: notebookID, name: name)
     }
 
     func updateNotebookFromDraft(notebookID: UUID, name: String) {
@@ -1979,11 +1744,10 @@ private extension NotebooksSheetView {
     }
 
     func resetNotebookEditorPresentation() {
-        notebookEditorOrigin = nil
+        notebookEditorNotebookID = nil
         notebookEditorDraft = .empty
         notebookEditorTransitionPhase = .idle
         notebookEditorSourceFrame = .zero
-        notebookEditorBackgroundCardFrames = [:]
         isNotebookEditorNameFocused = false
     }
 

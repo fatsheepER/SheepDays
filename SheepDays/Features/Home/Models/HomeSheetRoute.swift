@@ -9,7 +9,6 @@ enum HomeSheetRoute {
     case home
     case focus
     case quickAdd
-    case notebookEditor
     case settings
     case eventDetail
 }

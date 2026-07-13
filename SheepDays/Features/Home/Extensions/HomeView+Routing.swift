@@ -13,7 +13,6 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = false
             selectedEvent = nil
-            notebookEditorOption = nil
             sheetRoute = .home
         }
     }
@@ -21,7 +20,6 @@ extension HomeView {
     func showFocus() {
         haptics.play(.openDetailTap)
         selectedEvent = nil
-        notebookEditorOption = nil
         sheetRoute = .focus
     }
 
@@ -30,7 +28,6 @@ extension HomeView {
         withAnimation(.spring(duration: 0.2)) {
             shouldFocusQuickAddTitle = true
             selectedEvent = nil
-            notebookEditorOption = nil
             sheetRoute = .quickAdd
         }
     }
@@ -39,7 +36,6 @@ extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             selectedEvent = nil
-            notebookEditorOption = nil
             sheetRoute = .home
             isNotebooksSheetPresented = true
         }
@@ -52,25 +48,6 @@ extension HomeView {
 
     func showSettings() {
         selectedEvent = nil
-        notebookEditorOption = nil
         sheetRoute = .settings
-    }
-
-    func showNotebookCreator() {
-        haptics.play(.openDetailTap)
-        withAnimation(.spring(duration: 0.2)) {
-            notebookEditorOption = .create
-            selectedEvent = nil
-            sheetRoute = .notebookEditor
-        }
-    }
-
-    func showNotebookEditor(for notebook: Notebook) {
-        haptics.play(.openDetailTap)
-        withAnimation(.spring(duration: 0.2)) {
-            notebookEditorOption = .edit(notebook)
-            selectedEvent = nil
-            sheetRoute = .notebookEditor
-        }
     }
 }

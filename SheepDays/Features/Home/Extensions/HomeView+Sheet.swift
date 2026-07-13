@@ -110,23 +110,6 @@ extension HomeView {
             )
             .transition(.blurReplace)
 
-        case .notebookEditor:
-            if let notebookEditorOption {
-                NotebookEditorView(
-                    option: notebookEditorOption,
-                    onClose: dismissNotebookEditor,
-                    onNotebookUpdated: refreshHomeContent,
-                    onRequestSymbolPicker: presentSymbolPicker(_:)
-                )
-                .transition(.blurReplace)
-            } else {
-                SheetPlaceholderPage(
-                    title: "Notebook",
-                    onBack: { showNotebooks() }
-                )
-                .transition(.opacity)
-            }
-
         case .settings:
             SheetPlaceholderPage(
                 title: "Settings",
@@ -175,8 +158,6 @@ extension HomeView {
         case .focus:
             return .fraction(0.65)
         case .settings:
-            return .height(190)
-        case .notebookEditor:
             return .height(190)
         case .quickAdd:
             return .height(190)
