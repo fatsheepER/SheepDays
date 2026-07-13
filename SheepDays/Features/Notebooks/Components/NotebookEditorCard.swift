@@ -97,6 +97,32 @@ struct NotebookEditorCard: View {
     }
 }
 
+struct NotebookCreationSurface: View {
+    @Binding var draft: NotebookEditDraft
+    let nameFocus: FocusState<Bool>.Binding
+    let showsControls: Bool
+    let onBack: () -> Void
+    let onSave: () -> Void
+    let onRequestSymbolPicker: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            NotebookEditorControls(
+                canSave: !draft.trimmedName.isEmpty,
+                onBack: onBack,
+                onSave: onSave
+            )
+            .opacity(showsControls ? 1 : 0)
+
+            NotebookEditorCard(
+                draft: $draft,
+                nameFocus: nameFocus,
+                onRequestSymbolPicker: onRequestSymbolPicker
+            )
+        }
+    }
+}
+
 struct NotebookEditorControls: View {
     let canSave: Bool
     let onBack: () -> Void

@@ -30,7 +30,6 @@ private enum NotebookCardTransitionPhase: Equatable {
 }
 
 private enum NotebookEditorOrigin: Equatable {
-    case create
     case overview(UUID)
     case detail(UUID)
 }
@@ -41,6 +40,15 @@ private enum NotebookEditorTransitionPhase: Equatable {
     case stacking
     case presented
     case dismissing
+}
+
+private enum NotebookCreationTransitionPhase: Equatable {
+    case idle
+    case prepared
+    case entering
+    case presented
+    case exiting
+    case committing
 }
 
 struct NotebooksSheetView: View {
@@ -65,10 +73,15 @@ struct NotebooksSheetView: View {
     @State private var notebookEditorSourceFrame = CGRect.zero
     @State private var notebookEditorBackgroundCardFrames: [UUID: CGRect] = [:]
     @State private var notebookEditorTransitionTask: Task<Void, Never>?
+    @State private var notebookCreationDraft = NotebookEditDraft.empty
+    @State private var notebookCreationTransitionPhase: NotebookCreationTransitionPhase = .idle
+    @State private var notebookCreationBackgroundCardFrames: [UUID: CGRect] = [:]
+    @State private var notebookCreationTransitionTask: Task<Void, Never>?
     @State private var notebookRootSize = CGSize.zero
     @State private var notebookRootSafeAreaInsets = EdgeInsets()
     @State private var notebookEditorErrorMessage: String?
     @FocusState private var isNotebookEditorNameFocused: Bool
+    @FocusState private var isNotebookCreationNameFocused: Bool
 
     @Query(
         sort: [
@@ -125,8 +138,10 @@ struct NotebooksSheetView: View {
         .onDisappear {
             notebookTransitionTask?.cancel()
             notebookEditorTransitionTask?.cancel()
+            notebookCreationTransitionTask?.cancel()
             resetNotebookCardPresentation()
             resetNotebookEditorPresentation()
+            resetNotebookCreationPresentation()
         }
     }
 }
@@ -138,7 +153,7 @@ private extension NotebooksSheetView {
             ZStack(alignment: .bottom) {
                 content
                     .padding(.horizontal, 5)
-                    .opacity(notebookEditorBackgroundOpacity)
+                    .opacity(notebookOverviewContentOpacity)
                     .allowsHitTesting(notebookListAllowsHitTesting)
                     .accessibilityHidden(!notebookListAllowsHitTesting)
                     .zIndex(0)
@@ -150,20 +165,32 @@ private extension NotebooksSheetView {
                         .zIndex(1)
                 }
 
+                if notebookCreationUsesOverviewCardStack {
+                    notebookCreationOverviewCardStack(in: rootProxy)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .zIndex(1)
+                }
+
                 if notebookShowsTransitionLayers {
                     notebookEventsPreviewSurface(in: rootProxy)
-                        .opacity(notebookEditorBackgroundOpacity)
+                        .opacity(notebookDetailSurfaceOpacity)
                         .allowsHitTesting(notebookDetailAllowsHitTesting)
                         .accessibilityHidden(!notebookDetailAllowsHitTesting)
                         .zIndex(1)
 
                     notebookCardStack(in: rootProxy)
-                        .opacity(notebookEditorBackgroundOpacity)
+                        .opacity(notebookFormalCardStackOpacity)
                         .zIndex(2)
                 }
 
                 if notebookEditorOrigin != nil {
                     notebookEditorSurface(in: rootProxy)
+                        .zIndex(3)
+                }
+
+                if notebookCreationTransitionPhase != .idle {
+                    notebookCreationSurface(in: rootProxy)
                         .zIndex(3)
                 }
 
@@ -238,15 +265,20 @@ private extension NotebooksSheetView {
     }
 
     var notebookListAllowsHitTesting: Bool {
-        notebookTransitionPhase == .idle && notebookEditorOrigin == nil
+        notebookTransitionPhase == .idle
+            && notebookEditorOrigin == nil
+            && notebookCreationTransitionPhase == .idle
     }
 
     var notebookDetailAllowsHitTesting: Bool {
-        notebookTransitionPhase == .presented && notebookEditorOrigin == nil
+        notebookTransitionPhase == .presented
+            && notebookEditorOrigin == nil
+            && notebookCreationTransitionPhase == .idle
     }
 
     var notebookControlsAllowHitTesting: Bool {
-        guard notebookEditorOrigin == nil else {
+        guard notebookEditorOrigin == nil,
+              notebookCreationTransitionPhase == .idle else {
             return false
         }
 
@@ -273,11 +305,39 @@ private extension NotebooksSheetView {
         }
 
         switch notebookEditorOrigin {
-        case .create, .overview:
+        case .overview:
             return true
         case .detail, nil:
             return false
         }
+    }
+
+    var notebookOverviewContentOpacity: Double {
+        notebookCreationTransitionPhase == .idle ? notebookEditorBackgroundOpacity : 0
+    }
+
+    var notebookDetailSurfaceOpacity: Double {
+        let creationOpacity: Double
+
+        switch notebookCreationTransitionPhase {
+        case .idle, .committing:
+            creationOpacity = 1
+        case .prepared, .entering, .presented, .exiting:
+            creationOpacity = 0
+        }
+
+        return notebookEditorBackgroundOpacity * creationOpacity
+    }
+
+    var notebookFormalCardStackOpacity: Double {
+        let creationOpacity = notebookCreationTransitionPhase == .idle ? 1.0 : 0.0
+        return notebookEditorBackgroundOpacity * creationOpacity
+    }
+
+    var notebookCreationUsesOverviewCardStack: Bool {
+        selectedNotebook == nil
+            && notebookCreationTransitionPhase != .idle
+            && !notebookCreationBackgroundCardFrames.isEmpty
     }
 
     var notebookTransitionUsesTargetFrames: Bool {
@@ -764,6 +824,147 @@ private extension NotebooksSheetView {
         }
     }
 
+    func notebookCreationOverviewCardStack(in rootProxy: GeometryProxy) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(notebookCreationOverviewSummaries.enumerated()), id: \.element.id) { index, summary in
+                let frame = notebookCreationOverviewFrame(
+                    for: summary,
+                    index: index,
+                    in: rootProxy
+                )
+
+                NotebookSummaryCard(
+                    summary: summary,
+                    isEditing: false,
+                    reportsFrame: false,
+                    showsEventPreview: notebookCreationOverviewCardsShowEventPreview,
+                    isExpanded: notebookExpansionBinding(for: summary),
+                    onAccessoryTap: {},
+                    onTap: {}
+                )
+                .frame(width: frame.width, alignment: .top)
+                .shadow(
+                    color: .black.opacity(notebookCreationOverviewCardShadowOpacity),
+                    radius: 10,
+                    y: 4
+                )
+                .offset(x: frame.minX, y: frame.minY)
+                .opacity(notebookCreationOverviewCardStackOpacity)
+                .zIndex(Double(notebookCreationOverviewSummaries.count - index))
+            }
+        }
+        .frame(width: rootProxy.size.width, height: rootProxy.size.height, alignment: .topLeading)
+    }
+
+    var notebookCreationOverviewSummaries: [NotebookSummary] {
+        activeNotebookSummaries.filter { summary in
+            notebookCreationBackgroundCardFrames[summary.id] != nil
+        }
+    }
+
+    var notebookCreationOverviewCardsShowEventPreview: Bool {
+        notebookCreationTransitionPhase == .prepared
+            || notebookCreationTransitionPhase == .exiting
+    }
+
+    var notebookCreationOverviewCardStackOpacity: Double {
+        switch notebookCreationTransitionPhase {
+        case .prepared, .exiting:
+            return 1
+        case .idle, .entering, .presented, .committing:
+            return 0
+        }
+    }
+
+    var notebookCreationOverviewCardShadowOpacity: Double {
+        switch notebookCreationTransitionPhase {
+        case .presented, .committing:
+            return 0.04
+        case .idle, .prepared, .entering, .exiting:
+            return 0
+        }
+    }
+
+    func notebookCreationOverviewFrame(
+        for summary: NotebookSummary,
+        index: Int,
+        in rootProxy: GeometryProxy
+    ) -> CGRect {
+        guard let sourceFrame = notebookCreationBackgroundCardFrames[summary.id] else {
+            return .zero
+        }
+
+        switch notebookCreationTransitionPhase {
+        case .prepared, .entering, .exiting:
+            return sourceFrame
+        case .idle, .presented, .committing:
+            let topFrame = notebookCreationTopFrame(in: rootProxy)
+
+            return CGRect(
+                x: topFrame.minX,
+                y: topFrame.minY + CGFloat(index + 1) * 8,
+                width: topFrame.width,
+                height: sourceFrame.height
+            )
+        }
+    }
+
+    func notebookCreationTopFrame(in rootProxy: GeometryProxy) -> CGRect {
+        CGRect(
+            x: notebookCreationHorizontalInset,
+            y: max(5, rootProxy.safeAreaInsets.top + 5),
+            width: notebookCreationWidth,
+            height: 130
+        )
+    }
+
+    func notebookCreationSurface(in rootProxy: GeometryProxy) -> some View {
+        NotebookCreationSurface(
+            draft: $notebookCreationDraft,
+            nameFocus: $isNotebookCreationNameFocused,
+            showsControls: notebookCreationTransitionPhase != .committing,
+            onBack: dismissNotebookCreation,
+            onSave: saveNotebookCreation,
+            onRequestSymbolPicker: presentNotebookCreationSymbolPicker
+        )
+        .padding(.horizontal, notebookCreationHorizontalInset)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .offset(y: notebookCreationSurfaceOffset(in: rootProxy))
+        .allowsHitTesting(notebookCreationTransitionPhase == .presented)
+        .accessibilityHidden(
+            notebookCreationTransitionPhase == .exiting
+                || notebookCreationTransitionPhase == .committing
+        )
+    }
+
+    var notebookCreationHorizontalInset: CGFloat {
+        let firstCardFrame = notebookCreationBackgroundCardFrames.values.min { lhs, rhs in
+            lhs.minY < rhs.minY
+        }
+        return max(5, firstCardFrame?.minX ?? 10)
+    }
+
+    var notebookCreationWidth: CGFloat {
+        let firstCardFrame = notebookCreationBackgroundCardFrames.values.min { lhs, rhs in
+            lhs.minY < rhs.minY
+        }
+        return firstCardFrame?.width
+            ?? max(0, notebookRootSize.width - notebookCreationHorizontalInset * 2)
+    }
+
+    func notebookCreationSurfaceOffset(in rootProxy: GeometryProxy) -> CGFloat {
+        switch notebookCreationTransitionPhase {
+        case .idle, .prepared, .exiting:
+            return max(260, rootProxy.size.height * 0.4)
+        case .entering, .presented:
+            return 0
+        case .committing:
+            let targetFrame = notebookCreationTopFrame(in: rootProxy)
+            return -max(0, rootProxy.size.height - targetFrame.maxY - 10)
+        }
+    }
+
     @ViewBuilder
     var content: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -1085,11 +1286,25 @@ private extension NotebooksSheetView {
     var controlsLayer: some View {
         controls
             .padding(.horizontal, 5)
-            .opacity(notebookEditorOrigin == nil ? 1 : 0)
+            .opacity(notebookControlsOpacity)
             .allowsHitTesting(notebookControlsAllowHitTesting)
             .accessibilityHidden(!notebookControlsAllowHitTesting)
             .animation(notebookWalletAnimation, value: notebookTransitionPhase)
             .animation(.easeOut(duration: 0.18), value: notebookEditorOrigin)
+            .animation(notebookWalletAnimation, value: notebookCreationTransitionPhase)
+    }
+
+    var notebookControlsOpacity: Double {
+        guard notebookEditorOrigin == nil else {
+            return 0
+        }
+
+        switch notebookCreationTransitionPhase {
+        case .idle, .committing:
+            return 1
+        case .prepared, .entering, .presented, .exiting:
+            return 0
+        }
     }
 
     func notebookSourceCardOpacity(for summary: NotebookSummary) -> Double {
@@ -1121,6 +1336,7 @@ private extension NotebooksSheetView {
             .onChanged { value in
                 guard selectedNotebook != nil,
                       notebookEditorOrigin == nil,
+                      notebookCreationTransitionPhase == .idle,
                       notebookTransitionPhase == .presented else {
                     return
                 }
@@ -1132,6 +1348,7 @@ private extension NotebooksSheetView {
             .onEnded { value in
                 guard selectedNotebook != nil,
                       notebookEditorOrigin == nil,
+                      notebookCreationTransitionPhase == .idle,
                       notebookTransitionPhase == .presented else {
                     return
                 }
@@ -1212,6 +1429,7 @@ private extension NotebooksSheetView {
 
     func closeNotebookCard() {
         guard notebookEditorOrigin == nil,
+              notebookCreationTransitionPhase == .idle,
               let selectedNotebook else {
             return
         }
@@ -1303,19 +1521,57 @@ private extension NotebooksSheetView {
     }
 
     func beginCreatingNotebook() {
-        let sourceFrame = notebookEditorTopSourceFrame()
-        let draft = NotebookEditDraft(
-            sourceNotebookID: nil,
-            name: "",
-            iconSystemName: nil,
-            colorHex: nil
-        )
+        guard selectedNotebook == nil,
+              notebookTransitionPhase == .idle,
+              notebookEditorOrigin == nil,
+              notebookCreationTransitionPhase == .idle else {
+            return
+        }
 
-        beginNotebookEditor(
-            origin: .create,
-            draft: draft,
-            sourceFrame: sourceFrame
-        )
+        haptics.play(.openDetailTap)
+        notebookCreationTransitionTask?.cancel()
+
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            notebookCreationDraft = .empty
+            notebookCreationBackgroundCardFrames = notebookCardFrames
+            notebookCreationTransitionPhase = .prepared
+            isNotebookCreationNameFocused = false
+        }
+
+        notebookCreationTransitionTask = Task { @MainActor in
+            await Task.yield()
+
+            guard notebookCreationTransitionPhase == .prepared else {
+                return
+            }
+
+            withAnimation(notebookWalletAnimation) {
+                notebookCreationTransitionPhase = .entering
+            }
+
+            try? await Task.sleep(for: .milliseconds(430))
+
+            guard !Task.isCancelled,
+                  notebookCreationTransitionPhase == .entering else {
+                return
+            }
+
+            withAnimation(.easeOut(duration: 0.16)) {
+                notebookCreationTransitionPhase = .presented
+            }
+
+            try? await Task.sleep(for: .milliseconds(170))
+
+            guard !Task.isCancelled,
+                  notebookCreationTransitionPhase == .presented else {
+                return
+            }
+
+            isNotebookCreationNameFocused = true
+        }
     }
 
     func beginEditingNotebookFromOverview(_ notebook: Notebook) {
@@ -1330,6 +1586,7 @@ private extension NotebooksSheetView {
 
     func beginEditingSelectedNotebook() {
         guard notebookTransitionPhase == .presented,
+              notebookCreationTransitionPhase == .idle,
               let selectedNotebook else {
             return
         }
@@ -1346,7 +1603,8 @@ private extension NotebooksSheetView {
         draft: NotebookEditDraft,
         sourceFrame: CGRect
     ) {
-        guard notebookEditorOrigin == nil else {
+        guard notebookEditorOrigin == nil,
+              notebookCreationTransitionPhase == .idle else {
             return
         }
 
@@ -1406,7 +1664,7 @@ private extension NotebooksSheetView {
 
     func notebookEditorOriginUsesOverviewStack(_ origin: NotebookEditorOrigin) -> Bool {
         switch origin {
-        case .create, .overview:
+        case .overview:
             return true
         case .detail:
             return false
@@ -1466,6 +1724,141 @@ private extension NotebooksSheetView {
                 }
             )
         )
+    }
+
+    func presentNotebookCreationSymbolPicker() {
+        guard notebookCreationTransitionPhase == .presented else {
+            return
+        }
+
+        isNotebookCreationNameFocused = false
+
+        onRequestSymbolPicker(
+            SymbolPickerPresentation(
+                title: "选择事件本图标",
+                sections: SFSymbolLibrary.generalSections,
+                selectedSystemName: notebookCreationDraft.iconSystemName,
+                tintColor: notebookCreationDraft.tintColor,
+                onSelect: { systemName in
+                    notebookCreationDraft.iconSystemName = systemName
+                }
+            )
+        )
+    }
+
+    func dismissNotebookCreation() {
+        guard notebookCreationTransitionPhase == .presented else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+        notebookCreationTransitionTask?.cancel()
+        isNotebookCreationNameFocused = false
+
+        withAnimation(notebookWalletAnimation) {
+            notebookCreationTransitionPhase = .exiting
+        }
+
+        notebookCreationTransitionTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(430))
+
+            guard !Task.isCancelled,
+                  notebookCreationTransitionPhase == .exiting else {
+                return
+            }
+
+            var transaction = Transaction()
+            transaction.animation = nil
+
+            withTransaction(transaction) {
+                resetNotebookCreationPresentation()
+            }
+        }
+    }
+
+    func saveNotebookCreation() {
+        let name = notebookCreationDraft.trimmedName
+
+        guard !name.isEmpty,
+              notebookCreationTransitionPhase == .presented else {
+            return
+        }
+
+        haptics.play(.openDetailTap)
+
+        let notebook = Notebook(
+            name: name,
+            colorHex: notebookCreationDraft.colorHex,
+            iconSystemName: notebookCreationDraft.iconSystemName
+        )
+        modelContext.insert(notebook)
+
+        do {
+            try modelContext.save()
+            onNotebookUpdated()
+            transitionFromCreatedNotebookToDetail(notebook)
+        } catch {
+            modelContext.delete(notebook)
+            notebookEditorErrorMessage = error.localizedDescription
+        }
+    }
+
+    func transitionFromCreatedNotebookToDetail(_ notebook: Notebook) {
+        notebookCreationTransitionTask?.cancel()
+        isNotebookCreationNameFocused = false
+
+        let targetFrame = storedNotebookCreationDetailTargetFrame()
+        var frames = notebookCardFrames
+        frames[notebook.id] = targetFrame
+
+        var transaction = Transaction()
+        transaction.animation = nil
+
+        withTransaction(transaction) {
+            selectedNotebook = notebook
+            notebookTransitionCardFrames = frames
+            notebookTransitionPhase = .presented
+            selectedNotebookCardDragOffset = 0
+            selectedNotebookCardHeight = targetFrame.height
+            isShowingArchivedEvents = false
+        }
+
+        withAnimation(notebookWalletAnimation) {
+            notebookCreationTransitionPhase = .committing
+        }
+
+        notebookCreationTransitionTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(430))
+
+            guard !Task.isCancelled,
+                  selectedNotebook?.id == notebook.id,
+                  notebookCreationTransitionPhase == .committing else {
+                return
+            }
+
+            var transaction = Transaction()
+            transaction.animation = nil
+
+            withTransaction(transaction) {
+                resetNotebookCreationPresentation()
+            }
+        }
+    }
+
+    func storedNotebookCreationDetailTargetFrame() -> CGRect {
+        CGRect(
+            x: notebookCreationHorizontalInset,
+            y: max(5, notebookRootSafeAreaInsets.top + 5),
+            width: notebookCreationWidth,
+            height: 130
+        )
+    }
+
+    func resetNotebookCreationPresentation() {
+        notebookCreationDraft = .empty
+        notebookCreationTransitionPhase = .idle
+        notebookCreationBackgroundCardFrames = [:]
+        isNotebookCreationNameFocused = false
     }
 
     func dismissNotebookEditor() {
@@ -1550,28 +1943,8 @@ private extension NotebooksSheetView {
         haptics.play(.openDetailTap)
 
         switch origin {
-        case .create:
-            createNotebookFromDraft(name: name)
         case let .overview(notebookID), let .detail(notebookID):
             updateNotebookFromDraft(notebookID: notebookID, name: name)
-        }
-    }
-
-    func createNotebookFromDraft(name: String) {
-        let notebook = Notebook(
-            name: name,
-            colorHex: notebookEditorDraft.colorHex,
-            iconSystemName: notebookEditorDraft.iconSystemName
-        )
-        modelContext.insert(notebook)
-
-        do {
-            try modelContext.save()
-            onNotebookUpdated()
-            transitionFromCreatedNotebookToDetail(notebook)
-        } catch {
-            modelContext.delete(notebook)
-            notebookEditorErrorMessage = error.localizedDescription
         }
     }
 
@@ -1602,46 +1975,6 @@ private extension NotebooksSheetView {
             notebook.colorHex = originalColorHex
             notebook.updatedAt = originalUpdatedAt
             notebookEditorErrorMessage = error.localizedDescription
-        }
-    }
-
-    func transitionFromCreatedNotebookToDetail(_ notebook: Notebook) {
-        notebookEditorTransitionTask?.cancel()
-        isNotebookEditorNameFocused = false
-
-        var frames = notebookCardFrames
-        frames[notebook.id] = notebookEditorSourceFrame
-
-        var transaction = Transaction()
-        transaction.animation = nil
-
-        withTransaction(transaction) {
-            selectedNotebook = notebook
-            notebookTransitionCardFrames = frames
-            notebookTransitionPhase = .presented
-            selectedNotebookCardDragOffset = 0
-            selectedNotebookCardHeight = notebookEditorSourceFrame.height
-            isShowingArchivedEvents = false
-        }
-
-        withAnimation(.snappy(duration: 0.42, extraBounce: 0.01)) {
-            notebookEditorTransitionPhase = .dismissing
-        }
-
-        notebookEditorTransitionTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(430))
-
-            guard !Task.isCancelled,
-                  selectedNotebook?.id == notebook.id else {
-                return
-            }
-
-            var transaction = Transaction()
-            transaction.animation = nil
-
-            withTransaction(transaction) {
-                resetNotebookEditorPresentation()
-            }
         }
     }
 
