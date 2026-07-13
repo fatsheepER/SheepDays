@@ -564,6 +564,7 @@ private extension NotebooksSheetView {
     var scrollHeader: some View {
         header
             .padding(.top, 5)
+            .padding(.horizontal, 5)
             .offset(y: notebookHeaderOffset)
             .opacity(notebookChromeOpacity)
     }

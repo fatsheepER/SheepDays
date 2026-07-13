@@ -17,7 +17,7 @@ extension HomeView {
         .presentationBackground(.clear)
         .presentationBackgroundInteraction(sheetBackgroundInteraction)
         .interactiveDismissDisabled()
-        .padding(15)
+        .padding(10)
         .background(sheetContainerBackgroundColor.ignoresSafeArea(.all))
         .animation(.snappy(duration: 0.25), value: sheetRoute)
         .alert("设置相对数值", isPresented: relativeValuePromptIsPresented) {
@@ -180,7 +180,7 @@ extension HomeView {
         case .notebookEditor:
             return .height(190)
         case .quickAdd:
-            return .height(240)
+            return .height(190)
         case .eventDetail:
             return .large
         }

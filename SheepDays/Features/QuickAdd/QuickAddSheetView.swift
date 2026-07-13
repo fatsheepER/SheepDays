@@ -11,6 +11,7 @@ import SwiftData
 struct QuickAddSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.haptics) private var haptics
+    @Environment(\.sheepDaysTheme) private var theme
 
     @Query(
         filter: #Predicate<Notebook> { !$0.isArchived },
@@ -46,6 +47,7 @@ struct QuickAddSheetView: View {
     @State private var newNotebookIconSystemName = ""
     @State private var newNotebookColorHex = ""
     @State private var isCancelling = false
+    @State private var isDatePickerPresented = false
     @FocusState private var isTitleFieldFocused: Bool
 
     var shouldAutoFocusTitle = false
@@ -58,31 +60,9 @@ struct QuickAddSheetView: View {
         VStack(spacing: 10) {
             header
 
-            VStack(spacing: 3) {
-                basicInfo
-                    .frame(height: 70)
-
-                advancedInfo
-                    .frame(height: 40)
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(Color(.quaternarySystemFill))
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-
-            if !isTitleFieldFocused {
-                Spacer()
-            }
-
-            controls
-
-            if isTitleFieldFocused {
-                Spacer()
-            }
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task {
             prepareFormIfNeeded()
         }
@@ -118,33 +98,39 @@ struct QuickAddSheetView: View {
 // MARK: - Subviews
 private extension QuickAddSheetView {
     var header: some View {
-        HStack(spacing: 10) {
-            SDSheetTitleView(iconSystemName: "plus", title: "创建新事件")
+        HStack(spacing: 5) {
+            SDSheetTitleView(iconSystemName: "plus", title: "新事件")
 
-            Spacer()
-            
-            // date
-            DatePicker(
-                "事件日期",
-                selection: dateSelection,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            .fixedSize()
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    isTitleFieldFocused = false
-                    haptics.play(.openDetailTap)
-                }
-            )
-            
-//            Text(offsetText)
-//                .font(.system(size: 18, weight: .medium))
-//                .foregroundStyle(Color(.secondaryLabel))
-//                .contentTransition(.numericText())
-//                .padding(.horizontal, 10)
+            Text("· \(offsetText)")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(Color(.secondaryLabel))
+                .contentTransition(.numericText())
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
+            Button(action: cancel) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .frame(width: 40, height: 40)
+//                    .background(Color(.quaternarySystemFill), in: Circle())
+            }
+            .glassEffect(.regular.interactive())
+            .disabled(isCancelling)
+        }
+        .padding(.horizontal, 5)
+        .padding(.top, 5)
+    }
+
+    var content: some View {
+        VStack(spacing: 10) {
+            basicInfo
+                .frame(height: 70)
+
+            advancedInfo
+                .frame(height: 40)
+                .padding(.horizontal, 10)
         }
     }
     
@@ -156,109 +142,165 @@ private extension QuickAddSheetView {
                 Image(systemName: displayedIconSystemName)
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundStyle(selectedNotebookTintColor)
-                    .frame(width: 50)
+                    .frame(width: 60)
+//                    .background(.red)
             }
             .buttonStyle(.plain)
 
             TextField("请输入事件名称", text: $title)
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 20, weight: .regular))
                 .frame(maxWidth: .infinity)
+                .padding(.leading, 0)
+                .padding(.trailing, 10)
+                .frame(height: 60)
                 .focused($isTitleFieldFocused)
-
-            
         }
+        .background(
+            Color(.quaternarySystemFill),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
     }
     
     var advancedInfo: some View {
-        HStack(spacing: 10) {
-            // notebook
-            Menu {
-                if notebooks.isEmpty {
-                    Text("暂无事件本")
-                } else {
-                    Section("选择事件本") {
-                        ForEach(notebooks) { notebook in
-                            Button {
-                                selectedNotebook = notebook
-                            } label: {
-                                notebookMenuLabel(
-                                    for: notebook,
-                                    isSelected: notebook.id == selectedNotebook?.id
-                                )
-                            }
+        ZStack {
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    notebookControl
+                    dateBadge
+
+                    // tag
+                    Button(action: presentTagList) {
+                        tagSelectionIcon
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 30)
+
+                    // show on home
+                    Button {
+                        showOnHome.toggle()
+                    } label: {
+                        Image(systemName: showOnHome ? "star.fill" : "star")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.yellow)
+                            .frame(width: 30)
+                    }
+                    .buttonStyle(.plain)
+
+                    // pin to top
+                    Button {
+                        pinToTop.toggle()
+                    } label: {
+                        Image(systemName: pinToTop ? "pin.fill" : "pin")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color(.secondaryLabel))
+                            .frame(width: 30)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollEdgeEffectStyle(.soft, for: .horizontal)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            HStack {
+                Spacer()
+                
+                Button(action: submit) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(canSubmit ? theme.accentColor : Color(.secondaryLabel))
+                        .frame(width: 80, height: 50)
+                        .background(canSubmit ? theme.accentColor.opacity(0.3) : Color(.quaternarySystemFill), in: Capsule(style: .continuous))
+                }
+                .glassEffect(.regular.interactive())
+                .disabled(!canSubmit)
+                .fixedSize()
+            }
+        }
+    }
+
+    var notebookControl: some View {
+        Menu {
+            if notebooks.isEmpty {
+                Text("暂无事件本")
+            } else {
+                Section("选择事件本") {
+                    ForEach(notebooks) { notebook in
+                        Button {
+                            selectedNotebook = notebook
+                        } label: {
+                            notebookMenuLabel(
+                                for: notebook,
+                                isSelected: notebook.id == selectedNotebook?.id
+                            )
                         }
                     }
                 }
-
-                Section {
-                    Button {
-                        isNotebookCreatorPresented = true
-                    } label: {
-                        Label("新建事件本…", systemImage: "plus")
-                    }
-                }
-            } label: {
-                SDNotebookBadge(notebook: selectedNotebook)
-                    .frame(height: 40)
             }
-            .buttonStyle(.plain)
 
-            Spacer()
-
-            // tag
-            Button(action: presentTagList) {
-                tagSelectionIcon
+            Section {
+                Button {
+                    isNotebookCreatorPresented = true
+                } label: {
+                    Label("新建事件本…", systemImage: "plus")
+                }
             }
-            .buttonStyle(.plain)
-            .frame(width: 30)
-
-            // show on home
-            Image(systemName: showOnHome ? "star.fill" : "star")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .onTapGesture {
-                    showOnHome.toggle()
-                }
-                .foregroundStyle(.yellow)
-                .frame(width: 30)
-
-            // pin to top
-            Image(systemName: pinToTop ? "pin.fill" : "pin")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .onTapGesture {
-                    pinToTop.toggle()
-                }
-                .foregroundStyle(Color(.secondaryLabel))
-                .frame(width: 30)
-            
-            
+        } label: {
+            SDNotebookBadge(notebook: selectedNotebook)
+                .frame(height: 40)
         }
+        .buttonStyle(.plain)
     }
-    
-    var controls: some View {
-        HStack {
-            Button(action: cancel) {
-                SDSheetActionButton(
-                    iconSystemName: "arrow.left",
-                    title: "返回",
-                    placement: .left,
-                    appearance: .plain
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(isCancelling)
 
-            Button(action: submit) {
-                SDSheetActionButton(
-                    iconSystemName: "checkmark",
-                    title: "保存",
-                    placement: .right,
-                    appearance: .prominent
-                )
+    var dateBadge: some View {
+        Button {
+            isTitleFieldFocused = false
+            haptics.play(.openDetailTap)
+            isDatePickerPresented = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "calendar")
+
+                Text(dateBadgeText)
+                    .contentTransition(.numericText())
             }
-            .buttonStyle(.plain)
-            .disabled(!canSubmit)
-            .opacity(canSubmit ? 1 : 0.6)
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color(.secondaryLabel))
+            .padding(.horizontal, 10)
+            .frame(height: 40)
+            .background(Color(.tertiarySystemFill), in: Capsule())
         }
+        .buttonStyle(.plain)
+        .popover(
+            isPresented: $isDatePickerPresented,
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .bottom
+        ) {
+            SDDatePicker(
+                date: dateSelection,
+                range: Date.distantPast...Date.distantFuture,
+                preferredStyle: .inline
+            )
+            .frame(width: 320, height: 340)
+            .padding()
+            .presentationCompactAdaptation(.popover)
+        }
+
+        // iOS 27 的 DatePicker 行为如果再次出现问题，可以恢复原来的实现：
+//        DatePicker(
+//            "事件日期",
+//            selection: dateSelection,
+//            displayedComponents: [.date]
+//        )
+//        .datePickerStyle(.compact)
+//        .labelsHidden()
+//        .fixedSize()
+//        .simultaneousGesture(
+//            TapGesture().onEnded {
+//                isTitleFieldFocused = false
+//                haptics.play(.openDetailTap)
+//            }
+//        )
     }
 
     var tagSelectionIcon: some View {
@@ -327,6 +369,21 @@ extension QuickAddSheetView {
         default:
             return "\(abs(dayOffset)) Days Ago"
         }
+    }
+
+    var dateBadgeText: String {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let currentYear = calendar.component(.year, from: .now)
+        let year = components.year ?? currentYear
+        let month = components.month ?? 1
+        let day = components.day ?? 1
+
+        if year == currentYear {
+            return "\(month)/\(day)"
+        }
+
+        return "\(year % 100)/\(month)/\(day)"
     }
 
     var canCreateNotebook: Bool {
