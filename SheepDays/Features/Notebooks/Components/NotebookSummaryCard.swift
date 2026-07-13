@@ -176,7 +176,7 @@ private struct NotebookFutureCountBadge: View {
     }
 }
 
-private struct NotebookDailyGraph: View {
+struct NotebookDailyGraph: View {
     let eventDays: Set<Date>
     let today: Date
     let accentColor: Color

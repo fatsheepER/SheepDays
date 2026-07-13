@@ -116,10 +116,8 @@ extension HomeView {
                     haptics.play(.openDetailTap)
                     showHomeSheet()
                 },
-                onCreateNotebook: { showNotebookCreator() },
-                onEditNotebook: { notebook in
-                    showNotebookEditor(for: notebook)
-                }
+                onNotebookUpdated: refreshHomeContent,
+                onRequestSymbolPicker: presentSymbolPicker(_:)
             )
             .transition(.blurReplace)
 

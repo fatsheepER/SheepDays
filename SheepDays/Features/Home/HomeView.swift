@@ -55,7 +55,10 @@ struct HomeView: View {
             .sheet(isPresented: $isBottomSheetPresented) {
                 sheetContainer
                     .sheepDaysTheme(activeHomeTheme)
-                    .ignoresSafeArea()
+                    .ignoresSafeArea(
+                        sheetRoute == .notebooks ? .container : .all,
+                        edges: .all
+                    )
             }
     }
 }
