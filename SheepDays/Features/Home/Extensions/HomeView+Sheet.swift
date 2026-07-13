@@ -40,7 +40,7 @@ extension HomeView {
 
     var sheetContainerBackgroundColor: Color {
         switch sheetRoute {
-        case .eventDetail, .notebooks:
+        case .eventDetail:
             return Color(.systemGroupedBackground)
         default:
             return Color.clear
@@ -49,7 +49,7 @@ extension HomeView {
 
     var sheetBackgroundInteraction: PresentationBackgroundInteraction {
         switch sheetRoute {
-        case .focus, .quickAdd, .notebooks:
+        case .focus, .quickAdd:
             return .disabled
         default:
             return .enabled
@@ -110,17 +110,6 @@ extension HomeView {
             )
             .transition(.blurReplace)
 
-        case .notebooks:
-            NotebooksSheetView(
-                onBack: {
-                    haptics.play(.openDetailTap)
-                    showHomeSheet()
-                },
-                onNotebookUpdated: refreshHomeContent,
-                onRequestSymbolPicker: presentSymbolPicker(_:)
-            )
-            .transition(.blurReplace)
-
         case .notebookEditor:
             if let notebookEditorOption {
                 NotebookEditorView(
@@ -165,6 +154,20 @@ extension HomeView {
         }
     }
 
+    var notebooksSheetContainer: some View {
+        NotebooksSheetView(
+            onBack: dismissNotebooks,
+            onNotebookUpdated: refreshHomeContent,
+            onRequestSymbolPicker: presentSymbolPicker(_:)
+        )
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.clear)
+        .presentationBackgroundInteraction(.disabled)
+        .padding(10)
+        .background(Color(.systemGroupedBackground).ignoresSafeArea(.all))
+    }
+
     func changeDetent(for route: HomeSheetRoute) -> PresentationDetent {
         switch route {
         case .home:
@@ -173,8 +176,6 @@ extension HomeView {
             return .fraction(0.65)
         case .settings:
             return .height(190)
-        case .notebooks:
-            return .large
         case .notebookEditor:
             return .height(190)
         case .quickAdd:

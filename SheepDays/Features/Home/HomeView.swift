@@ -26,6 +26,7 @@ struct HomeView: View {
     @State var hasRestoredLastFocusStates = false
 
     @State var isBottomSheetPresented = true
+    @State var isNotebooksSheetPresented = false
     @State var sheetRoute: HomeSheetRoute = .home
     @State var availableSheetDetents = HomeSheetDetents.home
     @State var selectedSheetDetent = HomeSheetDetents.regular
@@ -55,10 +56,12 @@ struct HomeView: View {
             .sheet(isPresented: $isBottomSheetPresented) {
                 sheetContainer
                     .sheepDaysTheme(activeHomeTheme)
-                    .ignoresSafeArea(
-                        sheetRoute == .notebooks ? .container : .all,
-                        edges: .all
-                    )
+                    .ignoresSafeArea(.all)
+                    .sheet(isPresented: $isNotebooksSheetPresented) {
+                        notebooksSheetContainer
+                            .sheepDaysTheme(activeHomeTheme)
+                            .ignoresSafeArea(.container, edges: .all)
+                    }
             }
     }
 }

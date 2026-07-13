@@ -256,7 +256,8 @@ extension HomeView {
         haptics.play(.openDetailTap)
         withAnimation(.spring(duration: 0.2)) {
             notebookEditorOption = nil
-            sheetRoute = .notebooks
+            sheetRoute = .home
+            isNotebooksSheetPresented = true
         }
         refreshHomeContent()
     }

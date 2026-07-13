@@ -37,11 +37,17 @@ extension HomeView {
 
     func showNotebooks() {
         haptics.play(.openDetailTap)
-        withAnimation {
+        withAnimation(.spring(duration: 0.2)) {
             selectedEvent = nil
             notebookEditorOption = nil
-            sheetRoute = .notebooks
+            sheetRoute = .home
+            isNotebooksSheetPresented = true
         }
+    }
+
+    func dismissNotebooks() {
+        haptics.play(.openDetailTap)
+        isNotebooksSheetPresented = false
     }
 
     func showSettings() {
