@@ -10,7 +10,7 @@ import SwiftUI
 struct HomeSectionListView<EmptyContent: View>: View {
     let sections: [HomeSection]
     let targetDatesByEventID: [UUID: Date]
-    let badgeDisplayMode: HomeItemBadgeDisplayMode
+    let badgeDisplayMode: SDEventItemBadgeDisplayMode
     let isBottomSheetPresented: Bool
     let emptyContent: EmptyContent
     let openDetail: (UUID) -> Void
@@ -20,7 +20,7 @@ struct HomeSectionListView<EmptyContent: View>: View {
     init(
         sections: [HomeSection],
         targetDatesByEventID: [UUID: Date],
-        badgeDisplayMode: HomeItemBadgeDisplayMode,
+        badgeDisplayMode: SDEventItemBadgeDisplayMode,
         isBottomSheetPresented: Bool,
         @ViewBuilder emptyContent: () -> EmptyContent,
         openDetail: @escaping (UUID) -> Void,
@@ -95,7 +95,7 @@ private extension HomeSectionListView {
                 ForEach(section.items) { item in
                     let badgeDate = targetDatesByEventID[item.sourceEventId]
 
-                    HomeDisplayItemRow(
+                    HomeEventItemView(
                         item: item,
                         badgeDisplayMode: badgeDisplayMode,
                         badgeDate: badgeDate,

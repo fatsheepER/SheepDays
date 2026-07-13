@@ -18,7 +18,7 @@ struct HomeView: View {
     @State var dateScrubState = HomeDateScrubState()
     @State var dateRestoreTask: Task<Void, Never>?
     @State var dateRestoreToken = 0
-    @State var itemBadgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
+    @State var itemBadgeDisplayMode: SDEventItemBadgeDisplayMode = .relativeText
     @State var homeFocusState = HomeFocusState()
     @State var homeSelectedFocusPresetID: UUID?
     @State var memorialFocusState = HomeFocusState.memorialDefault

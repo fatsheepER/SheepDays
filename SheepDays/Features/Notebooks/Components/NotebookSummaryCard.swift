@@ -264,7 +264,7 @@ private struct NotebookSummaryEventPreviewSection: View {
                 NotebookSummarySectionTitle(title: isExpanded ? "一周内" : "下一个")
 
                 ForEach(displayedEvents(fallback: nextEvent)) { event in
-                    HomeDisplayItemView(
+                    SDEventItemView(
                         item: displayItem(for: event),
                         visibleStateIndicators: .notebookDetail
                     )

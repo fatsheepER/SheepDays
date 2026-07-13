@@ -1,5 +1,5 @@
 //
-//  HomeDisplayItemView.swift
+//  SDEventItemView.swift
 //  SheepDays
 //
 //  Created by 王飞扬 on 2026/4/2.
@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-enum HomeItemBadgeDisplayMode {
+enum SDEventItemBadgeDisplayMode {
     case relativeText
     case date
 }
 
-struct HomeDisplayItemView: View {
+struct SDEventItemView: View {
     let item: HomeDisplayItem
-    var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
+    var badgeDisplayMode: SDEventItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
     var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
     var primaryAction: (() -> Void)?
@@ -45,7 +45,7 @@ struct HomeDisplayItemView: View {
     }
 }
 
-private extension HomeDisplayItemView {
+private extension SDEventItemView {
     var displayedStateIndicators: [HomeDisplayItemStateIndicator] {
         HomeDisplayItemStateIndicator.allCases.filter {
             item.stateIndicators.contains($0) && visibleStateIndicators.contains($0)
@@ -171,7 +171,7 @@ private extension HomeDisplayItemView {
 
 #Preview {
     VStack(spacing: 5) {
-        HomeDisplayItemView(
+        SDEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),
@@ -186,7 +186,7 @@ private extension HomeDisplayItemView {
             )
         )
 
-        HomeDisplayItemView(
+        SDEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),
@@ -202,7 +202,7 @@ private extension HomeDisplayItemView {
             visibleStateIndicators: .notebookDetail
         )
 
-        HomeDisplayItemView(
+        SDEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),
@@ -218,7 +218,7 @@ private extension HomeDisplayItemView {
             badgeDate: Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
         )
 
-        HomeDisplayItemView(
+        SDEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),

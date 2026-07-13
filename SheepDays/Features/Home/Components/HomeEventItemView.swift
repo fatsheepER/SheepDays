@@ -1,5 +1,5 @@
 //
-//  HomeDisplayItemRow.swift
+//  HomeEventItemView.swift
 //  SheepDays
 //
 //  Created by 王飞扬 on 2026/4/21.
@@ -7,11 +7,11 @@
 
 import SwiftUI
 
-struct HomeDisplayItemRow: View {
+struct HomeEventItemView: View {
     @Environment(\.haptics) private var haptics
 
     let item: HomeDisplayItem
-    var badgeDisplayMode: HomeItemBadgeDisplayMode = .relativeText
+    var badgeDisplayMode: SDEventItemBadgeDisplayMode = .relativeText
     var badgeDate: Date?
     var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
     var openDetail: () -> Void = {}
@@ -26,7 +26,7 @@ struct HomeDisplayItemRow: View {
             jumpToEventDateWithFeedback()
         } : nil
 
-        return HomeDisplayItemView(
+        return SDEventItemView(
             item: item,
             badgeDisplayMode: badgeDisplayMode,
             badgeDate: badgeDate,
@@ -52,7 +52,7 @@ struct HomeDisplayItemRow: View {
     }
 }
 
-private extension HomeDisplayItemRow {
+private extension HomeEventItemView {
     var canJumpToEventDate: Bool {
         badgeDate != nil
     }
@@ -89,7 +89,7 @@ private extension HomeDisplayItemRow {
 
 #Preview {
     VStack {
-        HomeDisplayItemRow(
+        HomeEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),
@@ -105,7 +105,7 @@ private extension HomeDisplayItemRow {
             badgeDate: Calendar.current.date(byAdding: .day, value: 3, to: .now)
         )
 
-        HomeDisplayItemRow(
+        HomeEventItemView(
             item: HomeDisplayItem(
                 id: UUID(),
                 sourceEventId: UUID(),

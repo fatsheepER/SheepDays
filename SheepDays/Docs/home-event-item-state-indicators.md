@@ -1,6 +1,6 @@
-# Home Display Item State Indicators
+# Home Event Item State Indicators
 
-本文档记录 `HomeDisplayItemView` 状态指示图标的当前实现、数据流，以及后续扩展新图标或按页面控制图标显示范围时应遵守的方式。
+本文档记录 `SDEventItemView` 状态指示图标的当前实现、数据流，以及后续扩展新图标或按页面控制图标显示范围时应遵守的方式。
 
 ## 目标
 
@@ -16,7 +16,7 @@
 
 核心约束是：
 
-- `HomeDisplayItemView` 不直接读取 SwiftData 的 `Event`，只消费 `HomeDisplayItem` 的轻量展示数据。
+- `SDEventItemView` 不直接读取 SwiftData 的 `Event`，只消费 `HomeDisplayItem` 的轻量展示数据。
 - 事件拥有哪些状态，由 `HomeBuilder` 在构造 `HomeDisplayItem` 时投影出来。
 - 当前页面允许显示哪些状态，由调用方通过 `visibleStateIndicators` 控制。
 - 图标的种类、顺序、SF Symbol 和无障碍文案集中定义，避免散落在多个 View 中。
@@ -73,7 +73,7 @@ extension Set where Element == HomeDisplayItemStateIndicator {
 如果某个页面只想显示部分图标，也可以直接传自定义集合：
 
 ```swift
-HomeDisplayItemRow(
+HomeEventItemView(
     item: item,
     visibleStateIndicators: [.checklist, .reminder]
 )
@@ -133,7 +133,7 @@ var hasChecklistItems: Bool {
 
 ### 图标渲染
 
-`Features/Home/Components/HomeDisplayItemView.swift` 增加了：
+`Shared/Components/SDEventItemView.swift` 增加了：
 
 ```swift
 var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
@@ -173,13 +173,13 @@ HStack {
 
 ### Row 透传
 
-`Features/Home/Components/HomeDisplayItemRow.swift` 同样暴露：
+`Features/Home/Components/HomeEventItemView.swift` 同样暴露：
 
 ```swift
 var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
 ```
 
-并传给内部的 `HomeDisplayItemView`。因此普通首页调用不需要改动；未来其它页面复用 `HomeDisplayItemRow` 时，可以选择不同预设。
+并传给内部的 `SDEventItemView`。因此普通首页调用不需要改动；未来其它页面复用 `HomeEventItemView` 时，可以选择不同预设。
 
 ## 数据流
 
@@ -188,9 +188,9 @@ var visibleStateIndicators: Set<HomeDisplayItemStateIndicator> = .home
 1. `Event` 持有业务数据，例如 `checklistItems`、`reminderPresets`、`showOnHome`、`pinToTop`。
 2. `HomeBuilder.makeDisplayItem(from:query:)` 构造 `HomeDisplayItem`。
 3. `HomeBuilder.makeStateIndicators(from:)` 把 `Event` 投影成 `Set<HomeDisplayItemStateIndicator>`。
-4. `HomeDisplayItemRow` 接收 `HomeDisplayItem`，并决定该页面允许显示哪些状态。
-5. `HomeDisplayItemView` 计算 `item.stateIndicators` 和 `visibleStateIndicators` 的交集。
-6. `HomeDisplayItemView` 用统一样式渲染最终图标。
+4. `HomeEventItemView` 接收 `HomeDisplayItem`，并决定该页面允许显示哪些状态。
+5. `SDEventItemView` 计算 `item.stateIndicators` 和 `visibleStateIndicators` 的交集。
+6. `SDEventItemView` 用统一样式渲染最终图标。
 
 这个分层避免了展示组件直接依赖 SwiftData 模型，也让不同页面可以共享同一个行组件。
 
@@ -210,10 +210,10 @@ visibleStateIndicators: .home
 
 ### 事件本详情页
 
-事件本详情页如果复用 `HomeDisplayItemRow`，可以传：
+事件本详情页如果复用 `HomeEventItemView`，可以传：
 
 ```swift
-HomeDisplayItemRow(
+HomeEventItemView(
     item: item,
     visibleStateIndicators: .notebookDetail,
     openDetail: { openEventDetail(for: item.sourceEventId) }
@@ -285,11 +285,11 @@ if event.isArchived {
 }
 ```
 
-如果新状态需要新模型字段，先完成模型和持久化设计，再在这里接入。`HomeDisplayItemView` 不应直接读取 `Event`。
+如果新状态需要新模型字段，先完成模型和持久化设计，再在这里接入。`SDEventItemView` 不应直接读取 `Event`。
 
 ### 4. 更新 Preview
 
-给 `HomeDisplayItemView` 或 `HomeDisplayItemRow` 的 preview 加一个包含新状态的样例：
+给 `SDEventItemView` 或 `HomeEventItemView` 的 preview 加一个包含新状态的样例：
 
 ```swift
 stateIndicators: [.checklist, .archived, .reminder]
@@ -314,7 +314,7 @@ git diff --check -- SheepDays/Docs/home-display-item-state-indicators.md
 ## 设计注意事项
 
 - `stateIndicators` 表示事件事实，`visibleStateIndicators` 表示页面显示策略，二者不要混用。
-- 不要在 `HomeDisplayItemView` 中追加业务判断，例如 `if event.showOnHome`；展示层只关心传入的展示数据。
+- 不要在 `SDEventItemView` 中追加业务判断，例如 `if event.showOnHome`；展示层只关心传入的展示数据。
 - 不要把状态图标写成多个独立可选 `Image`；统一 `ForEach(displayedStateIndicators)` 可以保持样式和顺序一致。
 - 新图标优先使用 SF Symbols，并保持 20pt 固定宽度，避免 badge 位置因图标种类变化而抖动。
 - 如果新图标只在未来功能中可用，可以先添加 enum case 和预设，但不要在 `HomeBuilder` 中插入，直到模型数据可用。

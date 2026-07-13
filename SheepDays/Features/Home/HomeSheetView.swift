@@ -11,7 +11,7 @@ struct HomeSheetView: View {
     @Environment(\.sheepDaysTheme) private var theme
 
     @Binding var referenceDate: Date
-    let badgeDisplayMode: HomeItemBadgeDisplayMode
+    let badgeDisplayMode: SDEventItemBadgeDisplayMode
     let isCompact: Bool
     var dateScrubState: HomeDateScrubState? = nil
 
