@@ -18,8 +18,6 @@ private struct SelectedNotebookCardHeightPreferenceKey: PreferenceKey {
 
 private let notebookRootCoordinateSpaceName = "notebooks-sheet-root"
 private let notebookContentBottomPadding: CGFloat = 75
-private let notebookBottomMaskHeight: CGFloat = 125
-private let notebookScrollChromeClearance: CGFloat = 10
 
 private enum NotebookCardTransitionPhase: Equatable {
     case idle
@@ -110,12 +108,9 @@ private extension NotebooksSheetView {
                         .zIndex(2)
                 }
 
-                notebookBottomOcclusionLayer
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                    .zIndex(3)
-
                 controlsLayer
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
                     .zIndex(4)
             }
             .frame(width: rootProxy.size.width, height: rootProxy.size.height)
@@ -216,15 +211,6 @@ private extension NotebooksSheetView {
         }
     }
 
-    var notebookBottomOcclusionOpacity: Double {
-        switch notebookTransitionPhase {
-        case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
-            return 1
-        case .opening, .presented:
-            return 0
-        }
-    }
-
     var notebookListOpacity: Double {
         switch notebookTransitionPhase {
         case .idle, .openingPrepared, .closingPrepared, .closing, .settling:
@@ -250,15 +236,6 @@ private extension NotebooksSheetView {
         case .idle, .presented, .closingPrepared, .closing, .settling:
             return 0
         }
-    }
-
-    var notebookScrollBottomSafeInset: CGFloat {
-        max(
-            0,
-            notebookBottomMaskHeight
-                - notebookContentBottomPadding
-                + notebookScrollChromeClearance
-        )
     }
 
     var transitionNotebookSummaries: [NotebookSummary] {
@@ -554,11 +531,6 @@ private extension NotebooksSheetView {
             .padding(.bottom, notebookContentBottomPadding)
             .opacity(notebookListOpacity)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear
-                .frame(height: notebookScrollBottomSafeInset)
-                .accessibilityHidden(true)
-        }
     }
 
     var scrollHeader: some View {
@@ -680,43 +652,48 @@ private extension NotebooksSheetView {
     }
 
     var controls: some View {
-        HStack {
-            Button(action: handleLeadingControlTap) {
-                SDSheetActionButton(
-                    iconSystemName: "arrow.left",
-                    title: "返回",
-                    placement: .left,
-                    appearance: .plain
-                )
-            }
-            .buttonStyle(.plain)
-            .background {
-                controlButtonBackdrop(for: .left)
-            }
+        HStack(spacing: 10) {
+            Spacer()
 
-            Button(action: handleTrailingControlTap) {
-                trailingControlLabel
-            }
-            .buttonStyle(.plain)
-            .background {
-                controlButtonBackdrop(for: .right)
+            GlassEffectContainer(spacing: 10) {
+                HStack(spacing: 15) {
+                    HStack(spacing: 0) {
+                        Button(action: handleBackControlTap) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 25))
+                                .foregroundStyle(Color(.label))
+                                .frame(width: 50, height: 50)
+                                .padding(5)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("返回")
+
+                        Button(action: handleEditModeControlTap) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Color(.label))
+                                .frame(width: 50, height: 50)
+                                .padding(5)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isEditing ? "结束编辑" : "编辑事件本")
+                    }
+                    .glassEffect(.regular.interactive())
+
+                    Button(action: handleCreateNotebookControlTap) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 25))
+                            .frame(width: 50, height: 50)
+                            .padding(5)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.tint(.accentColor.opacity(0.2)).interactive())
+                    }
+                    .accessibilityLabel("新建事件本")
+                }
             }
         }
-    }
-
-    func controlButtonBackdrop(for placement: SDSheetActionButtonPlacement) -> some View {
-        controlButtonShape(for: placement)
-            .fill(Color(.systemGroupedBackground))
-    }
-
-    func controlButtonShape(for placement: SDSheetActionButtonPlacement) -> SDRoundedCornersShape {
-        SDRoundedCornersShape(
-            topLeading: 10,
-            topTrailing: 10,
-            bottomLeading: placement == .left ? 35 : 10,
-            bottomTrailing: placement == .right ? 35 : 10,
-            style: .continuous
-        )
     }
 
     var controlsLayer: some View {
@@ -726,35 +703,6 @@ private extension NotebooksSheetView {
             .opacity(notebookChromeOpacity)
             .allowsHitTesting(notebookListAllowsHitTesting)
             .accessibilityHidden(!notebookListAllowsHitTesting)
-    }
-
-    var notebookBottomOcclusionLayer: some View {
-        bottomGradientMask
-            .opacity(notebookBottomOcclusionOpacity)
-    }
-
-    var bottomGradientMask: some View {
-        LinearGradient(
-            colors: [
-                Color(.systemGroupedBackground).opacity(0),
-                Color(.systemGroupedBackground).opacity(0.9),
-                Color(.systemGroupedBackground)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: notebookBottomMaskHeight)
-        .frame(maxWidth: .infinity, alignment: .bottom)
-        .ignoresSafeArea(edges: .bottom)
-    }
-
-    var trailingControlLabel: some View {
-        SDSheetActionButton(
-            iconSystemName: "plus",
-            title: "新建事件本",
-            placement: .right,
-            appearance: .prominent
-        )
     }
 
     func notebookSourceCardOpacity(for summary: NotebookSummary) -> Double {
@@ -933,7 +881,7 @@ private extension NotebooksSheetView {
         selectedNotebookCardHeight = nil
     }
 
-    func handleLeadingControlTap() {
+    func handleBackControlTap() {
         if selectedNotebook != nil {
             closeNotebookCard()
             return
@@ -942,7 +890,13 @@ private extension NotebooksSheetView {
         onBack()
     }
 
-    func handleTrailingControlTap() {
+    func handleEditModeControlTap() {
+        withAnimation(.spring(duration: 0.2)) {
+            isEditing.toggle()
+        }
+    }
+
+    func handleCreateNotebookControlTap() {
         onCreateNotebook()
     }
 
